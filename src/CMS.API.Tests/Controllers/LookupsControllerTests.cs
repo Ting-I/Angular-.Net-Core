@@ -90,4 +90,53 @@ public class LookupsControllerTests
         Assert.Equal(2, courseGroups[0].Pkid);
         Assert.Equal("雲端技術", courseGroups[1].Description);
     }
+
+    [Fact]
+    public async Task GetCertifications_ReturnsLookupListCarryingThePartner()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            Certifications =
+            [
+                new CertificationLookup
+                {
+                    Pkid = 7,
+                    Title = "Azure Administrator",
+                    PartnerPkid = 1,
+                    PartnerName = "Microsoft",
+                },
+                new CertificationLookup { Pkid = 9, Title = "CCNA", PartnerPkid = 2, PartnerName = "Cisco" },
+            ],
+        });
+
+        var result = await controller.GetCertifications(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var certifications = Assert.IsAssignableFrom<IEnumerable<CertificationLookup>>(ok.Value).ToList();
+        Assert.Equal(2, certifications.Count);
+        Assert.Equal(7, certifications[0].Pkid);
+        Assert.Equal("Microsoft", certifications[0].PartnerName);
+        Assert.Equal("CCNA", certifications[1].Title);
+    }
+
+    [Fact]
+    public async Task GetJobCategories_ReturnsLookupList()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            JobCategories =
+            [
+                new JobCategoryLookup { Pkid = 3, Description = "系統管理" },
+                new JobCategoryLookup { Pkid = 5, Description = "軟體開發" },
+            ],
+        });
+
+        var result = await controller.GetJobCategories(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var jobCategories = Assert.IsAssignableFrom<IEnumerable<JobCategoryLookup>>(ok.Value).ToList();
+        Assert.Equal(2, jobCategories.Count);
+        Assert.Equal(3, jobCategories[0].Pkid);
+        Assert.Equal("軟體開發", jobCategories[1].Description);
+    }
 }

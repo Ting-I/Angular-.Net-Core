@@ -42,4 +42,18 @@ public class LookupsController : ControllerBase
     public async Task<ActionResult<IEnumerable<CourseGroupLookup>>> GetCourseGroups(
         CancellationToken cancellationToken)
         => Ok(await _repository.GetCourseGroupsAsync(cancellationToken));
+
+    /// <summary>認證 Certification lookup list.</summary>
+    [HttpGet("certifications")]
+    [ProducesResponseType(typeof(IEnumerable<CertificationLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<CertificationLookup>>> GetCertifications(
+        CancellationToken cancellationToken)
+        => Ok(await _repository.GetCertificationsAsync(cancellationToken));
+
+    /// <summary>職務類別 JobCategory lookup list.</summary>
+    [HttpGet("job-categories")]
+    [ProducesResponseType(typeof(IEnumerable<JobCategoryLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<JobCategoryLookup>>> GetJobCategories(
+        CancellationToken cancellationToken)
+        => Ok(await _repository.GetJobCategoriesAsync(cancellationToken));
 }

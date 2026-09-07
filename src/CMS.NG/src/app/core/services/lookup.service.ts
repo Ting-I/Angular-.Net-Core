@@ -7,6 +7,8 @@ import { AppUserLookup } from '@core/models/app-user-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
 import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
+import { CertificationLookup } from '@core/models/certification-lookup.model';
+import { JobCategoryLookup } from '@core/models/job-category-lookup.model';
 
 @Injectable({ providedIn: 'root' })
 export class LookupService {
@@ -27,5 +29,13 @@ export class LookupService {
 
   getCourseGroups(): Observable<CourseGroupLookup[]> {
     return this.http.get<CourseGroupLookup[]>(`${this.baseUrl}/course-groups`);
+  }
+
+  getCertifications(): Observable<CertificationLookup[]> {
+    return this.http.get<CertificationLookup[]>(`${this.baseUrl}/certifications`);
+  }
+
+  getJobCategories(): Observable<JobCategoryLookup[]> {
+    return this.http.get<JobCategoryLookup[]>(`${this.baseUrl}/job-categories`);
   }
 }

@@ -1,0 +1,203 @@
+<div class="page-header">
+  <h1>檢視課程</h1>
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (course()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此課程。</div>
+} @else if (course(); as data) {
+  <section class="page-card">
+    <h2>基本資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>顯示順序</dt>
+        <dd>{{ data.displayOrder }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>簡介代碼</dt>
+        <dd>{{ data.courseId }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>科目代碼</dt>
+        <dd>{{ data.prodCourseId }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>課程名稱</dt>
+        <dd>{{ data.title }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>官方課程名稱</dt>
+        <dd>{{ data.officialTitle || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>友善網址</dt>
+        <dd>{{ data.friendlyUrl }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>分類與排程</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>原廠</dt>
+        <dd>
+          <a class="detail-link" [routerLink]="['/partners', data.partnerPkid]">
+            {{ data.partner?.name || data.partnerPkid }}
+          </a>
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>課程群組</dt>
+        <dd>
+          @if (data.courseGroupPkid !== null) {
+            <a class="detail-link" [routerLink]="['/course-groups', data.courseGroupPkid]">
+              {{ data.courseGroup?.description || data.courseGroupPkid }}
+            </a>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>上架狀態</dt>
+        <dd>
+          <a class="detail-link" [routerLink]="['/publish-statuses', data.publishStatusPkid]">
+            {{ data.publishStatus?.description || data.publishStatusPkid }}
+          </a>
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>上架日期</dt>
+        <dd>{{ data.scheduleOn | date: 'yyyy/MM/dd' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>下架日期</dt>
+        <dd>{{ data.scheduleOff | date: 'yyyy/MM/dd' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>時數</dt>
+        <dd>{{ data.hour }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>定價</dt>
+        <dd>{{ data.listPrice | number: '1.0-0' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>點數</dt>
+        <dd>{{ data.learningCredit | number: '1.1-1' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>允許重聽</dt>
+        <dd>
+          <p-tag
+            [value]="data.canRepeat ? '是' : '否'"
+            [severity]="data.canRepeat ? 'success' : 'secondary'"
+          />
+        </dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>對應認證</dt>
+        <dd>
+          @if (certificationNames(data).length) {
+            <div class="chip-list">
+              @for (name of certificationNames(data); track name) {
+                <p-tag [value]="name" severity="info" />
+              }
+            </div>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>對應職務類別</dt>
+        <dd>
+          @if (jobCategoryNames(data).length) {
+            <div class="chip-list">
+              @for (name of jobCategoryNames(data); track name) {
+                <p-tag [value]="name" severity="info" />
+              }
+            </div>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>課程內容</h2>
+    <dl class="detail-grid">
+      <div class="detail-field detail-field-wide">
+        <dt>教材</dt>
+        <dd class="detail-long-text">{{ data.material || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>課程目標</dt>
+        <dd class="detail-long-text">{{ data.objective || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>適合對象</dt>
+        <dd class="detail-long-text">{{ data.target || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>先備知識</dt>
+        <dd class="detail-long-text">{{ data.prerequisites || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>課程大綱</dt>
+        <dd class="detail-long-text">{{ data.outline || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>考試／認證說明</dt>
+        <dd class="detail-long-text">{{ data.towardCertOrExam || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>備註</dt>
+        <dd class="detail-long-text">{{ data.note || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>其他資訊</dt>
+        <dd class="detail-long-text">{{ data.otherInfo || '—' }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>使用狀況</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>課程問答數</dt>
+        <dd>{{ data.courseFaqCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>相關連結數</dt>
+        <dd>{{ data.courseRelatedLinkCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>熱門課程數</dt>
+        <dd>{{ data.hotCourseCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>推薦課程數</dt>
+        <dd>{{ data.courseRecommCount }}</dd>
+      </div>
+    </dl>
+    @if (referenceCount(data) > 0) {
+      <p class="state-message">此課程仍被引用，無法刪除。</p>
+    }
+  </section>
+}

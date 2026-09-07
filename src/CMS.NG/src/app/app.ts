@@ -34,6 +34,7 @@ export class App {
       items: [
         { label: '原廠 Partner', icon: 'pi pi-building', route: '/partners' },
         { label: '課程群組 CourseGroup', icon: 'pi pi-sitemap', route: '/course-groups' },
+        { label: '課程 Course', icon: 'pi pi-book', route: '/courses' },
       ],
     },
     { label: '說明會 Seminar', icon: 'pi pi-comments', items: [] },

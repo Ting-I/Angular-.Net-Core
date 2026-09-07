@@ -8,6 +8,8 @@ import { AppUserLookup } from '@core/models/app-user-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
 import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
+import { CertificationLookup } from '@core/models/certification-lookup.model';
+import { JobCategoryLookup } from '@core/models/job-category-lookup.model';
 
 describe('LookupService', () => {
   let service: LookupService;
@@ -78,5 +80,36 @@ describe('LookupService', () => {
 
     expect(result?.length).toBe(2);
     expect(result?.[1].description).toBe('雲端技術');
+  });
+
+  it('getCertifications() issues GET to the certifications lookup route', () => {
+    let result: CertificationLookup[] | undefined;
+    service.getCertifications().subscribe((certifications) => (result = certifications));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/lookups/certifications`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { pkid: 7, title: 'Azure Administrator', partnerPkid: 1, partnerName: 'Microsoft' },
+      { pkid: 9, title: 'CCNA', partnerPkid: 2, partnerName: 'Cisco' },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[0].partnerName).toBe('Microsoft');
+    expect(result?.[1].title).toBe('CCNA');
+  });
+
+  it('getJobCategories() issues GET to the job-categories lookup route', () => {
+    let result: JobCategoryLookup[] | undefined;
+    service.getJobCategories().subscribe((jobCategories) => (result = jobCategories));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/lookups/job-categories`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { pkid: 3, description: '系統管理' },
+      { pkid: 5, description: '軟體開發' },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[1].description).toBe('軟體開發');
   });
 });

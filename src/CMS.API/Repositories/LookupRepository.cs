@@ -66,4 +66,42 @@ public class LookupRepository : ILookupRepository
             """,
             cancellationToken: cancellationToken));
     }
+
+    /// <summary>
+    /// Certification.Title is nchar(100) NULL, so it is RTRIMmed and coalesced to an empty string.
+    /// Ordered under the owning partner, which is how an operator reads a certification list.
+    /// </summary>
+    public async Task<IEnumerable<CertificationLookup>> GetCertificationsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        return await connection.QueryAsync<CertificationLookup>(new CommandDefinition(
+            """
+            SELECT ct.pkid AS Pkid,
+                   RTRIM(ISNULL(ct.Title, '')) AS Title,
+                   ct.Partner_pkid AS PartnerPkid,
+                   pt.Name AS PartnerName
+            FROM Certification ct
+            INNER JOIN Partner pt ON pt.pkid = ct.Partner_pkid
+            ORDER BY pt.DisplayOrder ASC, pt.Name ASC, Title ASC
+            """,
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// Ordered alphabetically rather than by pkid, for the same reason as CourseGroup: the key is
+    /// an opaque IDENTITY number that means nothing to the operator picking from the list.
+    /// </summary>
+    public async Task<IEnumerable<JobCategoryLookup>> GetJobCategoriesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        return await connection.QueryAsync<JobCategoryLookup>(new CommandDefinition(
+            """
+            SELECT jc.pkid AS Pkid, jc.Description
+            FROM JobCategory jc
+            ORDER BY jc.Description ASC
+            """,
+            cancellationToken: cancellationToken));
+    }
 }

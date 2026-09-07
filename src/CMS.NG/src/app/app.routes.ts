@@ -98,5 +98,25 @@ export const routes: Routes = [
         (m) => m.CourseGroupForm,
       ),
   },
+  {
+    path: 'courses',
+    loadComponent: () =>
+      import('@features/courses/course-list/course-list').then((m) => m.CourseList),
+  },
+  {
+    path: 'courses/new',
+    loadComponent: () =>
+      import('@features/courses/course-form/course-form').then((m) => m.CourseForm),
+  },
+  {
+    path: 'courses/:id',
+    loadComponent: () =>
+      import('@features/courses/course-detail/course-detail').then((m) => m.CourseDetail),
+  },
+  {
+    path: 'courses/:id/edit',
+    loadComponent: () =>
+      import('@features/courses/course-form/course-form').then((m) => m.CourseForm),
+  },
   { path: '**', redirectTo: 'app-roles' },
 ];

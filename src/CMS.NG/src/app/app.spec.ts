@@ -55,17 +55,25 @@ describe('App', () => {
     // Only 系統管理 Admin starts expanded, so the Course group's items are hidden until it opens.
     expect(fixture.nativeElement.textContent).not.toContain('原廠 Partner');
     expect(fixture.nativeElement.textContent).not.toContain('課程群組 CourseGroup');
+    expect(fixture.nativeElement.textContent).not.toContain('課程 Course');
 
     component['toggleGroup']('課程管理 Course');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('原廠 Partner');
     expect(fixture.nativeElement.textContent).toContain('課程群組 CourseGroup');
+    expect(fixture.nativeElement.textContent).toContain('課程 Course');
 
     const hrefs = Array.from(
       fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
     ).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/partners', '/course-groups', '/app-roles', '/publish-statuses']);
+    expect(hrefs).toEqual([
+      '/partners',
+      '/course-groups',
+      '/courses',
+      '/app-roles',
+      '/publish-statuses',
+    ]);
   });
 
   it('collapses and expands a nav group', () => {
