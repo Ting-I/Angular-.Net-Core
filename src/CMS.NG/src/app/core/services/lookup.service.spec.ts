@@ -7,6 +7,7 @@ import { LookupService } from './lookup.service';
 import { AppUserLookup } from '@core/models/app-user-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
 import { PartnerLookup } from '@core/models/partner-lookup.model';
+import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
 
 describe('LookupService', () => {
   let service: LookupService;
@@ -62,5 +63,20 @@ describe('LookupService', () => {
     expect(result?.length).toBe(2);
     expect(result?.[1].name).toBe('Cisco');
     expect(result?.[1].appKey).toBe('CSCO');
+  });
+
+  it('getCourseGroups() issues GET to the course-groups lookup route', () => {
+    let result: CourseGroupLookup[] | undefined;
+    service.getCourseGroups().subscribe((courseGroups) => (result = courseGroups));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/lookups/course-groups`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { pkid: 2, description: '網路安全' },
+      { pkid: 1, description: '雲端技術' },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[1].description).toBe('雲端技術');
   });
 });

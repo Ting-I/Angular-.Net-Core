@@ -70,5 +70,33 @@ export const routes: Routes = [
     loadComponent: () =>
       import('@features/partners/partner-form/partner-form').then((m) => m.PartnerForm),
   },
+  {
+    path: 'course-groups',
+    loadComponent: () =>
+      import('@features/course-groups/course-group-list/course-group-list').then(
+        (m) => m.CourseGroupList,
+      ),
+  },
+  {
+    path: 'course-groups/new',
+    loadComponent: () =>
+      import('@features/course-groups/course-group-form/course-group-form').then(
+        (m) => m.CourseGroupForm,
+      ),
+  },
+  {
+    path: 'course-groups/:id',
+    loadComponent: () =>
+      import('@features/course-groups/course-group-detail/course-group-detail').then(
+        (m) => m.CourseGroupDetail,
+      ),
+  },
+  {
+    path: 'course-groups/:id/edit',
+    loadComponent: () =>
+      import('@features/course-groups/course-group-form/course-group-form').then(
+        (m) => m.CourseGroupForm,
+      ),
+  },
   { path: '**', redirectTo: 'app-roles' },
 ];

@@ -35,4 +35,11 @@ public class LookupsController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<PartnerLookup>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<PartnerLookup>>> GetPartners(CancellationToken cancellationToken)
         => Ok(await _repository.GetPartnersAsync(cancellationToken));
+
+    /// <summary>課程群組 CourseGroup lookup list.</summary>
+    [HttpGet("course-groups")]
+    [ProducesResponseType(typeof(IEnumerable<CourseGroupLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<CourseGroupLookup>>> GetCourseGroups(
+        CancellationToken cancellationToken)
+        => Ok(await _repository.GetCourseGroupsAsync(cancellationToken));
 }

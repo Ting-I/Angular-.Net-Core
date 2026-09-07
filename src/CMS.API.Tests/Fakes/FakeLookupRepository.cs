@@ -11,6 +11,8 @@ public class FakeLookupRepository : ILookupRepository
 
     public List<PartnerLookup> Partners { get; init; } = [];
 
+    public List<CourseGroupLookup> CourseGroups { get; init; } = [];
+
     public Task<IEnumerable<AppUserLookup>> GetAppUsersAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(AppUsers.AsEnumerable());
 
@@ -20,4 +22,7 @@ public class FakeLookupRepository : ILookupRepository
 
     public Task<IEnumerable<PartnerLookup>> GetPartnersAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(Partners.AsEnumerable());
+
+    public Task<IEnumerable<CourseGroupLookup>> GetCourseGroupsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(CourseGroups.AsEnumerable());
 }

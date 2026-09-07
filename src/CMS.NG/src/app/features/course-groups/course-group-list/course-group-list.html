@@ -1,0 +1,133 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>課程群組 CourseGroup</h1>
+    <span class="page-subtitle">課程歸屬的分類群組</span>
+  </div>
+  <div class="page-actions">
+    <p-button
+      label="搜尋條件"
+      icon="pi pi-filter"
+      severity="secondary"
+      [badge]="hasActiveFilters ? activeFilterCount.toString() : undefined"
+      (onClick)="openFilterDrawer()"
+    />
+    <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+  </div>
+</div>
+
+<div class="page-card">
+  <p-table
+    [value]="courseGroups()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="page.rows"
+    [first]="page.first"
+    [rowsPerPageOptions]="[10, 20, 50, 100]"
+    [sortField]="sort.field"
+    [sortOrder]="sort.order"
+    [totalRecords]="courseGroups().length"
+    dataKey="pkid"
+    currentPageReportTemplate="{first}–{last} 筆，共 {totalRecords} 筆"
+    [showCurrentPageReport]="true"
+    paginatorPosition="top"
+    (onSort)="onSort($event)"
+    (onPage)="onPage($event)"
+  >
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="pkid" style="width: 6rem">主代碼 <p-sortIcon field="pkid" /></th>
+        <th pSortableColumn="description">群組說明 <p-sortIcon field="description" /></th>
+        <th pSortableColumn="courseCount" style="width: 7rem" class="text-right">
+          課程數 <p-sortIcon field="courseCount" />
+        </th>
+        <th pSortableColumn="partnerCourseGroupCount" style="width: 9rem" class="text-right">
+          原廠群組數 <p-sortIcon field="partnerCourseGroupCount" />
+        </th>
+        <th style="width: 9rem">操作</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-courseGroup>
+      <tr>
+        <td>{{ courseGroup.pkid }}</td>
+        <td>{{ courseGroup.description }}</td>
+        <td class="text-right">{{ courseGroup.courseCount }}</td>
+        <td class="text-right">{{ courseGroup.partnerCourseGroupCount }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button
+              icon="pi pi-eye"
+              severity="info"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="檢視"
+              (onClick)="view(courseGroup)"
+            />
+            <p-button
+              icon="pi pi-pencil"
+              severity="primary"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="編輯"
+              (onClick)="edit(courseGroup)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="刪除"
+              (onClick)="confirmDelete(courseGroup)"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="5" class="empty-row">查無資料</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-drawer
+  [(visible)]="filterDrawerVisible"
+  header="搜尋條件"
+  position="right"
+  styleClass="filter-drawer"
+>
+  <div class="filter-field">
+    <label for="filter-keyword">關鍵字</label>
+    <input
+      pInputText
+      id="filter-keyword"
+      name="keyword"
+      placeholder="群組說明"
+      [(ngModel)]="draftFilters.keyword"
+      (keyup.enter)="applyFilters()"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-in-use">使用狀況</label>
+    <p-select
+      inputId="filter-in-use"
+      name="inUse"
+      [options]="inUseOptions"
+      optionLabel="label"
+      optionValue="value"
+      appendTo="body"
+      [(ngModel)]="draftFilters.inUse"
+    />
+  </div>
+
+  <div class="filter-actions">
+    <p-button label="清除" severity="secondary" [outlined]="true" (onClick)="clearFilters()" />
+    <p-button label="搜尋" icon="pi pi-search" (onClick)="applyFilters()" />
+  </div>
+</p-drawer>

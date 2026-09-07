@@ -39,11 +39,11 @@ src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
 
 ```powershell
 dotnet run --project src\CMS.API          # API  -> http://localhost:5000/swagger
-dotnet test                                # 126 xUnit tests
+dotnet test                                # 164 xUnit tests
 
 cd src\CMS.NG
 npm start                                  # UI   -> http://localhost:4200
-npm test -- --watch=false --browsers=ChromeHeadless   # 148 Karma/Jasmine specs
+npm test -- --watch=false --browsers=ChromeHeadless   # 195 Karma/Jasmine specs
 ```
 
 `npm test` without flags enters watch mode and opens a browser — always pass the flags above
@@ -111,6 +111,21 @@ child counts as correlated subqueries in `{Table}Sql.SelectBase`, then have the 
 record before deleting and return `409` when a count is non-zero. Letting the DELETE run and
 surfacing SQL error 547 as a 500 is the thing to avoid. The same read supplies the `404`.
 
+**Read each FK's `ON DELETE` action before trusting the database to stop you** — error 547 is not
+the only outcome, and the guard is not always mere politeness. Two cases already break that
+assumption in opposite directions:
+
+- `FK_Course_CourseGroup` is **`ON DELETE CASCADE`**. Although `Course.CourseGroup_pkid` is
+  nullable, SQL Server deletes the referencing `Course` rows rather than nulling the column, and
+  `Course` cascades onward to `CourseInCertification` and `CourseJobCategories`. An unguarded
+  DELETE here "succeeds" with a `204` and destroys courses, so the `409` is the only thing
+  preventing silent data loss.
+- `Seminar.Partner_pkid` is a real reference with **no `FOREIGN KEY` constraint** behind it, so the
+  database would accept the delete and orphan those rows.
+
+Either way the rule is the same: guard on the projected counts, and never rely on the database to
+refuse.
+
 ## Frontend conventions
 
 ```
@@ -139,7 +154,7 @@ src/app/features/{table-plural}/{table}-list|-detail|-form/
 The nav lives in the root `App` component (`src/app/app.ts` `navGroups`, rendered by
 `app.html`), not a separate layout component. Eight groups exist to match the UI mockup; two carry
 items — `系統管理 Admin` (`角色 AppRole`, `發布狀態 PublishStatus`) and `課程管理 Course`
-(`原廠 Partner`) — the other six have empty `items` arrays as placeholders. When you add a feature,
+(`原廠 Partner`, `課程群組 CourseGroup`) — the other six have empty `items` arrays as placeholders. When you add a feature,
 add its entry to the right group and extend `app.spec.ts` accordingly. `expandedGroups` still
 defaults to `系統管理 Admin` alone, so a spec that asserts on another group's items must
 `toggleGroup` it open first.

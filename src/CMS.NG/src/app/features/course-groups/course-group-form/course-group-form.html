@@ -1,0 +1,40 @@
+<p-toast />
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header">
+    <h1>
+      {{ isEdit() ? '編輯課程群組' : '新增課程群組' }}
+      @if (isEdit() && pkid() !== null) {
+        <span class="page-key">主代碼 {{ pkid() }}</span>
+      }
+    </h1>
+    <div class="page-actions">
+      <p-button
+        label="取消"
+        icon="pi pi-times"
+        severity="secondary"
+        type="button"
+        (onClick)="cancel()"
+      />
+      <p-button
+        label="儲存"
+        icon="pi pi-check"
+        severity="success"
+        type="submit"
+        [loading]="saving()"
+      />
+    </div>
+  </div>
+
+  <section class="page-card">
+    <h2>課程群組資料</h2>
+
+    <div class="form-field">
+      <label for="description">群組說明 <span class="required">*</span></label>
+      <input pInputText id="description" formControlName="description" maxlength="100" />
+      @if (isInvalid('description')) {
+        <small class="field-error">群組說明為必填，長度不可超過 100 字。</small>
+      }
+    </div>
+  </section>
+</form>

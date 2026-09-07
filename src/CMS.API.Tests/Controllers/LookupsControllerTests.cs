@@ -69,4 +69,25 @@ public class LookupsControllerTests
         Assert.Equal("Cisco", partners[1].Name);
         Assert.Equal("CSCO", partners[1].AppKey);
     }
+
+    [Fact]
+    public async Task GetCourseGroups_ReturnsLookupList()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            CourseGroups =
+            [
+                new CourseGroupLookup { Pkid = 2, Description = "網路安全" },
+                new CourseGroupLookup { Pkid = 1, Description = "雲端技術" },
+            ],
+        });
+
+        var result = await controller.GetCourseGroups(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var courseGroups = Assert.IsAssignableFrom<IEnumerable<CourseGroupLookup>>(ok.Value).ToList();
+        Assert.Equal(2, courseGroups.Count);
+        Assert.Equal(2, courseGroups[0].Pkid);
+        Assert.Equal("雲端技術", courseGroups[1].Description);
+    }
 }

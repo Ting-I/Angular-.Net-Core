@@ -49,4 +49,21 @@ public class LookupRepository : ILookupRepository
             """,
             cancellationToken: cancellationToken));
     }
+
+    /// <summary>
+    /// Ordered alphabetically rather than by pkid: unlike PublishStatus, whose keys are meaningful
+    /// hand-assigned codes, CourseGroup.pkid is an opaque IDENTITY number.
+    /// </summary>
+    public async Task<IEnumerable<CourseGroupLookup>> GetCourseGroupsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        return await connection.QueryAsync<CourseGroupLookup>(new CommandDefinition(
+            """
+            SELECT cg.pkid AS Pkid, cg.Description
+            FROM CourseGroup cg
+            ORDER BY cg.Description ASC
+            """,
+            cancellationToken: cancellationToken));
+    }
 }
