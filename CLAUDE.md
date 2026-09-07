@@ -17,7 +17,13 @@ adding any entity, read:
 | `spec/sample1.spec.md` (Course) | Worked example — FKs, n-n, date ranges, copy action |
 | `spec/sample2.spec.md` (SkillTrain) | Worked example — simpler, n-n with `DisplayOrder` |
 | `spec/feature-spec.template.md` | Template for writing a new feature spec |
+| `spec/{sub-system}/{Table}.md` | Generated feature specs, one per built entity (e.g. `spec/admin/PublishStatus.md`) |
 | `spec/ui-sample-*.png` | Visual reference for list / view / edit / add. **Style only** — the data in them is illustrative |
+
+The `/crud` skill (`.claude/skills/crud`) automates this: it reads the schema, writes
+`spec/{sub-system}/{Table}.md`, stops for confirmation, then builds both sides plus tests. Where it
+conflicts with this file, **this file wins** — it currently asks for Moq, a `RowAuditWriter` and a
+sticky `p-toolbar`, none of which exist here. Record any such deviation in the generated spec.
 
 ## Layout
 
@@ -33,11 +39,11 @@ src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
 
 ```powershell
 dotnet run --project src\CMS.API          # API  -> http://localhost:5000/swagger
-dotnet test                                # 33 xUnit tests
+dotnet test                                # 77 xUnit tests
 
 cd src\CMS.NG
 npm start                                  # UI   -> http://localhost:4200
-npm test -- --watch=false --browsers=ChromeHeadless   # 45 Karma/Jasmine specs
+npm test -- --watch=false --browsers=ChromeHeadless   # 95 Karma/Jasmine specs
 ```
 
 `npm test` without flags enters watch mode and opens a browser — always pass the flags above
@@ -77,16 +83,33 @@ Controllers/{TablePlural}Controller.cs   # route /api/{table-plural}
   via the handlers already registered in `Program.cs`.
 - Lookup endpoints for select options live in `LookupsController` at `/api/lookups/{plural}`.
 
-### String primary keys
+### Primary keys — check the schema, never assume
 
-`AppRole` is the precedent and it is not the common case — read it before assuming `pkid` is the key.
+`pkid int IDENTITY` is the common case, but two entities already break it in different ways. Read
+the `CREATE TABLE` before writing anything.
 
-`AppRole`'s PK is `RoleId` (nvarchar), while `pkid` is a non-key IDENTITY column displayed as
-主代碼. When an entity is shaped this way:
+**String PK — `AppRole`.** The PK is `RoleId` (nvarchar); `pkid` is a non-key IDENTITY column
+displayed as 主代碼.
 
 - Controller route is `{id}` with **no** `:int` constraint.
 - The Angular service must `encodeURIComponent(id)`.
-- The key is immutable on edit — disable the control and use `getRawValue()` on save.
+
+**Non-IDENTITY numeric PK — `PublishStatus`.** `pkid` is `tinyint NOT NULL` with no IDENTITY, so
+the operator supplies the value.
+
+- The key belongs in `{Table}Request`; there is no `SCOPE_IDENTITY()` round trip.
+- Check `ExistsAsync` before INSERT and return `409` on a duplicate.
+- Controller route keeps `{id:int}`, so the Angular service needs **no** `encodeURIComponent`.
+
+Both share one rule: **the key is immutable on edit** — `disable()` the control and read it back
+with `getRawValue()` on save.
+
+### Deleting a row other tables reference
+
+Where enforced FKs point at the entity (`Course` and `Promotion2` → `PublishStatus`), project the
+child counts as correlated subqueries in `{Table}Sql.SelectBase`, then have the controller read the
+record before deleting and return `409` when a count is non-zero. Letting the DELETE run and
+surfacing SQL error 547 as a 500 is the thing to avoid. The same read supplies the `404`.
 
 ## Frontend conventions
 
@@ -100,7 +123,13 @@ src/app/features/{table-plural}/{table}-list|-detail|-form/
 - List pages persist filter/sort/page to session storage under
   `{table}-list-filters` / `-sort` / `-page`.
 - Filter UI is a `p-drawer`; `p-select` inside it always needs `appendTo="body"`.
-- Forms use Reactive Forms and `forkJoin` for parallel lookup + record loads.
+- The 搜尋條件 button's `[badge]` shows the **number** of applied filters, not a `!` marker. Count
+  a tri-state `p-select` as active whenever it is neither `null` nor `undefined` — a `false`
+  selection is a real filter, so falsy checks silently drop it.
+- `p-confirmDialog` has **no `escape` input** in PrimeNG 20; it always renders `message` through
+  `[innerHTML]`. Markup in the message works, so HTML-escape any record text you interpolate.
+- Forms use Reactive Forms and `forkJoin` for parallel lookup + record loads — skip the `forkJoin`
+  when the entity has no FK lookups to fetch alongside the record.
 - Path aliases: `@env`, `@env/*`, `@app/*`, `@core/*`, `@features/*`, `@layout/*`.
 - **No dev-server proxy.** The API base URL comes from `@env`; `environment.development.ts` is
   swapped in by the `development` build configuration's `fileReplacements`.
@@ -109,8 +138,9 @@ src/app/features/{table-plural}/{table}-list|-detail|-form/
 
 The nav lives in the root `App` component (`src/app/app.ts` `navGroups`, rendered by
 `app.html`), not a separate layout component. Eight groups exist to match the UI mockup, but
-only `系統管理 Admin` has items — the other seven have empty `items` arrays as placeholders.
-When you add a feature, add its entry to the right group and extend `app.spec.ts` accordingly.
+only `系統管理 Admin` has items (`角色 AppRole`, `發布狀態 PublishStatus`) — the other seven have
+empty `items` arrays as placeholders. When you add a feature, add its entry to the right group and
+extend `app.spec.ts` accordingly.
 
 ## Testing
 
