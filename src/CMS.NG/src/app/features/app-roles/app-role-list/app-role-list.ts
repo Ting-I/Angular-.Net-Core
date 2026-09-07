@@ -65,12 +65,17 @@ export class AppRoleList implements OnInit {
     this.load();
   }
 
-  protected get hasActiveFilters(): boolean {
+  /** Number of applied filters — shown as the 搜尋條件 button badge. */
+  protected get activeFilterCount(): number {
+    const { keyword, permissionLevel } = this.appliedFilters;
     return (
-      !!this.appliedFilters.keyword?.trim() ||
-      this.appliedFilters.permissionLevel !== null &&
-        this.appliedFilters.permissionLevel !== undefined
+      (keyword?.trim() ? 1 : 0) +
+      (permissionLevel !== null && permissionLevel !== undefined ? 1 : 0)
     );
+  }
+
+  protected get hasActiveFilters(): boolean {
+    return this.activeFilterCount > 0;
   }
 
   protected load(): void {

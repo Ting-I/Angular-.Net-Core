@@ -11,7 +11,7 @@
       label="搜尋條件"
       icon="pi pi-filter"
       severity="secondary"
-      [badge]="hasActiveFilters ? '!' : undefined"
+      [badge]="hasActiveFilters ? activeFilterCount.toString() : undefined"
       (onClick)="openFilterDrawer()"
     />
     <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />

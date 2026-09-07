@@ -111,6 +111,20 @@ describe('AppRoleList', () => {
     expect(api()['roles']().length).toBe(1);
   });
 
+  it('counts the applied filters for the 搜尋條件 badge', () => {
+    initAndFlush();
+    expect(api()['activeFilterCount']).toBe(0);
+    expect(fixture.nativeElement.querySelector('p-button .p-badge')).toBeNull();
+
+    api()['draftFilters'] = { keyword: 'admin', permissionLevel: 1 };
+    api()['applyFilters']();
+    httpMock.expectOne(queryUrl).flush([roles[0]]);
+    fixture.detectChanges();
+
+    expect(api()['activeFilterCount']).toBe(2);
+    expect(fixture.nativeElement.querySelector('p-button .p-badge')?.textContent.trim()).toBe('2');
+  });
+
   it('reports active filters only when a filter is set', () => {
     initAndFlush();
     expect(api()['hasActiveFilters']).toBeFalse();
