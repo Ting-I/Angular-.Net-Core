@@ -41,6 +41,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IAppRoleRepository, AppRoleRepository>();
+builder.Services.AddScoped<IPublishStatusRepository, PublishStatusRepository>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 
 var app = builder.Build();

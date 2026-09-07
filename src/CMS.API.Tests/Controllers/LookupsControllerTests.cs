@@ -26,4 +26,25 @@ public class LookupsControllerTests
         Assert.Equal(2, users.Count);
         Assert.Equal("helen", users[0].UserId);
     }
+
+    [Fact]
+    public async Task GetPublishStatuses_ReturnsLookupList()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            PublishStatuses =
+            [
+                new PublishStatusLookup { Pkid = 1, Description = "草稿" },
+                new PublishStatusLookup { Pkid = 2, Description = "已發布" },
+            ],
+        });
+
+        var result = await controller.GetPublishStatuses(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var statuses = Assert.IsAssignableFrom<IEnumerable<PublishStatusLookup>>(ok.Value).ToList();
+        Assert.Equal(2, statuses.Count);
+        Assert.Equal(1, statuses[0].Pkid);
+        Assert.Equal("已發布", statuses[1].Description);
+    }
 }

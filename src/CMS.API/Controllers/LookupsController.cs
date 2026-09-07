@@ -22,4 +22,11 @@ public class LookupsController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<AppUserLookup>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<AppUserLookup>>> GetAppUsers(CancellationToken cancellationToken)
         => Ok(await _repository.GetAppUsersAsync(cancellationToken));
+
+    /// <summary>發布狀態 PublishStatus lookup list.</summary>
+    [HttpGet("publish-statuses")]
+    [ProducesResponseType(typeof(IEnumerable<PublishStatusLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<PublishStatusLookup>>> GetPublishStatuses(
+        CancellationToken cancellationToken)
+        => Ok(await _repository.GetPublishStatusesAsync(cancellationToken));
 }

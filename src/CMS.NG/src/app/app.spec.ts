@@ -35,6 +35,18 @@ describe('App', () => {
     expect(link.getAttribute('href')).toBe('/app-roles');
   });
 
+  it('renders the 發布狀態 PublishStatus item under 系統管理 Admin', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('發布狀態 PublishStatus');
+
+    const hrefs = Array.from(
+      fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
+    ).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual(['/app-roles', '/publish-statuses']);
+  });
+
   it('collapses and expands a nav group', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

@@ -1,0 +1,64 @@
+<p-toast />
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header">
+    <h1>{{ isEdit() ? '編輯發布狀態' : '新增發布狀態' }}</h1>
+    <div class="page-actions">
+      <p-button
+        label="取消"
+        icon="pi pi-times"
+        severity="secondary"
+        type="button"
+        (onClick)="cancel()"
+      />
+      <p-button
+        label="儲存"
+        icon="pi pi-check"
+        severity="success"
+        type="submit"
+        [loading]="saving()"
+      />
+    </div>
+  </div>
+
+  <section class="page-card">
+    <h2>發布狀態資料</h2>
+
+    <div class="form-field">
+      <label for="pkid">主代碼 <span class="required">*</span></label>
+      <p-inputNumber
+        inputId="pkid"
+        formControlName="pkid"
+        [min]="0"
+        [max]="255"
+        [useGrouping]="false"
+      />
+      @if (isInvalid('pkid')) {
+        <small class="field-error">主代碼為必填，且須介於 0 至 255。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="description">狀態說明 <span class="required">*</span></label>
+      <input pInputText id="description" formControlName="description" maxlength="50" />
+      @if (isInvalid('description')) {
+        <small class="field-error">狀態說明為必填，長度不可超過 50 字。</small>
+      }
+    </div>
+
+    <div class="toggle-field">
+      <p-toggleswitch inputId="isDraft" formControlName="isDraft" />
+      <label for="isDraft">草稿</label>
+    </div>
+
+    <div class="toggle-field">
+      <p-toggleswitch inputId="isPublished" formControlName="isPublished" />
+      <label for="isPublished">已發布</label>
+    </div>
+
+    <div class="toggle-field">
+      <p-toggleswitch inputId="isDiscontinued" formControlName="isDiscontinued" />
+      <label for="isDiscontinued">已停用</label>
+    </div>
+  </section>
+</form>
