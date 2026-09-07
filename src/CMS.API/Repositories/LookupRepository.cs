@@ -37,4 +37,16 @@ public class LookupRepository : ILookupRepository
             """,
             cancellationToken: cancellationToken));
     }
+
+    public async Task<IEnumerable<PartnerLookup>> GetPartnersAsync(CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        return await connection.QueryAsync<PartnerLookup>(new CommandDefinition(
+            """
+            SELECT p.pkid AS Pkid, p.Name, p.AppKey
+            FROM Partner p
+            ORDER BY p.DisplayOrder ASC, p.Name ASC
+            """,
+            cancellationToken: cancellationToken));
+    }
 }

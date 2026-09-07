@@ -29,4 +29,10 @@ public class LookupsController : ControllerBase
     public async Task<ActionResult<IEnumerable<PublishStatusLookup>>> GetPublishStatuses(
         CancellationToken cancellationToken)
         => Ok(await _repository.GetPublishStatusesAsync(cancellationToken));
+
+    /// <summary>原廠 Partner lookup list.</summary>
+    [HttpGet("partners")]
+    [ProducesResponseType(typeof(IEnumerable<PartnerLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<PartnerLookup>>> GetPartners(CancellationToken cancellationToken)
+        => Ok(await _repository.GetPartnersAsync(cancellationToken));
 }

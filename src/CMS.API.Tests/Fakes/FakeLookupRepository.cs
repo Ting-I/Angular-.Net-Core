@@ -9,10 +9,15 @@ public class FakeLookupRepository : ILookupRepository
 
     public List<PublishStatusLookup> PublishStatuses { get; init; } = [];
 
+    public List<PartnerLookup> Partners { get; init; } = [];
+
     public Task<IEnumerable<AppUserLookup>> GetAppUsersAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(AppUsers.AsEnumerable());
 
     public Task<IEnumerable<PublishStatusLookup>> GetPublishStatusesAsync(
         CancellationToken cancellationToken = default)
         => Task.FromResult(PublishStatuses.AsEnumerable());
+
+    public Task<IEnumerable<PartnerLookup>> GetPartnersAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Partners.AsEnumerable());
 }

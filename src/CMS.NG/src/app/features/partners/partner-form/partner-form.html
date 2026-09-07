@@ -1,0 +1,90 @@
+<p-toast />
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header">
+    <h1>
+      {{ isEdit() ? '編輯原廠' : '新增原廠' }}
+      @if (isEdit() && pkid() !== null) {
+        <span class="page-key">主代碼 {{ pkid() }}</span>
+      }
+    </h1>
+    <div class="page-actions">
+      <p-button
+        label="取消"
+        icon="pi pi-times"
+        severity="secondary"
+        type="button"
+        (onClick)="cancel()"
+      />
+      <p-button
+        label="儲存"
+        icon="pi pi-check"
+        severity="success"
+        type="submit"
+        [loading]="saving()"
+      />
+    </div>
+  </div>
+
+  <section class="page-card">
+    <h2>原廠資料</h2>
+
+    <div class="form-field">
+      <label for="name">原廠名稱 <span class="required">*</span></label>
+      <input pInputText id="name" formControlName="name" maxlength="50" />
+      @if (isInvalid('name')) {
+        <small class="field-error">原廠名稱為必填，長度不可超過 50 字。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="appKey">應用代碼 <span class="required">*</span></label>
+      <input pInputText id="appKey" formControlName="appKey" maxlength="10" />
+      @if (isInvalid('appKey')) {
+        <small class="field-error">應用代碼為必填，長度不可超過 10 字。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="nameOnPartnerMenu">選單顯示名稱 <span class="required">*</span></label>
+      <input
+        pInputText
+        id="nameOnPartnerMenu"
+        formControlName="nameOnPartnerMenu"
+        maxlength="200"
+      />
+      @if (isInvalid('nameOnPartnerMenu')) {
+        <small class="field-error">選單顯示名稱為必填，長度不可超過 200 字。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="nameOnCourseDetailPage">課程頁顯示名稱 <span class="required">*</span></label>
+      <input
+        pInputText
+        id="nameOnCourseDetailPage"
+        formControlName="nameOnCourseDetailPage"
+        maxlength="50"
+      />
+      @if (isInvalid('nameOnCourseDetailPage')) {
+        <small class="field-error">課程頁顯示名稱為必填，長度不可超過 50 字。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="displayOrder">顯示順序 <span class="required">*</span></label>
+      <p-inputNumber inputId="displayOrder" formControlName="displayOrder" [useGrouping]="false" />
+      @if (isInvalid('displayOrder')) {
+        <small class="field-error">顯示順序為必填。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="imageFilename">圖片檔名</label>
+      <input pInputText id="imageFilename" formControlName="imageFilename" maxlength="50" />
+      @if (isInvalid('imageFilename')) {
+        <small class="field-error">圖片檔名長度不可超過 50 字。</small>
+      }
+    </div>
+  </section>
+</form>

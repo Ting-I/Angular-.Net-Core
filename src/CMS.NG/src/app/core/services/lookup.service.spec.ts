@@ -6,6 +6,7 @@ import { environment } from '@env';
 import { LookupService } from './lookup.service';
 import { AppUserLookup } from '@core/models/app-user-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
+import { PartnerLookup } from '@core/models/partner-lookup.model';
 
 describe('LookupService', () => {
   let service: LookupService;
@@ -45,5 +46,21 @@ describe('LookupService', () => {
 
     expect(result?.length).toBe(2);
     expect(result?.[1].description).toBe('已發布');
+  });
+
+  it('getPartners() issues GET to the partners lookup route', () => {
+    let result: PartnerLookup[] | undefined;
+    service.getPartners().subscribe((partners) => (result = partners));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/lookups/partners`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { pkid: 1, name: 'Microsoft', appKey: 'MS' },
+      { pkid: 2, name: 'Cisco', appKey: 'CSCO' },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[1].name).toBe('Cisco');
+    expect(result?.[1].appKey).toBe('CSCO');
   });
 });

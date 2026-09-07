@@ -47,4 +47,26 @@ public class LookupsControllerTests
         Assert.Equal(1, statuses[0].Pkid);
         Assert.Equal("已發布", statuses[1].Description);
     }
+
+    [Fact]
+    public async Task GetPartners_ReturnsLookupList()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            Partners =
+            [
+                new PartnerLookup { Pkid = 1, Name = "Microsoft", AppKey = "MS" },
+                new PartnerLookup { Pkid = 2, Name = "Cisco", AppKey = "CSCO" },
+            ],
+        });
+
+        var result = await controller.GetPartners(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var partners = Assert.IsAssignableFrom<IEnumerable<PartnerLookup>>(ok.Value).ToList();
+        Assert.Equal(2, partners.Count);
+        Assert.Equal(1, partners[0].Pkid);
+        Assert.Equal("Cisco", partners[1].Name);
+        Assert.Equal("CSCO", partners[1].AppKey);
+    }
 }

@@ -39,11 +39,11 @@ src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
 
 ```powershell
 dotnet run --project src\CMS.API          # API  -> http://localhost:5000/swagger
-dotnet test                                # 77 xUnit tests
+dotnet test                                # 126 xUnit tests
 
 cd src\CMS.NG
 npm start                                  # UI   -> http://localhost:4200
-npm test -- --watch=false --browsers=ChromeHeadless   # 95 Karma/Jasmine specs
+npm test -- --watch=false --browsers=ChromeHeadless   # 148 Karma/Jasmine specs
 ```
 
 `npm test` without flags enters watch mode and opens a browser — always pass the flags above
@@ -137,10 +137,12 @@ src/app/features/{table-plural}/{table}-list|-detail|-form/
 ### Sidebar
 
 The nav lives in the root `App` component (`src/app/app.ts` `navGroups`, rendered by
-`app.html`), not a separate layout component. Eight groups exist to match the UI mockup, but
-only `系統管理 Admin` has items (`角色 AppRole`, `發布狀態 PublishStatus`) — the other seven have
-empty `items` arrays as placeholders. When you add a feature, add its entry to the right group and
-extend `app.spec.ts` accordingly.
+`app.html`), not a separate layout component. Eight groups exist to match the UI mockup; two carry
+items — `系統管理 Admin` (`角色 AppRole`, `發布狀態 PublishStatus`) and `課程管理 Course`
+(`原廠 Partner`) — the other six have empty `items` arrays as placeholders. When you add a feature,
+add its entry to the right group and extend `app.spec.ts` accordingly. `expandedGroups` still
+defaults to `系統管理 Admin` alone, so a spec that asserts on another group's items must
+`toggleGroup` it open first.
 
 ## Testing
 

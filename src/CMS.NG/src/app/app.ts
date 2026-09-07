@@ -28,7 +28,11 @@ export class App {
   /** Only groups with implemented features carry routes; the rest are placeholders. */
   protected readonly navGroups = signal<NavGroup[]>([
     { label: '首頁管理 Home', icon: 'pi pi-home', items: [] },
-    { label: '課程管理 Course', icon: 'pi pi-folder', items: [] },
+    {
+      label: '課程管理 Course',
+      icon: 'pi pi-folder',
+      items: [{ label: '原廠 Partner', icon: 'pi pi-building', route: '/partners' }],
+    },
     { label: '說明會 Seminar', icon: 'pi pi-comments', items: [] },
     { label: '活動管理 Promotion', icon: 'pi pi-megaphone', items: [] },
     { label: '線上報名 Forms', icon: 'pi pi-file-edit', items: [] },

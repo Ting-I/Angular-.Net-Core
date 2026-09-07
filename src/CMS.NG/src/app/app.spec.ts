@@ -47,6 +47,25 @@ describe('App', () => {
     expect(hrefs).toEqual(['/app-roles', '/publish-statuses']);
   });
 
+  it('renders the 原廠 Partner item under 課程管理 Course once the group is expanded', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as Record<string, any>;
+
+    // Only 系統管理 Admin starts expanded, so the Course group's item is hidden until it opens.
+    expect(fixture.nativeElement.textContent).not.toContain('原廠 Partner');
+
+    component['toggleGroup']('課程管理 Course');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('原廠 Partner');
+
+    const hrefs = Array.from(
+      fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
+    ).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual(['/partners', '/app-roles', '/publish-statuses']);
+  });
+
   it('collapses and expands a nav group', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

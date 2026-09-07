@@ -50,5 +50,25 @@ export const routes: Routes = [
         (m) => m.PublishStatusForm,
       ),
   },
+  {
+    path: 'partners',
+    loadComponent: () =>
+      import('@features/partners/partner-list/partner-list').then((m) => m.PartnerList),
+  },
+  {
+    path: 'partners/new',
+    loadComponent: () =>
+      import('@features/partners/partner-form/partner-form').then((m) => m.PartnerForm),
+  },
+  {
+    path: 'partners/:id',
+    loadComponent: () =>
+      import('@features/partners/partner-detail/partner-detail').then((m) => m.PartnerDetail),
+  },
+  {
+    path: 'partners/:id/edit',
+    loadComponent: () =>
+      import('@features/partners/partner-form/partner-form').then((m) => m.PartnerForm),
+  },
   { path: '**', redirectTo: 'app-roles' },
 ];
