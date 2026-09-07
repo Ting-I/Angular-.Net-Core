@@ -1,0 +1,12 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Claude Code
+.claude/settings.local.json

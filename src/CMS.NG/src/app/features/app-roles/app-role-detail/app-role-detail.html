@@ -1,0 +1,54 @@
+<div class="page-header">
+  <h1>檢視角色</h1>
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (role()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此角色。</div>
+} @else if (role(); as data) {
+  <section class="page-card">
+    <h2>角色資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>角色代碼</dt>
+        <dd>{{ data.roleId }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>角色名稱</dt>
+        <dd>{{ data.roleName }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>權限等級</dt>
+        <dd>{{ data.permissionLevel }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>描述</dt>
+        <dd>{{ data.description || '—' }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>使用者<span class="count-badge">{{ data.userCount }}</span></h2>
+    @if (assignedUsers.length) {
+      <div class="user-tags">
+        @for (user of assignedUsers; track user.userId) {
+          <p-tag [value]="user.userName + ' (' + user.userId + ')'" severity="secondary" />
+        }
+      </div>
+    } @else {
+      <p class="state-message">尚未指派使用者。</p>
+    }
+  </section>
+}

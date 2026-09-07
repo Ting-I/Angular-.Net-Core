@@ -1,0 +1,136 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>角色 AppRole</h1>
+    <span class="page-subtitle">使用者角色</span>
+  </div>
+  <div class="page-actions">
+    <p-button
+      label="搜尋條件"
+      icon="pi pi-filter"
+      severity="secondary"
+      [badge]="hasActiveFilters ? '!' : undefined"
+      (onClick)="openFilterDrawer()"
+    />
+    <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+  </div>
+</div>
+
+<div class="page-card">
+  <p-table
+    [value]="roles()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="page.rows"
+    [first]="page.first"
+    [rowsPerPageOptions]="[10, 20, 50, 100]"
+    [sortField]="sort.field"
+    [sortOrder]="sort.order"
+    [totalRecords]="roles().length"
+    dataKey="roleId"
+    currentPageReportTemplate="{first}–{last} 筆，共 {totalRecords} 筆"
+    [showCurrentPageReport]="true"
+    paginatorPosition="top"
+    (onSort)="onSort($event)"
+    (onPage)="onPage($event)"
+  >
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="pkid" style="width: 6rem">主代碼 <p-sortIcon field="pkid" /></th>
+        <th pSortableColumn="roleId">角色代碼 <p-sortIcon field="roleId" /></th>
+        <th pSortableColumn="roleName">角色名稱 <p-sortIcon field="roleName" /></th>
+        <th pSortableColumn="permissionLevel" style="width: 9rem" class="text-right">
+          權限等級 <p-sortIcon field="permissionLevel" />
+        </th>
+        <th pSortableColumn="description">描述 <p-sortIcon field="description" /></th>
+        <th pSortableColumn="userCount" style="width: 8rem" class="text-right">
+          使用者數 <p-sortIcon field="userCount" />
+        </th>
+        <th style="width: 9rem">操作</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-role>
+      <tr>
+        <td>{{ role.pkid }}</td>
+        <td>{{ role.roleId }}</td>
+        <td>{{ role.roleName }}</td>
+        <td class="text-right">{{ role.permissionLevel }}</td>
+        <td>{{ role.description }}</td>
+        <td class="text-right">{{ role.userCount }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button
+              icon="pi pi-eye"
+              severity="info"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="檢視"
+              (onClick)="view(role)"
+            />
+            <p-button
+              icon="pi pi-pencil"
+              severity="primary"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="編輯"
+              (onClick)="edit(role)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="刪除"
+              (onClick)="confirmDelete(role)"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="7" class="empty-row">查無資料</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-drawer
+  [(visible)]="filterDrawerVisible"
+  header="搜尋條件"
+  position="right"
+  styleClass="filter-drawer"
+>
+  <div class="filter-field">
+    <label for="filter-keyword">關鍵字</label>
+    <input
+      pInputText
+      id="filter-keyword"
+      name="keyword"
+      placeholder="角色代碼／角色名稱／描述"
+      [(ngModel)]="draftFilters.keyword"
+      (keyup.enter)="applyFilters()"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-permission-level">權限等級</label>
+    <p-inputNumber
+      inputId="filter-permission-level"
+      name="permissionLevel"
+      [min]="0"
+      [useGrouping]="false"
+      [showClear]="true"
+      [(ngModel)]="draftFilters.permissionLevel"
+    />
+  </div>
+
+  <div class="filter-actions">
+    <p-button label="清除" severity="secondary" [outlined]="true" (onClick)="clearFilters()" />
+    <p-button label="搜尋" icon="pi pi-search" (onClick)="applyFilters()" />
+  </div>
+</p-drawer>

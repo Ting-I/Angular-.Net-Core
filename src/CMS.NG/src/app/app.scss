@@ -1,0 +1,159 @@
+/* Sidebar styled after the PrimeNG Avalon template: light surface sidebar, muted
+   uppercase group labels, rounded menu items, primary-tinted active state.
+   Colours come from PrimeNG theme tokens so the shell follows the active preset. */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  min-height: 100vh;
+  background: var(--p-surface-50);
+  transition: grid-template-columns 0.2s ease;
+
+  &.collapsed {
+    grid-template-columns: 5rem 1fr;
+
+    .brand-text,
+    .nav-label,
+    .nav-chevron {
+      display: none;
+    }
+
+    .nav-group-header,
+    .nav-item {
+      justify-content: center;
+      padding-inline: 0;
+    }
+
+    .nav-item {
+      padding-left: 0;
+    }
+  }
+}
+
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--p-surface-0);
+  border-right: 1px solid var(--p-content-border-color);
+  overflow-y: auto;
+}
+
+/* ---------- brand ---------- */
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  height: 4rem;
+  flex: 0 0 auto;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.brand-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--p-primary-color);
+}
+
+.brand-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: none;
+  border: 0;
+  border-radius: var(--p-content-border-radius);
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--p-surface-100);
+    color: var(--p-text-color);
+  }
+}
+
+/* ---------- menu ---------- */
+
+.sidebar-nav {
+  padding: 0.75rem 0.75rem 1.5rem;
+}
+
+.nav-group + .nav-group {
+  margin-top: 0.15rem;
+}
+
+/* Group header doubles as Avalon's section label: small, uppercase, muted. */
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  background: none;
+  border: 0;
+  border-radius: var(--p-content-border-radius);
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--p-surface-100);
+    color: var(--p-text-color);
+  }
+}
+
+.nav-chevron {
+  margin-left: auto;
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-icon {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.nav-items {
+  list-style: none;
+  margin: 0.1rem 0 0.35rem;
+  padding: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem 0.6rem 1.6rem;
+  border-radius: var(--p-content-border-radius);
+  color: var(--p-text-color);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--p-surface-100);
+  }
+
+  /* Avalon marks the current page with a primary-tinted pill. */
+  &.active {
+    background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
+    color: var(--p-primary-color);
+    font-weight: 600;
+  }
+}
+
+.app-main {
+  padding: 1.25rem;
+  overflow-x: auto;
+}

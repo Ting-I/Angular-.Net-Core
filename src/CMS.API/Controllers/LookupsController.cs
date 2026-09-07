@@ -1,0 +1,25 @@
+using CMS.API.Models;
+using CMS.API.Repositories;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CMS.API.Controllers;
+
+/// <summary>Slim lists used to populate select / multiselect options.</summary>
+[ApiController]
+[Route("api/lookups")]
+[Produces("application/json")]
+public class LookupsController : ControllerBase
+{
+    private readonly ILookupRepository _repository;
+
+    public LookupsController(ILookupRepository repository)
+    {
+        _repository = repository;
+    }
+
+    /// <summary>使用者 AppUser lookup list.</summary>
+    [HttpGet("app-users")]
+    [ProducesResponseType(typeof(IEnumerable<AppUserLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<AppUserLookup>>> GetAppUsers(CancellationToken cancellationToken)
+        => Ok(await _repository.GetAppUsersAsync(cancellationToken));
+}
