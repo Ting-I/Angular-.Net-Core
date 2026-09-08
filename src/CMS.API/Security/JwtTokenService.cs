@@ -8,10 +8,10 @@ namespace CMS.API.Security;
 /// <summary>
 /// HS256 access tokens signed with the SysConfig 'appConfig' symmetricSecurityKey.
 ///
-/// The token is issued only; nothing in this API validates one yet. Whatever adds
-/// <c>AddJwtBearer</c> later must set <c>NameClaimType</c>/<c>RoleClaimType</c> to
-/// <see cref="UserIdClaimType"/> and <see cref="RoleClaimType"/>, and must not require an issuer or
-/// audience — neither is stamped here, because there is no second party to name.
+/// The same secret validates them on the way back in — see <c>ConfigureJwtBearerOptions</c>, which
+/// points <c>NameClaimType</c> / <c>RoleClaimType</c> at <see cref="UserIdClaimType"/> and
+/// <see cref="RoleClaimType"/>, and requires neither an issuer nor an audience because neither is
+/// stamped here: there is no second party to name.
 /// </summary>
 public class JwtTokenService : IJwtTokenService
 {

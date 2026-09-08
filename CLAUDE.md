@@ -65,7 +65,13 @@ The ones that cost data or a rewrite when missed; the reference files carry the 
   every response model, and out of the JWT payload. `POST /api/auth/login` answers one identical
   `401` for an unknown UserId, an `IsActive = 0` account and a wrong password, so the endpoint
   cannot be used to enumerate accounts; the JWT signing secret is the `symmetricSecurityKey` of the
-  `SysConfig` `appConfig` JSON, read per login and never hard-coded or cached.
+  `SysConfig` `appConfig` JSON, read per login — and again per validated request — and never
+  hard-coded or cached.
+- **Every endpoint needs a token; `AuthController` is the only exception.** Authorization is a
+  global `FallbackPolicy`, so a new controller is protected by omission — don't add
+  `[AllowAnonymous]` to reach one. On the UI side the token lives in **session** storage, an
+  interceptor attaches it, a guard keeps the routes shut without it, and a `401` ends the session.
+  Hiding a menu by role is presentation only; the API is what actually refuses.
 - **Language split:** UI labels and validation messages are Traditional Chinese, usually paired with
   the English entity name (`角色 AppRole`, `權限等級`). Code, identifiers, comments and commit
   messages are English.

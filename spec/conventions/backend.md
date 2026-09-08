@@ -36,6 +36,34 @@ Register the repository in `Program.cs` alongside the others.
   `certifications`, `job-categories`, `training-centers`, `promotions?keyword=` (autocomplete) and
   `promotions/{promoCode}` (exact match, `404` when unknown).
 
+## Authorization
+
+Every endpoint requires an authenticated user. That is a `FallbackPolicy` in `Program.cs`, not an
+`[Authorize]` per controller, so a controller added later is protected by omission rather than left
+open by it. `AuthController` is the only `[AllowAnonymous]` one — it has to be, or nobody could
+obtain a token — and `AuthorizationTests` asserts by reflection that it stays the only one, at the
+action level as well as the controller level.
+
+Bearer tokens are validated with the same SysConfig `appConfig` `symmetricSecurityKey` that
+`JwtTokenService` signs with, and **the key is read per request, never captured at startup** —
+rotating the row has to rotate validation too. It cannot go straight into
+`TokenValidationParameters` for two reasons: reading it needs a scoped `ISysConfigRepository`, and
+`IssuerSigningKeyResolver` is synchronous. `SysConfigSigningKeys` bridges that — the JwtBearer
+`OnMessageReceived` event (async, and holding the request's service scope) reads the key and parks
+it on `HttpContext.Items`, and the resolver picks it up from there without blocking. A request
+carrying no `Authorization: Bearer` header never triggers the read, so an anonymous login costs no
+extra query.
+
+Neither an issuer nor an audience is validated: `JwtTokenService` stamps neither, because there is
+no second party to name. `ClockSkew` is zero — the default five minutes would keep a 24-hour token
+alive past its expiry. `NameClaimType` / `RoleClaimType` point at the claims the token actually
+carries, so `User.IsInRole("Admin")` reads the login's roles rather than looking for names nothing
+here writes.
+
+The 401 comes from middleware, not from a controller, so it is only observable through the real
+pipeline: `TestApiFactory` hosts the API in process with every repository swapped for its fake and
+`IDbConnectionFactory` swapped for one that throws.
+
 ## Primary keys — check the schema, never assume
 
 `pkid int IDENTITY` is the common case, but two entities already break it in different ways. Read

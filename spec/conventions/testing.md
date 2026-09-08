@@ -14,6 +14,11 @@ Every new feature needs both sides covered: list/filter, view, add, edit.
   keys, the filters `BuildWhere` would apply, uniqueness checks, ordering, and any multi-row write
   such as a slot swap. It also records what it was asked to do (`CreatedPkids`, `UpdatedPkids`,
   `DeletedPkids`, `Moves`) so a test can assert that a rejected request wrote nothing.
+- **One exception to "no host": authorization.** The 401 that guards a protected endpoint comes from
+  middleware, so `AuthorizationTests` runs against `TestApiFactory`, a `WebApplicationFactory<Program>`
+  with every repository swapped for its fake and `IDbConnectionFactory` swapped for
+  `ThrowingDbConnectionFactory` — a repository nobody replaced fails loudly instead of opening a
+  connection. Everything else still tests a controller instance directly.
 - SQL and filter logic is tested directly against `{Table}Sql.BuildWhere` and the other static
   members — projection contents, `splitOn`, default ordering, and any date arithmetic such as
   `FeaturedPromoItemSql.WeekOf`. These need no fake and no database.
@@ -29,6 +34,10 @@ Every new feature needs both sides covered: list/filter, view, add, edit.
 - Clear `sessionStorage` in both `beforeEach` and `afterEach` for a list spec, then seed it when the
   page's state must be pinned — it is how a week- or date-driven page is made independent of today's
   date.
+- The signed-in session lives in `sessionStorage` too, and `AuthService` reads it **when it is
+  constructed** — so seed `auth-profile` before the first `TestBed.inject`, not after. Build the
+  token with `@core/testing/fake-jwt`; `fakeProfile(userId, userName, roles)` is the usual call.
+  A spec that renders `App` needs one, or the shell does not render at all.
 
 ### Gotchas that cost time
 

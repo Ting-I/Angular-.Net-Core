@@ -1,31 +1,57 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { App } from './app';
+import { fakeProfile } from '@core/testing/fake-jwt';
 
 describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
+  /**
+   * The shell only renders for a signed-in operator, so every spec seeds a session first — and
+   * the roles it seeds decide which nav groups exist at all.
+   */
+  function signIn(...roles: string[]): void {
+    sessionStorage.setItem(
+      'auth-profile',
+      JSON.stringify(fakeProfile('helen', 'Helen Lin', roles)),
+    );
+  }
+
+  function createApp() {
+    TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([])],
-    }).compileComponents();
-  });
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  const navHrefs = (fixture: { nativeElement: HTMLElement }) =>
+    Array.from(fixture.nativeElement.querySelectorAll('a.nav-item')).map((a) =>
+      a.getAttribute('href'),
+    );
+
+  beforeEach(() => sessionStorage.clear());
+  afterEach(() => sessionStorage.clear());
 
   it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    expect(fixture.componentInstance).toBeTruthy();
+    signIn('Admin');
+    expect(createApp().componentInstance).toBeTruthy();
   });
 
   it('renders the brand title', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
 
     expect(fixture.nativeElement.querySelector('.brand-text').textContent).toContain('UWA');
   });
 
   it('renders the 系統管理 Admin group with the 角色 AppRole item', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
 
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('系統管理 Admin');
@@ -36,21 +62,17 @@ describe('App', () => {
   });
 
   it('renders the 發布狀態 PublishStatus and 使用者 AppUser items under 系統管理 Admin', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
 
     expect(fixture.nativeElement.textContent).toContain('發布狀態 PublishStatus');
     expect(fixture.nativeElement.textContent).toContain('使用者 AppUser');
-
-    const hrefs = Array.from(
-      fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
-    ).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/app-roles', '/publish-statuses', '/app-users']);
+    expect(navHrefs(fixture)).toEqual(['/app-roles', '/publish-statuses', '/app-users']);
   });
 
   it('renders the 課程管理 Course items once the group is expanded', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
     const component = fixture.componentInstance as unknown as Record<string, any>;
 
     // Only 系統管理 Admin starts expanded, so the Course group's items are hidden until it opens.
@@ -65,10 +87,7 @@ describe('App', () => {
     expect(fixture.nativeElement.textContent).toContain('課程群組 CourseGroup');
     expect(fixture.nativeElement.textContent).toContain('課程 Course');
 
-    const hrefs = Array.from(
-      fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
-    ).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual([
+    expect(navHrefs(fixture)).toEqual([
       '/partners',
       '/course-groups',
       '/courses',
@@ -79,8 +98,8 @@ describe('App', () => {
   });
 
   it('renders the 上稿作業 FeaturedPromoItem item once 首頁管理 Home is expanded', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
     const component = fixture.componentInstance as unknown as Record<string, any>;
 
     expect(fixture.nativeElement.textContent).not.toContain('上稿作業 FeaturedPromoItem');
@@ -89,11 +108,7 @@ describe('App', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('上稿作業 FeaturedPromoItem');
-
-    const hrefs = Array.from(
-      fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
-    ).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual([
+    expect(navHrefs(fixture)).toEqual([
       '/featured-promo-items',
       '/app-roles',
       '/publish-statuses',
@@ -102,8 +117,8 @@ describe('App', () => {
   });
 
   it('collapses and expands a nav group', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
     const component = fixture.componentInstance as unknown as Record<string, any>;
 
     expect(component['isExpanded']('系統管理 Admin')).toBeTrue();
@@ -116,13 +131,86 @@ describe('App', () => {
   });
 
   it('toggles the sidebar', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    signIn('Admin');
+    const fixture = createApp();
     const component = fixture.componentInstance as unknown as Record<string, any>;
 
     component['toggleSidebar']();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.app-shell').classList).toContain('collapsed');
+  });
+
+  // ---------- 系統管理 Admin is role-gated ----------
+
+  it('hides 系統管理 Admin from a user whose roles do not include Admin', () => {
+    signIn('Editor');
+    const fixture = createApp();
+
+    expect(fixture.nativeElement.textContent).not.toContain('系統管理 Admin');
+    expect(navHrefs(fixture)).toEqual([]);
+  });
+
+  it('hides 系統管理 Admin from a user with no roles at all', () => {
+    signIn();
+    const fixture = createApp();
+
+    expect(fixture.nativeElement.textContent).not.toContain('系統管理 Admin');
+  });
+
+  it('keeps the other groups visible for a non-Admin user', () => {
+    signIn('Editor');
+    const fixture = createApp();
+    const component = fixture.componentInstance as unknown as Record<string, any>;
+
+    expect(fixture.nativeElement.textContent).toContain('課程管理 Course');
+
+    component['toggleGroup']('課程管理 Course');
+    fixture.detectChanges();
+
+    expect(navHrefs(fixture)).toEqual(['/partners', '/course-groups', '/courses']);
+  });
+
+  it('shows 系統管理 Admin when Admin is one of several roles', () => {
+    signIn('Editor', 'Admin');
+    const fixture = createApp();
+
+    expect(fixture.nativeElement.textContent).toContain('系統管理 Admin');
+    expect(navHrefs(fixture)).toEqual(['/app-roles', '/publish-statuses', '/app-users']);
+  });
+
+  // ---------- Signed-in identity and logout ----------
+
+  it('shows the signed-in 使用者名稱 in the top bar', () => {
+    signIn('Admin');
+    const fixture = createApp();
+
+    expect(fixture.nativeElement.querySelector('.topbar-user-name').textContent).toContain(
+      'Helen Lin',
+    );
+  });
+
+  it('clears session storage and returns to the Login page on logout', () => {
+    signIn('Admin');
+    const fixture = createApp();
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+
+    (fixture.componentInstance as unknown as Record<string, any>)['logout']();
+    fixture.detectChanges();
+
+    expect(sessionStorage.getItem('auth-profile')).toBeNull();
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+
+    // The shell goes with the session; the Login page owns the viewport from here.
+    expect(fixture.nativeElement.querySelector('.app-shell')).toBeNull();
+  });
+
+  it('renders no shell at all when nobody is signed in', () => {
+    const fixture = createApp();
+
+    expect(fixture.nativeElement.querySelector('.app-shell')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-sidebar')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-topbar')).toBeNull();
   });
 });

@@ -1,0 +1,84 @@
+/* The Login page renders without the app shell around it, so it owns the viewport. */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.5rem;
+  background: var(--p-surface-50);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 22rem;
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.75rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.login-brand {
+  margin-bottom: 1.5rem;
+  text-align: center;
+
+  .brand-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--p-primary-color);
+  }
+
+  h1 {
+    margin: 0.35rem 0 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1.1rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  input {
+    width: 100%;
+  }
+}
+
+.required {
+  color: #ef4444;
+}
+
+.field-error {
+  color: #ef4444;
+  font-size: 0.78rem;
+}
+
+::ng-deep .login-error {
+  display: block;
+  margin-bottom: 1.1rem;
+}
+
+/* p-password wraps its input, so both the wrapper and the input need the width. */
+::ng-deep .login-password,
+::ng-deep .login-password input {
+  width: 100%;
+}
+
+::ng-deep .login-submit {
+  width: 100%;
+
+  .p-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

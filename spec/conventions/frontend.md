@@ -115,6 +115,28 @@ Go through `core/utils/qr-code.util.ts` — `qrPngDataUrl` / `downloadDataUrl` w
 `qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so
 the `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
 
+## Auth
+
+- The session lives in **session storage**, never local storage, under `auth-profile`: the whole
+  of what the API returned (`userId`, `userName`, `accessToken`). It dies with the tab, so a shared
+  machine does not hand the next person a live token. `AuthService` owns the key; nothing else
+  reads or writes it.
+- **The roles come out of the token, not a second API call.** `AuthService.roles()` decodes the
+  JWT payload's `role` claim, which serializes as a bare string for one role and an array for
+  several — both shapes have to be accepted.
+- `authInterceptor` attaches `Authorization: Bearer <token>` to requests whose URL starts with
+  `environment.apiUrl`, and only those — the token belongs to this API. A `401` coming back clears
+  the session and returns to `/login`; the login call's own `401` is exempt, or the redirect would
+  wipe the 帳號或密碼錯誤 the Login page is about to show.
+- `authGuard` is attached once as `canActivateChild` on the empty-path parent in `app.routes.ts`,
+  not repeated per route, so a route added later is guarded by default. It returns a `UrlTree`
+  rather than navigating. `/login` sits outside that parent and is the only public route.
+- **Hiding a menu is presentation, not protection.** The API decides who may call what; the
+  sidebar's `requiresRole` only keeps an unusable menu off the screen.
+- In a spec, seed `sessionStorage` **before** the first injection — `AuthService` reads storage
+  when it is constructed. `@core/testing/fake-jwt` builds a structurally valid unsigned token with
+  whatever claims the test needs.
+
 ## Wiring
 
 - Path aliases: `@env`, `@env/*`, `@app/*`, `@core/*`, `@features/*`, `@layout/*`.
@@ -124,14 +146,23 @@ the `<img>` and the saved file are the same PNG bytes. `course-detail` is the wo
 ## Sidebar
 
 The nav lives in the root `App` component (`src/app/app.ts` `navGroups`, rendered by `app.html`),
-not a separate layout component. Eight groups exist to match the UI mockup; three carry items:
+not a separate layout component. The shell — sidebar, top bar and `.app-main` — is only rendered
+for a signed-in operator; signed out, `App` renders a bare `<router-outlet />` and the Login page
+owns the viewport. The top bar is a grid row of `.app-shell` rather than a child of `.app-main`, so
+it cannot scroll away and cannot disturb a page that pins its own toolbar inside `.app-main`.
+
+Eight groups exist to match the UI mockup; three carry items:
 
 | Group | Items |
 |---|---|
-| `系統管理 Admin` | `角色 AppRole`, `發布狀態 PublishStatus`, `使用者 AppUser` |
+| `系統管理 Admin` (`requiresRole: 'Admin'`) | `角色 AppRole`, `發布狀態 PublishStatus`, `使用者 AppUser` |
 | `課程管理 Course` | `原廠 Partner`, `課程群組 CourseGroup`, `課程 Course` |
 | `首頁管理 Home` | `上稿作業 FeaturedPromoItem` |
 
 The other five have empty `items` arrays as placeholders. When you add a feature, add its entry to
 the right group and extend `app.spec.ts` accordingly. `expandedGroups` defaults to `系統管理 Admin`
-alone, so a spec that asserts on another group's items must `toggleGroup` it open first.
+alone, so a spec that asserts on another group's items must `toggleGroup` it open first — and must
+sign in as a user holding `Admin`, or that group is not rendered at all and nothing is expanded.
+
+A group carrying `requiresRole` is dropped for a user whose token does not hold that role. Only
+`系統管理 Admin` uses it today.

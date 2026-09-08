@@ -1,6 +1,7 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
@@ -11,9 +12,13 @@ namespace CMS.API.Controllers;
 /// The one endpoint that sees a plaintext password. It hashes what it was given, compares that
 /// against AppUser.PasswordHash, and answers with a profile plus a signed JWT. Nothing about the
 /// stored credential — its existence, its state, or its hash — reaches the response.
+///
+/// The only controller marked [AllowAnonymous]. Everything else is covered by the fallback policy
+/// in Program.cs, so this one has to opt out or nobody could obtain a token in the first place.
 /// </summary>
 [ApiController]
 [Route("api/auth")]
+[AllowAnonymous]
 [Produces("application/json")]
 public class AuthController : ControllerBase
 {
