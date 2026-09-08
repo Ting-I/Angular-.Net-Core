@@ -55,4 +55,44 @@ public class PasswordHasherTests
     {
         Assert.Throws<ArgumentNullException>(() => PasswordHasher.Sha256Hex(null!));
     }
+
+    // ---------- Matches (the login comparison) ----------
+
+    [Fact]
+    public void Matches_AcceptsTheHashOfTheSamePassword()
+    {
+        Assert.True(PasswordHasher.Matches("Uwa@2026", PasswordHasher.Sha256Hex("Uwa@2026")));
+    }
+
+    [Fact]
+    public void Matches_IsCaseSensitiveOnThePassword()
+    {
+        Assert.False(PasswordHasher.Matches("uwa@2026", PasswordHasher.Sha256Hex("Uwa@2026")));
+    }
+
+    [Fact]
+    public void Matches_IgnoresTheCaseOfTheStoredHex()
+    {
+        // A row written by hand or by an older tool may hold uppercase hex.
+        Assert.True(PasswordHasher.Matches("Uwa@2026", PasswordHasher.Sha256Hex("Uwa@2026").ToUpperInvariant()));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-a-hash")]
+    public void Matches_WithAnUnusableStoredHash_ReturnsFalse(string? storedHash)
+    {
+        Assert.False(PasswordHasher.Matches("Uwa@2026", storedHash));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Matches_WithNoPassword_ReturnsFalse(string? password)
+    {
+        // Never let a blank password fall through to the hash of the empty string.
+        Assert.False(PasswordHasher.Matches(password, PasswordHasher.Sha256Hex(string.Empty)));
+    }
 }

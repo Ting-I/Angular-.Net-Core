@@ -1,17 +1,14 @@
 # CLAUDE.md
 
-Guidance for working in this repository. This file is what you always need; the detail lives in the
-reference files at the bottom — read the one that matches what you are about to touch.
+What you always need. The detail lives in the reference files at the bottom — read the one that
+matches what you are about to touch, rather than working from memory.
 
 ## What this repo is
 
-A CMS scaffolded from an **existing** SQL Server schema. The database is the source of truth —
+A CMS scaffolded from an **existing** SQL Server schema. The database is the source of truth:
 `database/*.sql` are the real `CREATE TABLE` scripts and are **read-only reference**. Never
-generate migrations or alter the schema; write code that matches what is already there.
-
-Features follow the house patterns rather than being invented per-feature.
-
-## Layout
+generate migrations or alter the schema; write code that matches what is already there, and follow
+the house patterns rather than inventing one per feature.
 
 ```
 database/          # schema reference (read-only)
@@ -24,15 +21,15 @@ src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
 ## Commands
 
 ```powershell
-dotnet run --project src\CMS.API          # API  -> http://localhost:5000/swagger
-dotnet test                                # 417 xUnit tests
+dotnet run --project src\CMS.API   # API -> http://localhost:5000/swagger
+dotnet test
 
 cd src\CMS.NG
-npm start                                  # UI   -> http://localhost:4200
-npm test -- --watch=false --browsers=ChromeHeadless   # 401 Karma/Jasmine specs
+npm start                          # UI  -> http://localhost:4200
+npm test -- --watch=false --browsers=ChromeHeadless
 ```
 
-`npm test` without flags enters watch mode and opens a browser — always pass the flags above when
+`npm test` without those flags enters watch mode and opens a browser — always pass them when
 running it non-interactively.
 
 ## Environment gotchas
@@ -40,9 +37,9 @@ running it non-interactively.
 - **`global.json` pins the .NET 9 SDK.** SDK 10 is also installed on this machine and would be
   picked by default, targeting `net10.0`. Leave the pin in place.
 - **`node` may be missing from an agent shell's PATH.** It *is* in the machine PATH
-  (`C:\Program Files\nodejs\`) — a shell that can't see it inherited a stale environment snapshot.
+  (`C:\Program Files\nodejs\`); a shell that can't see it inherited a stale environment snapshot.
   Prefix with `$env:Path = "C:\Program Files\nodejs;$env:Path"` rather than editing any environment
-  variable; the system variable is already correct.
+  variable — the system one is already correct.
 - Connection string lives in `src/CMS.API/appsettings.json` only (`Server=.\SQLEXPRESS;Database=CMS`).
   `appsettings.Development.json` deliberately does not repeat it.
 - A running `dotnet run` holds a lock on `CMS.API.exe` and fails the next build with MSB3027. Stop
@@ -50,34 +47,25 @@ running it non-interactively.
 
 ## Rules that hold everywhere
 
+The ones that cost data or a rewrite when missed; the reference files carry the detail behind each.
+
 - **Dapper only. No EF, ever.**
-- **Never rely on the database to refuse a DELETE.** Project child counts in `{Table}Sql.SelectBase`,
-  read the record in the controller, return `409` when a count is non-zero. `FK_Course_CourseGroup`
-  is `ON DELETE CASCADE` and would silently destroy courses; `Seminar.Partner_pkid` has no FK behind
-  it at all. Both cases are in `spec/conventions/backend.md`.
-- **Never PUT a list row straight back.** The list and `query` endpoints return the n-n key arrays
-  empty — they are populated by `GET /{table}/{key}` only — and the repositories rewrite their
-  junction tables from whatever the request carries. Any write built from a list row must re-read
-  the record first or it silently clears the relations. `course-list.ts` `saveCell` is the worked
-  example; `CourseRepository.SyncJunctionsAsync` is the code that does the clearing.
 - **Read the `CREATE TABLE` before assuming the key shape.** `pkid int IDENTITY` is common but not
   universal — `AppRole` has a string PK and `PublishStatus` a non-IDENTITY `tinyint` the operator
   supplies. Keys are always immutable on edit.
-- Filter logic goes in a static `{Table}Sql.BuildWhere` returning `(where, parameters)`, so query
-  filters are unit-testable without a database.
-- `PUT` takes the key **from the body**, not a route param.
-- `nchar(n)` needs `RTRIM()` in every SELECT; `date` / `time(7)` map to `DateOnly` / `TimeOnly` via
-  the handlers already registered in `Program.cs`.
-- **No mocking library.** Backend tests run against hand-written fakes and never touch SQL Server.
-- **QR codes go through `core/utils/qr-code.util.ts`** — `qrPngDataUrl` / `downloadDataUrl` wrap
-  `qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so the
-  `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
-- **Every successful write tells the operator.** `messageService.add` with the fixed verb as
-  `summary` (`已儲存` / `已刪除` / `已複製`) and the record's **own identifying text** as `detail` —
-  never generic wording. `<p-toast />` stays a bare tag; nothing sets `life` or `key`. Where the
-  write leaves the screen looking identical — an in-place edit closes showing the text the editor
-  was already showing — the toast is not enough on its own and the changed cell is highlighted too.
-  `spec/conventions/frontend.md` has the detail.
+- **Never let the database be the thing that refuses a destructive write.** Project child counts in
+  `{Table}Sql.SelectBase`, read the record in the controller, return `409` when one is non-zero.
+  `FK_Course_CourseGroup` is `ON DELETE CASCADE`, so an unguarded delete silently destroys courses;
+  elsewhere a reference has no FK behind it at all and the delete just orphans rows.
+- **Never PUT a list row straight back.** List and `query` responses carry the n-n key arrays empty,
+  and the repositories rewrite their junction tables from whatever the request holds — so a write
+  built from a list row silently clears the relations. Re-read with `GET /{table}/{key}` first.
+- **Credentials leave the server in exactly one shape: none.** `AuthSql.SelectCredential` is the
+  only query in the API that selects `PasswordHash` — keep it out of `AppUserSql.SelectBase`, out of
+  every response model, and out of the JWT payload. `POST /api/auth/login` answers one identical
+  `401` for an unknown UserId, an `IsActive = 0` account and a wrong password, so the endpoint
+  cannot be used to enumerate accounts; the JWT signing secret is the `symmetricSecurityKey` of the
+  `SysConfig` `appConfig` JSON, read per login and never hard-coded or cached.
 - **Language split:** UI labels and validation messages are Traditional Chinese, usually paired with
   the English entity name (`角色 AppRole`, `權限等級`). Code, identifiers, comments and commit
   messages are English.
@@ -98,10 +86,11 @@ running it non-interactively.
 | `spec/ui-sample-*.png` | build a list / view / edit / add page. **Style only** — the data in them is illustrative |
 
 A feature under `spec/custom/` overrides the house page layout where the two disagree — that is what
-the custom spec is for. `spec/promotion/FeaturedPromoItem.md` is the worked example, and it lists
-every deviation it took. Do the same in any generated spec.
+the custom spec is for. `spec/promotion/FeaturedPromoItem.md` is the worked example and lists every
+deviation it took; do the same in any generated spec.
 
-The `/crud` skill (`.claude/skills/crud`) automates scaffolding: it reads the schema, writes
+The `/crud` skill (`.claude/skills/crud`) scaffolds an entity: it reads the schema, writes
 `spec/{sub-system}/{Table}.md`, stops for confirmation, then builds both sides plus tests. Where it
-conflicts with this file, **this file wins** — it asks for Moq, a `RowAuditWriter` and a sticky
-`p-toolbar`, none of which exist here. Record any such deviation in the generated spec.
+conflicts with this file, **this file wins** — it asks for Moq and a `RowAuditWriter`, neither of
+which exists here, and for a sticky `p-toolbar` where the pinned bar is a `.sticky-toolbar` wrapped
+around the house `.page-header`. Record any such deviation in the generated spec.

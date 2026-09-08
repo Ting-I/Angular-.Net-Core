@@ -83,4 +83,45 @@ public class SysConfigJsonTests
         Assert.Equal("appConfig", SysConfigRepository.AppConfigKey);
         Assert.Equal("defaultPassword", SysConfigRepository.DefaultPasswordProperty);
     }
+
+    // ---------- symmetricSecurityKey (the JWT signing secret) ----------
+
+    [Fact]
+    public void ExtractSymmetricSecurityKey_ReadsTheProperty()
+    {
+        var value = SysConfigRepository.ExtractSymmetricSecurityKey(
+            """{"defaultPassword":"Uwa@2026","symmetricSecurityKey":"cloud4fun#123456cloud4fun#123456"}""");
+
+        Assert.Equal("cloud4fun#123456cloud4fun#123456", value);
+    }
+
+    [Fact]
+    public void ExtractSymmetricSecurityKey_MatchesThePropertyNameCaseInsensitively()
+    {
+        Assert.Equal("k", SysConfigRepository.ExtractSymmetricSecurityKey("""{"SymmetricSecurityKey":"k"}"""));
+    }
+
+    [Fact]
+    public void ExtractSymmetricSecurityKey_DoesNotFallBackToAnotherProperty()
+    {
+        Assert.Null(SysConfigRepository.ExtractSymmetricSecurityKey("""{"defaultPassword":"Uwa@2026"}"""));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json at all")]
+    [InlineData("""{"symmetricSecurityKey":""}""")]
+    [InlineData("""{"symmetricSecurityKey":12345}""")]
+    [InlineData("""["cloud4fun#123456cloud4fun#123456"]""")]
+    public void ExtractSymmetricSecurityKey_WhenUnusable_ReturnsNull(string? configValue)
+    {
+        Assert.Null(SysConfigRepository.ExtractSymmetricSecurityKey(configValue));
+    }
+
+    [Fact]
+    public void SigningKeyPropertyName_MatchesTheSpec()
+    {
+        Assert.Equal("symmetricSecurityKey", SysConfigRepository.SymmetricSecurityKeyProperty);
+    }
 }

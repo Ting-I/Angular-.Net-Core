@@ -12,6 +12,9 @@ public class SysConfigRepository : ISysConfigRepository
     /// <summary>The property inside that object holding the password given to new accounts.</summary>
     public const string DefaultPasswordProperty = "defaultPassword";
 
+    /// <summary>The property inside that object holding the JWT signing secret.</summary>
+    public const string SymmetricSecurityKeyProperty = "symmetricSecurityKey";
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public SysConfigRepository(IDbConnectionFactory connectionFactory)
@@ -20,24 +23,40 @@ public class SysConfigRepository : ISysConfigRepository
     }
 
     public async Task<string?> GetDefaultPasswordAsync(CancellationToken cancellationToken = default)
+        => ExtractDefaultPassword(await ReadAppConfigAsync(cancellationToken));
+
+    public async Task<string?> GetSymmetricSecurityKeyAsync(CancellationToken cancellationToken = default)
+        => ExtractSymmetricSecurityKey(await ReadAppConfigAsync(cancellationToken));
+
+    /// <summary>The raw configValue of the 'appConfig' row, or null when the row is missing.</summary>
+    private async Task<string?> ReadAppConfigAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
 
-        var configValue = await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
+        return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
             "SELECT configValue FROM SysConfig WHERE configKey = @ConfigKey",
             new { ConfigKey = AppConfigKey },
             cancellationToken: cancellationToken));
-
-        return ExtractDefaultPassword(configValue);
     }
 
+    /// <summary>Pulls defaultPassword out of the configValue JSON object.</summary>
+    public static string? ExtractDefaultPassword(string? configValue)
+        => ExtractStringProperty(configValue, DefaultPasswordProperty);
+
     /// <summary>
-    /// Pulls defaultPassword out of the configValue JSON object. Kept static and public so the
+    /// Pulls symmetricSecurityKey out of the configValue JSON object. Read on every login rather
+    /// than cached, so rotating the row rotates the signing key without a restart.
+    /// </summary>
+    public static string? ExtractSymmetricSecurityKey(string? configValue)
+        => ExtractStringProperty(configValue, SymmetricSecurityKeyProperty);
+
+    /// <summary>
+    /// Pulls one string property out of the configValue JSON object. Kept static and public so the
     /// parsing rules are unit testable without a database, the way the *Sql.BuildWhere helpers are.
     /// Returns null for every failure mode: no row, unparseable JSON, a JSON value that is not an
     /// object, a missing property, or a property that is not a non-empty string.
     /// </summary>
-    public static string? ExtractDefaultPassword(string? configValue)
+    public static string? ExtractStringProperty(string? configValue, string propertyName)
     {
         if (string.IsNullOrWhiteSpace(configValue))
         {
@@ -54,7 +73,7 @@ public class SysConfigRepository : ISysConfigRepository
 
             foreach (var property in document.RootElement.EnumerateObject())
             {
-                if (!string.Equals(property.Name, DefaultPasswordProperty, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -64,8 +83,8 @@ public class SysConfigRepository : ISysConfigRepository
                     return null;
                 }
 
-                var password = property.Value.GetString();
-                return string.IsNullOrWhiteSpace(password) ? null : password;
+                var value = property.Value.GetString();
+                return string.IsNullOrWhiteSpace(value) ? null : value;
             }
 
             return null;

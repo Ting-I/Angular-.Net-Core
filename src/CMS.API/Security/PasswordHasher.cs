@@ -21,4 +21,23 @@ public static class PasswordHasher
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(password));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
+
+    /// <summary>
+    /// True when the password hashes to the stored value. Hex case is ignored — rows written by
+    /// hand or by an older tool may hold uppercase — and the comparison is fixed-time so a login
+    /// cannot be timed character by character.
+    /// </summary>
+    public static bool Matches(string? password, string? storedHash)
+    {
+        if (string.IsNullOrEmpty(password) || string.IsNullOrWhiteSpace(storedHash))
+        {
+            return false;
+        }
+
+        var computed = Encoding.UTF8.GetBytes(Sha256Hex(password));
+        var stored = Encoding.UTF8.GetBytes(storedHash.Trim().ToLowerInvariant());
+
+        // FixedTimeEquals needs equal lengths; a length mismatch is already a mismatch.
+        return computed.Length == stored.Length && CryptographicOperations.FixedTimeEquals(computed, stored);
+    }
 }
