@@ -19,6 +19,7 @@ public class PartnerRepositoryAuditTests
 {
     private const string AuditInsert = "INSERT INTO RowAudit";
     private const string SnapshotRead = "FROM Partner p";
+    private const string OperatorRead = "FROM AppUser u";
 
     /// <summary>The columns PartnerSql.SelectRow projects, as the reader would hand them back.</summary>
     private static object Row(
@@ -49,9 +50,27 @@ public class PartnerRepositoryAuditTests
             ImageFilename = "alpha.png",
         };
 
-    private static (PartnerRepository Repository, FakeDbConnection Connection) Build()
+    /// <summary>
+    /// The repository and the real writer over one scripted connection.
+    ///
+    /// The operator's 使用者名稱 is read from AppUser on the caller's transaction, so every test
+    /// that writes an audit row consumes this script. <paramref name="storedUserName"/> is what
+    /// that read answers; the token claim says 系統管理員, so passing something else is how a test
+    /// asks which of the two the trail records.
+    /// </summary>
+    private static (PartnerRepository Repository, FakeDbConnection Connection) Build(
+        string? storedUserName = "系統管理員")
     {
         var connection = new FakeDbConnection();
+        if (storedUserName is null)
+        {
+            connection.ReturnsNoRows(OperatorRead);
+        }
+        else
+        {
+            connection.Returns(OperatorRead, new { UserName = storedUserName });
+        }
+
         var writer = new RowAuditWriter(
             new ThrowingDbConnectionFactory(),
             SignedIn("admin", "系統管理員"));
@@ -195,5 +214,54 @@ public class PartnerRepositoryAuditTests
         Assert.Empty(connection.ExecutedMatching("DELETE FROM Partner"));
         Assert.Empty(connection.ExecutedMatching(AuditInsert));
         Assert.Equal(0, Assert.Single(connection.Transactions).CommitCount);
+    }
+
+    [Fact]
+    public async Task AuditRow_NamesTheOperatorAsAppUserHoldsThemNow()
+    {
+        // The token was issued at login and still carries 系統管理員. A rename since then —
+        // their own, or an administrator's — is what the trail has to show, or every row
+        // written in the token's remaining 24 hours is filed under a name nobody has.
+        var (repository, connection) = Build(storedUserName: "改名後的管理員");
+        connection
+            .Returns(SnapshotRead, Row())
+            .ReturnsAffected("DELETE FROM Partner", 1)
+            .ReturnsAffected(AuditInsert, 1);
+
+        await repository.DeleteAsync(7);
+
+        Assert.Equal("改名後的管理員", connection.SingleExecuted(AuditInsert).Param("UserName"));
+    }
+
+    [Fact]
+    public async Task AuditRow_FallsBackToTheTokenWhenTheAccountIsGone()
+    {
+        // An operator deleting their own row, or a token outliving the account it names.
+        // The claim is stale by definition here, and it is still better than nothing:
+        // UserName is NOT NULL and the change did happen.
+        var (repository, connection) = Build(storedUserName: null);
+        connection
+            .Returns(SnapshotRead, Row())
+            .ReturnsAffected("DELETE FROM Partner", 1)
+            .ReturnsAffected(AuditInsert, 1);
+
+        await repository.DeleteAsync(7);
+
+        Assert.Equal("系統管理員", connection.SingleExecuted(AuditInsert).Param("UserName"));
+    }
+
+    [Fact]
+    public async Task Update_ThatChangedNothing_ReadsNoOperatorNameEither()
+    {
+        var (repository, connection) = Build();
+        connection
+            .Returns(SnapshotRead, Row())
+            .ReturnsAffected("UPDATE Partner", 1)
+            .Returns(SnapshotRead, Row());
+
+        Assert.True(await repository.UpdateAsync(Request()));
+
+        // LogUpdateAsync returns before resolving the name, so a no-op save costs no query.
+        Assert.Empty(connection.ExecutedMatching(OperatorRead));
     }
 }

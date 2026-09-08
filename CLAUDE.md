@@ -54,7 +54,9 @@ The ones that cost data or a rewrite when missed. The reference files carry the 
 - **Every Insert / Update / Delete writes a `RowAudit` row, on the same transaction.** Repositories
   call `IRowAuditWriter`; an update reads the "before" first and the "after" after, or the
   changed-column list is a guess. A rolled-back change must leave no trail entry claiming it
-  happened.
+  happened. **Who** did it is the token's `userId`; **what they are called** is read from `AppUser`
+  on that transaction — the `userName` claim is only as fresh as the login that issued it, and a
+  rename re-issues nothing.
 - **Credentials leave the server in exactly one shape: none.** `AuthSql.SelectCredential` is the
   only query selecting `PasswordHash`; keep it out of every other projection, response model and
   JWT payload. The client never hashes.

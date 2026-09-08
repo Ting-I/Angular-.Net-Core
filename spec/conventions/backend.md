@@ -276,9 +276,31 @@ reset, so the row is still written and a password change is never silent in the 
 **What is written.** `TableName` is the real table name (`"Course"`, `"FeaturedPromoItem"`), held as
 a `private const string TableName` on the repository. `PrimaryKeyValues` is the row's `pkid` — every
 table here carries one, including the two whose real key is something else. `ActionDesc` is the
-entity's first string property on insert and delete, and the changed-column list on update.
-`UserName` comes from the request's token via `IHttpContextAccessor`, never from a parameter — see
-`RowAuditWriter`. A save that changed nothing writes no row.
+entity's first string property on insert and delete, and the changed-column list on update. A save
+that changed nothing writes no row — and costs no query, because `LogUpdateAsync` returns before it
+resolves anything.
+
+**`UserName`: identity from the token, name from the row.** The operator is never a parameter — a
+repository is in no position to say who is signed in — so `RowAuditWriter` takes the `userId` claim
+off the validated principal through `IHttpContextAccessor`. It then reads 使用者名稱 from `AppUser`
+with `AppUserSql.SelectUserName`, because the `userName` claim is only ever as fresh as the login
+that issued it: `PUT /api/auth/profile` renames an account without re-issuing a token,
+`TokenFreshness` revokes on a password change and nothing else, and an administrator renaming
+somebody else could not re-issue their token at all. Trusting the claim files up to 24 hours of
+audit rows under a name the operator no longer has.
+
+That read runs **on the caller's transaction, or not at all**. A rename is audited by the very
+transaction that performed it, so the name has to be read from inside it — on any other connection
+the new value is invisible, and the read would block on the lock the rename holds until the
+caller's transaction commits, which it cannot do until the audit write returns. With no transaction
+to read on, or with the account gone (an operator deleting their own row), it falls back to the
+claim and then to `"system"`; the column is NOT NULL.
+
+**It is a direct query, not `IAppUserRepository.GetByIdAsync`.** Three reasons, and the first is
+fatal on its own: `AppUserRepository` takes an `IRowAuditWriter`, so injecting the repository back
+into the writer is a DI cycle. It also opens a connection of its own — see above — and runs
+`SelectBase` plus a second query for `RoleIds` to fetch one string. The audit INSERT itself is
+executed directly for the same reasons.
 
 **Two writes are audited that are not plain CRUD.** `CourseRepository.CopyAsync` audits as an
 Insert on the new pkid — a row that did not exist now does, and nothing is recorded against the

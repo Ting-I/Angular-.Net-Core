@@ -42,6 +42,17 @@ public static class AppUserSql
 
     public const string DefaultOrderBy = "ORDER BY u.UserId ASC";
 
+    /// <summary>
+    /// 使用者名稱 for one account, by key. Read by <see cref="RowAuditWriter"/> when it stamps an
+    /// audit row: the token's userName claim is only as fresh as the login that issued it, and a
+    /// rename does not re-issue a token.
+    /// </summary>
+    public const string SelectUserName = """
+        SELECT u.UserName
+        FROM AppUser u
+        WHERE u.UserId = @UserId
+        """;
+
     /// <summary>角色 — read on GetById only, on the same connection as the record.</summary>
     public const string SelectRoleIds = """
         SELECT ur.RoleId
