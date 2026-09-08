@@ -80,6 +80,63 @@ endpoint must not change (roles, there) is absent for the same reason, and the r
 narrowed to match: `UpdateUserNameAsync` writes one column, where `UpdateAsync` would rewrite
 `AppUserRole` from a request that carries no roles.
 
+`POST /api/auth/change-password` is the second endpoint on that controller and follows the same
+rule: `ChangePasswordRequest` carries three plaintext passwords and no key. Three things about it
+are deliberate.
+
+- **The credential read stays inside the action.** `IAuthRepository.GetCredentialAsync` is still
+  the only thing that returns a `PasswordHash`; the value it brings back is compared against
+  `PasswordHasher.Sha256Hex(current)` and goes no further. The response is `204` with no body, so
+  there is nowhere for a hash to leak even by accident.
+- **A wrong current password is a `400`, not a `401`.** The caller's token is perfectly good — the
+  password typed into a field is what was wrong. A `401` would trip the UI's interceptor into
+  clearing the session and bouncing to `/login`, throwing the operator out over a typo. Reserve the
+  `401` for the token itself.
+- **Order matters, and it is the spec's order.** Current password, then complexity, then the
+  confirmation, then the write. Answering the current-password failure first means a caller holding
+  a stolen token learns nothing about the policy without also knowing the password, and every arm
+  returns before `ResetPasswordAsync`, so a rejected request leaves `PasswordHash` and
+  `PasswordUpdatedTime` untouched.
+
+The complexity rule itself lives in `PasswordPolicy` — 8 characters and 3 of the 4 classes
+(uppercase / lowercase / digit / symbol), where "symbol" is everything that is not one of the other
+three, so a space or a 中文字 counts. `PasswordPolicy.RequirementMessage` is the exact Chinese
+wording the UI shows; it is the `ProblemDetails` `Title`, with the English sentence as `Detail`.
+The Angular form applies the same rule, but that is convenience — the API re-checks regardless.
+
+`ResetPasswordAsync` is what writes, not `UpdateAsync`: it sets `PasswordHash` and
+`PasswordUpdatedTime` and nothing else, where `UpdateAsync` would rewrite `AppUserRole` from a
+request that carries no roles. It is the same narrowing `UpdateUserNameAsync` exists for.
+
+### Changing a password revokes the tokens that came before it
+
+A signature and an unexpired `exp` are **not** the whole of validity here. `TokenFreshness`, wired
+as the JwtBearer `OnTokenValidated` event, also refuses a token whose `iat` predates the account's
+`AppUser.PasswordUpdatedTime` — so a password change signs out every session that was holding a
+token issued before it, everywhere, not just in the browser that made the change.
+
+- **It needs no schema change and no list of live tokens.** `PasswordUpdatedTime` already exists
+  and `ChangePassword` already writes it, so the row carries the moment every earlier token
+  stopped counting. `AuthSql.SelectPasswordUpdatedTime` reads one column on the primary key.
+- **It runs after the cryptographic checks**, so an unsigned or expired token never reaches the
+  query. That is one narrow read per *validated* request — the same shape of cost the signing-key
+  read already accepts, and for the same reason: the alternative is trusting a stale value.
+- **`context.Fail`, never a thrown exception.** A stale token has to produce the identical plain
+  401 a forged one does; anything else tells the caller which of the two it was holding.
+- **The stored time is truncated to the second before comparing**, because `iat` is whole seconds.
+  Skip that and a password changed at `10:00:00.400` rejects the token from the login at
+  `10:00:00.900` — whose `iat` floors to `10:00:00` — and the operator cannot sign back in at all.
+  The residue is a sub-second window in which a token issued earlier in the same second still
+  passes; anything from a second before the change does not.
+- **Two asymmetries are deliberate.** A `null` `PasswordUpdatedTime` proves nothing against the
+  token, so it passes and the endpoint answers for itself. A token with no readable `iat` fails
+  closed once the account *does* have a change to compare against — `JwtTokenService` always
+  stamps `iat`, so such a token did not come from here.
+
+The Angular side clears its session storage on a successful change as well, but that is
+housekeeping over a token the API has already stopped accepting — it is not the revocation, and a
+copy of the token taken elsewhere is refused just the same.
+
 ## Primary keys — check the schema, never assume
 
 `pkid int IDENTITY` is the common case, but two entities already break it in different ways. Read

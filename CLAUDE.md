@@ -66,7 +66,9 @@ The ones that cost data or a rewrite when missed; the reference files carry the 
   `401` for an unknown UserId, an `IsActive = 0` account and a wrong password, so the endpoint
   cannot be used to enumerate accounts; the JWT signing secret is the `symmetricSecurityKey` of the
   `SysConfig` `appConfig` JSON, read per login — and again per validated request — and never
-  hard-coded or cached.
+  hard-coded or cached. **A valid signature is not the whole of a valid token:** `TokenFreshness`
+  refuses one whose `iat` predates the account's `PasswordUpdatedTime`, so changing a password
+  signs out every session issued before it.
 - **Every endpoint needs a token; `AuthController` is the only exception.** Authorization is a
   global `FallbackPolicy`, so a new controller is protected by omission — don't add
   `[AllowAnonymous]` to reach one. On the UI side the token lives in **session** storage, an

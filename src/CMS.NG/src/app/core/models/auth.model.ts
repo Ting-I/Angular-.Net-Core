@@ -31,3 +31,16 @@ export interface UserProfile {
   userName: string;
   roleIds: string[];
 }
+
+/**
+ * 變更密碼 — body of POST /api/auth/change-password.
+ *
+ * Three plaintext passwords and, as with `ProfileRequest`, deliberately no `userId`: the server
+ * takes the account from the token. Nothing is hashed here — the browser never computes, holds or
+ * receives a `PasswordHash`.
+ */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}

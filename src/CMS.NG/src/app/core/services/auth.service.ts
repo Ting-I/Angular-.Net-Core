@@ -3,7 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import { environment } from '@env';
-import { AuthProfile, LoginRequest, ProfileRequest, UserProfile } from '@core/models/auth.model';
+import {
+  AuthProfile,
+  ChangePasswordRequest,
+  LoginRequest,
+  ProfileRequest,
+  UserProfile,
+} from '@core/models/auth.model';
 
 /**
  * Session storage, not local storage: the sign-in dies with the browser tab, so a shared machine
@@ -58,6 +64,27 @@ export class AuthService {
     return this.http
       .put<UserProfile>(`${this.baseUrl}/profile`, request)
       .pipe(tap((profile) => this.storeUserName(profile.userName)));
+  }
+
+  /**
+   * 變更密碼 — replaces the signed-in operator's own password.
+   *
+   * The account is the token's, so the request carries no key, and the API answers 204 with no
+   * body: no hash travels in either direction.
+   *
+   * **A success ends the session.** The API refuses the stored token from here on — it was signed
+   * before the password changed, and `TokenFreshness` compares every token's `iat` against
+   * `AppUser.PasswordUpdatedTime` — so keeping it would only mean the next request answering 401
+   * and the interceptor tidying up after the fact. Dropping it from this side rather than from
+   * the page means no caller can forget to, the same reason `updateProfile` folds the new name in
+   * here. Navigation is the caller's business, exactly as it is for `logout`.
+   *
+   * A failure leaves the session alone: nothing changed, and the operator is mid-retry.
+   */
+  changePassword(request: ChangePasswordRequest): Observable<void> {
+    return this.http
+      .post<void>(`${this.baseUrl}/change-password`, request)
+      .pipe(tap(() => this.clearSession()));
   }
 
   /**

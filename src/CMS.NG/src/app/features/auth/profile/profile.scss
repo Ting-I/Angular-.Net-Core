@@ -90,3 +90,19 @@
   color: #94a3b8;
   margin: 0 0 0.6rem;
 }
+
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+// p-password renders its own wrapper around the <input>, so the width has to be handed down
+// both levels or the field sits at PrimeNG's intrinsic size while the text inputs above it
+// stretch to the card.
+:host ::ng-deep .password-field {
+  width: 100%;
+
+  input {
+    width: 100%;
+  }
+}

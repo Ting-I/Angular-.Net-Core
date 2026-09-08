@@ -259,4 +259,77 @@ describe('AuthService', () => {
     expect(auth.isAuthenticated()).toBeFalse();
     expect(auth.roles()).toEqual([]);
   });
+
+  // ---------- 變更密碼 ----------
+
+  describe('changePassword', () => {
+    const changePasswordUrl = `${environment.apiUrl}/auth/change-password`;
+
+    const request = {
+      currentPassword: 'Uwa@2026',
+      newPassword: 'N3wPass!word',
+      confirmNewPassword: 'N3wPass!word',
+    };
+
+    function signIn(): AuthProfile {
+      const profile = fakeProfile('helen', 'Helen Lin', ['Admin', 'Editor']);
+      sessionStorage.setItem('auth-profile', JSON.stringify(profile));
+      return profile;
+    }
+
+    it('POSTs the three passwords, with no key in the body', () => {
+      signIn();
+
+      service().changePassword(request).subscribe();
+
+      const pending = httpMock.expectOne(changePasswordUrl);
+      expect(pending.request.method).toBe('POST');
+      expect(pending.request.body).toEqual(request);
+
+      pending.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('drops the session on success, token and all', () => {
+      signIn();
+      const auth = service();
+
+      auth.changePassword(request).subscribe();
+      httpMock
+        .expectOne(changePasswordUrl)
+        .flush(null, { status: 204, statusText: 'No Content' });
+
+      // The token was signed for a password that no longer exists, and the API will honour it for
+      // its full 24 hours regardless — so it is dropped here rather than left to expire.
+      expect(sessionStorage.getItem('auth-profile')).toBeNull();
+      expect(auth.isAuthenticated()).toBeFalse();
+      expect(auth.accessToken()).toBeNull();
+      expect(auth.userName()).toBe('');
+      expect(auth.roles()).toEqual([]);
+    });
+
+    it('does not clear the session before the API has answered', () => {
+      signIn();
+      const auth = service();
+
+      auth.changePassword(request).subscribe();
+
+      // The request is on the wire and unanswered; the interceptor still needs the token on it.
+      const pending = httpMock.expectOne(changePasswordUrl);
+      expect(auth.isAuthenticated()).toBeTrue();
+
+      pending.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('does not sign the operator out when the change is refused', () => {
+      signIn();
+      const auth = service();
+
+      auth.changePassword(request).subscribe({ error: () => undefined });
+      httpMock
+        .expectOne(changePasswordUrl)
+        .flush({ status: 400, title: '目前密碼錯誤' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(auth.isAuthenticated()).toBeTrue();
+    });
+  });
 });

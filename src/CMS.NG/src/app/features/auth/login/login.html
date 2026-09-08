@@ -5,6 +5,15 @@
       <h1>登入 Login</h1>
     </div>
 
+    @if (notice(); as message) {
+      <p-message
+        severity="success"
+        [text]="message"
+        styleClass="login-message"
+        data-testid="login-notice"
+      />
+    }
+
     @if (error(); as message) {
       <p-message severity="error" [text]="message" styleClass="login-error" />
     }

@@ -37,6 +37,9 @@ public class FakeAppUserRepository : IAppUserRepository
         return this;
     }
 
+    /// <summary>PasswordUpdatedTime for a user, or null when it was never set.</summary>
+    public DateTime? PasswordUpdatedTimeOf(string userId) => _users.GetValueOrDefault(userId)?.PasswordUpdatedTime;
+
     /// <summary>The stored hash, or null when the user does not exist.</summary>
     public string? PasswordHashOf(string userId) => _passwordHashes.GetValueOrDefault(userId);
 

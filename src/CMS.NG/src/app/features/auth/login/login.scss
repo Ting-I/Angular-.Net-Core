@@ -63,7 +63,8 @@
   font-size: 0.78rem;
 }
 
-::ng-deep .login-error {
+::ng-deep .login-error,
+::ng-deep .login-message {
   display: block;
   margin-bottom: 1.1rem;
 }

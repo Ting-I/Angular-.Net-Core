@@ -38,4 +38,18 @@ public class AuthRepository : IAuthRepository
         credential.RoleIds = roleIds.ToList();
         return credential;
     }
+
+    public async Task<DateTime?> GetPasswordUpdatedTimeAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+
+        // One column, one row, on the primary key. It runs once per authenticated request, so it
+        // has to stay this cheap.
+        return await connection.QuerySingleOrDefaultAsync<DateTime?>(new CommandDefinition(
+            AuthSql.SelectPasswordUpdatedTime,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+    }
 }

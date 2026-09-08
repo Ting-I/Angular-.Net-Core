@@ -46,13 +46,16 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>
     // ---------- Controller instance ----------
 
     /// <summary>A controller whose User is the token's ClaimsPrincipal, as the middleware sets it.</summary>
-    private static ProfileController CreateController(FakeAppUserRepository repository, string? signedInUserId)
+    private static ProfileController CreateController(
+        FakeAppUserRepository repository,
+        string? signedInUserId,
+        FakeAuthRepository? authRepository = null)
     {
         List<Claim> claims = signedInUserId is null
             ? []
             : [new Claim(JwtTokenService.UserIdClaimType, signedInUserId)];
 
-        return new ProfileController(repository)
+        return new ProfileController(repository, authRepository ?? new FakeAuthRepository())
         {
             ControllerContext = new ControllerContext
             {

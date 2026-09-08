@@ -141,6 +141,46 @@ the `<img>` and the saved file are the same PNG bytes. `course-detail` is the wo
   its now-stale `userName` claim is one more reason nothing may read a name from the claims. The
   page sits under the guarded parent with no role gate, and the top bar's `.topbar-link` is the way
   in.
+- 變更密碼 Change Password is a **second `<form>`** on the same page, not another section of the
+  first: forms do not nest, and each write has its own submit button, so saving a name cannot send
+  a password and vice versa. It posts `{ currentPassword, newPassword, confirmNewPassword }` to
+  `POST /api/auth/change-password` through `AuthService.changePassword`.
+  - **A successful change ends the session and returns to 登入.** The API has already stopped
+    honouring the stored token by then — `TokenFreshness` refuses anything signed before
+    `AppUser.PasswordUpdatedTime`, see `spec/conventions/backend.md` — so the client is tidying up
+    after a token that is already dead, not doing the revoking. Keeping it would only turn the
+    next click into a 401. `changePassword` drops it in a `tap`, the way `updateProfile` folds the
+    new name in from the same side: doing it in the service rather than the page means no future
+    caller can forget. Navigation stays the caller's business, exactly as it is for `logout`. A
+    **failure** leaves the session alone — nothing changed, and the operator is mid-retry.
+  - **The Profile page does not toast the success.** It is torn down by the navigation, so the
+    message would flash and vanish. It navigates to `LOGIN_ROUTE` with
+    `{ [LOGIN_REASON_PARAM]: PASSWORD_CHANGED_REASON }` instead, and `Login` renders
+    密碼已變更，請使用新密碼重新登入。 from that parameter — otherwise the operator sees an
+    unexplained sign-out. Both constants live in `core/guards/auth.guard.ts` beside `LOGIN_ROUTE`,
+    which the guard and the interceptor already share; `Login` reads the parameter once at
+    construction and clears the notice on the next submit so it cannot sit above a fresh
+    帳號或密碼錯誤.
+  - **The browser never hashes anything.** Three plaintext fields go up, `204` and an empty body
+    come back. A `PasswordHash` appears nowhere in `core/models/auth.model.ts`, and the fields are
+    cleared the moment the API answers.
+  - **Passwords are sent verbatim, never trimmed.** Leading or trailing whitespace is part of a
+    password; trimming it the way 使用者名稱 is trimmed would hash something the operator did not
+    type.
+  - `passwordComplexity` in `profile.ts` mirrors the server's `PasswordPolicy` — 8 characters and
+    3 of the 4 classes, with "symbol" meaning anything that is not upper, lower or a digit, so a
+    space or a 中文字 counts. `PASSWORD_RULE_MESSAGE` is word for word what the API answers with,
+    which is what lets the same sentence serve as the hint under 新密碼 before the rule is broken
+    and as the error once it is. Keep the two copies reading alike; the client one is convenience,
+    and the API is what actually refuses.
+  - The mismatch is a **group** validator, not a control one: neither field is wrong on its own,
+    and it stays quiet until the confirmation has been filled in rather than shouting at somebody
+    halfway through typing it.
+  - A rejection shows the API's `ProblemDetails` `title` as the toast detail — 目前密碼錯誤, the
+    complexity rule, or the mismatch — rather than a locally composed message, so the two sides
+    cannot drift apart. The fields are left as they are for the retry, and the operator stays on
+    the page. Only the failure toasts — this is the one write on the page whose success is
+    announced somewhere else entirely, because the success is also a sign-out.
 - **The name in the top bar is session state, not a per-page read** — it comes from the `auth-profile`
   entry written at login and is never re-fetched. So *any* page that renames the signed-in operator
   has to say so, or the shell shows the login-time name until the next sign-in. 使用者 AppUser is

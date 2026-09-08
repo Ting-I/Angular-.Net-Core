@@ -57,6 +57,11 @@ public sealed class ConfigureJwtBearerOptions : IConfigureNamedOptions<JwtBearer
                     await SysConfigSigningKeys.LoadAsync(context.HttpContext);
                 }
             },
+
+            // Signature and expiry are not the whole of validity here: a token signed against a
+            // password the account no longer has is refused too. It runs after the cryptographic
+            // checks, so the extra query only ever follows a token that was going to be accepted.
+            OnTokenValidated = TokenFreshness.ValidateAsync,
         };
     }
 }

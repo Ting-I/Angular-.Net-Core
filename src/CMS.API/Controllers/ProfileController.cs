@@ -16,8 +16,12 @@ namespace CMS.API.Controllers;
 /// fallback policy in Program.cs applies as it does to every other controller: protected by
 /// omission.
 ///
-/// The account written is the one the validated token names. Nothing in the request body selects a
-/// row, so the endpoint cannot be pointed at somebody else's account.
+/// The account written is the one the validated token names. Nothing in either request body
+/// selects a row, so neither endpoint can be pointed at somebody else's account.
+///
+/// PUT /api/auth/profile writes 使用者名稱; POST /api/auth/change-password writes PasswordHash and
+/// PasswordUpdatedTime. The second is the only place outside login that reads a stored hash, and
+/// no hash appears in either request or either response.
 /// </summary>
 [ApiController]
 [Route("api/auth")]
@@ -25,10 +29,12 @@ namespace CMS.API.Controllers;
 public class ProfileController : ControllerBase
 {
     private readonly IAppUserRepository _repository;
+    private readonly IAuthRepository _authRepository;
 
-    public ProfileController(IAppUserRepository repository)
+    public ProfileController(IAppUserRepository repository, IAuthRepository authRepository)
     {
         _repository = repository;
+        _authRepository = authRepository;
     }
 
     /// <summary>
@@ -47,14 +53,9 @@ public class ProfileController : ControllerBase
         var userId = User.FindFirstValue(JwtTokenService.UserIdClaimType);
         if (string.IsNullOrWhiteSpace(userId))
         {
-            // The middleware admits nothing without a validated token, so this is a token that
-            // passed validation yet carries no userId claim — nothing issued here does.
-            return Unauthorized(new ProblemDetails
-            {
-                Status = StatusCodes.Status401Unauthorized,
-                Title = "無法識別登入使用者",
-                Detail = "The access token carries no userId claim.",
-            });
+            // The middleware admits nothing without a validated token, so getting here means a
+            // token that passed validation yet carries no userId claim.
+            return NoUserIdClaim();
         }
 
         // Trimmed before it is judged, so a name of spaces fails the same check an empty one does.
@@ -91,4 +92,102 @@ public class ProfileController : ControllerBase
             RoleIds = user.RoleIds,
         });
     }
+
+    /// <summary>
+    /// 變更密碼 — replaces the signed-in operator's own password.
+    ///
+    /// Four gates, in the order the spec sets them out: the current password must hash to the
+    /// stored value, the new password must clear <see cref="PasswordPolicy"/>, the confirmation
+    /// must match it, and only then is anything written. Every failure returns before the write,
+    /// so a rejected request leaves PasswordHash and PasswordUpdatedTime exactly as they were.
+    ///
+    /// Answers 204, because there is nothing to return. No hash — neither the stored one nor the
+    /// new one — reaches the response, the same rule that keeps PasswordHash out of
+    /// <see cref="AppUserSql.SelectBase"/>.
+    /// </summary>
+    [HttpPost("change-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(JwtTokenService.UserIdClaimType);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return NoUserIdClaim();
+        }
+
+        // AuthSql.SelectCredential is the only query in the API that returns a hash; the value it
+        // brings back is compared here and goes no further.
+        var credential = await _authRepository.GetCredentialAsync(userId, cancellationToken);
+        if (credential is null)
+        {
+            // The token outlived the account it names — it is valid for 24 hours and the row can
+            // be deleted inside that window.
+            return NotFound();
+        }
+
+        // 1. The current password must match what is stored. A 400 rather than a 401: the caller's
+        // token is perfectly good, and a 401 would trip the UI's interceptor into clearing the
+        // session and bouncing to /login — throwing the operator out over a typo.
+        if (!PasswordHasher.Matches(request.CurrentPassword, credential.PasswordHash))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "目前密碼錯誤",
+                Detail = "The current password does not match the stored credential.",
+            });
+        }
+
+        // 2. Complexity of the new password.
+        if (!PasswordPolicy.IsAcceptable(request.NewPassword))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = PasswordPolicy.RequirementMessage,
+                Detail = PasswordPolicy.RequirementDetail,
+            });
+        }
+
+        // 3. Confirmation. Ordinal, so a password differing only in case or in a combining mark is
+        // a mismatch — what gets hashed is the byte sequence, and the login compare is exact too.
+        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "新密碼與確認新密碼不一致",
+                Detail = "NewPassword and ConfirmNewPassword must match.",
+            });
+        }
+
+        // 4. Write. ResetPasswordAsync sets PasswordHash and PasswordUpdatedTime and nothing else —
+        // not the name, and not the role assignments UpdateAsync would rewrite from a request that
+        // carries none.
+        if (!await _repository.ResetPasswordAsync(
+                userId,
+                PasswordHasher.Sha256Hex(request.NewPassword),
+                cancellationToken))
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// A token that passed validation yet carries no userId claim. Nothing issued here does, so
+    /// this is a token from elsewhere signed with the same key.
+    /// </summary>
+    private UnauthorizedObjectResult NoUserIdClaim() => Unauthorized(new ProblemDetails
+    {
+        Status = StatusCodes.Status401Unauthorized,
+        Title = "無法識別登入使用者",
+        Detail = "The access token carries no userId claim.",
+    });
 }

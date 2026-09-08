@@ -46,6 +46,11 @@ public class TestApiFactory : WebApplicationFactory<Program>
             Replace<IAuthRepository>(services, Auth);
             Replace<ISysConfigRepository>(services, SysConfig);
 
+            // In the API both repositories read the same AppUser row, so a password change is
+            // visible to the token-freshness check. The fakes hold separate stores; this restores
+            // the link, and is what lets a test prove an old token stops working after a change.
+            Auth.PasswordUpdatedTimeSource = AppUsers.PasswordUpdatedTimeOf;
+
             // The rest are here so an authenticated request to any controller can reach its action
             // and prove it was not the authorization middleware that answered.
             Replace<IPublishStatusRepository>(services, new FakePublishStatusRepository());
