@@ -127,6 +127,7 @@
 }
 
 .cell-editing {
+  position: relative;
   background: #f1f5f9;
   padding-top: 0.35rem;
   padding-bottom: 0.35rem;
@@ -145,4 +146,43 @@
   color: #ef4444;
   font-size: 0.75rem;
   white-space: normal;
+}
+
+/* The spinner overlays the right edge of the open editor while the GET + PUT are on the wire.
+   The editor is [disabled] for the same window, so the value cannot be changed under the save. */
+.cell-saving {
+  position: absolute;
+  top: 50%;
+  right: 1.1rem;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+/* A saved cell shows the same text the editor was already showing, so the fade is the only thing
+   that marks the write as having landed. Held briefly, then cleared by SAVED_FLASH_MS. */
+.cell-saved {
+  animation: cell-saved-fade 1200ms ease-out;
+}
+
+@keyframes cell-saved-fade {
+  0%,
+  40% {
+    background: #dcfce7;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Operators who have asked for less motion still get the colour, just without the fade. */
+@media (prefers-reduced-motion: reduce) {
+  .editable-cell.cell-saved {
+    animation: none;
+    background: #dcfce7;
+  }
+
+  .cell-saving {
+    animation: none;
+  }
 }

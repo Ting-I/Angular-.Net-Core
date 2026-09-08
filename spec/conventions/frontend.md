@@ -46,6 +46,13 @@ column table. A second entity that wants it should lift the pieces out rather th
 - **Validation failure keeps the cell open** with the message rendered under the editor; a **save
   failure closes it**, which is the revert — never write the row optimistically and there is
   nothing to roll back.
+- **A successful in-place save has to announce itself.** The response replaces the row and the
+  editor closes in the same tick, so the cell ends up showing the text the editor was already
+  showing — the save completes with nothing on screen changing. Toast `已儲存` **and** hold a brief
+  highlight on the cell: the toast says it was written, the highlight says which cell. Clear the
+  highlight when any editor opens, or a cell saved twice in a row flashes only the first time.
+- **Show the round trip.** Disable the editor and overlay a `pi-spin` spinner while the request is
+  on the wire, and make Escape inert for that window — a save already sent cannot be cancelled.
 - **`p-select` and `p-datepicker` move focus into their panel when it opens**, which fires the
   editor's blur. Guard `commit()` with a flag set from `(onShow)` and `(onHide)` / `(onClose)`, or
   the row saves the moment the operator opens the picker.
@@ -58,6 +65,13 @@ column table. A second entity that wants it should lift the pieces out rather th
 - A form rendered inside another component rather than on its own route takes its record and its
   position through `input()` and reports back through `output()` — see
   `featured-promo-item-form`, which the list renders inside the grid row it is editing.
+- **A long form pins its action bar.** `course-form` is the pattern: `.page-header` wrapped in a
+  `.form-toolbar` with `position: sticky; top: 0`, the wrapper carrying the background and the gap
+  to the first card so the form is not seen scrolling through them. This works only because
+  `.app-shell` is `height: 100dvh` and `.app-main` scrolls inside it — `.app-main` is a scrollport
+  either way, and a sticky child of one that never scrolls never sticks. Assert it with a computed
+  style, and against a real scrolling element; a spec that only checks the class name passes on a
+  bar that has stopped pinning.
 - An FK the operator knows by a code rather than a key is entered as text and resolved before the
   save: `p-autoComplete` fed by a search lookup, plus an exact by-code lookup whose `404` means
   "no such code" and blocks the save. Pre-fill only the text fields that are still empty, so an

@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -116,11 +116,18 @@ const EDITABLE_COLUMNS: Record<EditableField, EditableColumn> = {
   canRepeat: { kind: 'checkbox', label: '允許重聽' },
 };
 
-/** The one cell currently in edit mode. */
+/** Identifies one cell — the one being edited, or the one that was just written. */
 interface EditingCell {
   pkid: number;
   field: EditableField;
 }
+
+/**
+ * How long the green highlight stays on a cell that was just saved. The value only ever changes
+ * after the round trip, and the editor closes at the same moment, so the highlight is the one
+ * visible signal that the row was actually written.
+ */
+const SAVED_FLASH_MS = 1200;
 
 const EMPTY_FILTERS: CourseQuery = {
   keyword: null,
@@ -159,7 +166,7 @@ const EMPTY_FILTERS: CourseQuery = {
   templateUrl: './course-list.html',
   styleUrl: './course-list.scss',
 })
-export class CourseList implements OnInit {
+export class CourseList implements OnInit, OnDestroy {
   private readonly service = inject(CourseService);
   private readonly lookupService = inject(LookupService);
   private readonly route = inject(ActivatedRoute);
@@ -195,6 +202,10 @@ export class CourseList implements OnInit {
   protected readonly editError = signal<string | null>(null);
   protected readonly savingCell = signal(false);
 
+  /** The cell written by the last successful save; drives the fade-out highlight. */
+  protected readonly savedCell = signal<EditingCell | null>(null);
+  private savedFlashTimer: ReturnType<typeof setTimeout> | null = null;
+
   /**
    * True while a p-select / p-datepicker panel is open. Both components move focus into the
    * overlay when it opens, which fires the editor's blur — committing there would save the moment
@@ -217,6 +228,10 @@ export class CourseList implements OnInit {
   protected readonly copySource = signal<Course | null>(null);
   protected readonly copyError = signal<string | null>(null);
   protected copyCourseId = '';
+
+  ngOnDestroy(): void {
+    this.clearSavedFlash();
+  }
 
   ngOnInit(): void {
     this.restoreState();
@@ -377,6 +392,11 @@ export class CourseList implements OnInit {
     return cell !== null && cell.pkid === course.pkid && cell.field === field;
   }
 
+  protected isSaved(course: Course, field: string): boolean {
+    const cell = this.savedCell();
+    return cell !== null && cell.pkid === course.pkid && cell.field === field;
+  }
+
   /**
    * Opens a cell for editing. Bound to `dblclick` only — a single click has to stay free for
    * sorting, paging and the row action buttons, which is also why PrimeNG's own `pEditableColumn`
@@ -397,6 +417,11 @@ export class CourseList implements OnInit {
       return;
     }
 
+    // Ends any highlight still running. Re-adding a class an element already carries does not
+    // restart its CSS animation, so without this a cell saved twice inside the flash window would
+    // flash only the first time.
+    this.clearSavedFlash();
+
     this.editingCell.set({ pkid: course.pkid, field });
     this.editError.set(null);
     this.editorOverlayOpen.set(false);
@@ -406,6 +431,11 @@ export class CourseList implements OnInit {
 
   /** Escape — drops the draft and leaves the stored value on screen. */
   protected cancelEdit(): void {
+    // A save already on the wire cannot be called back, and closing here would let it land — and
+    // toast, and flash — behind a keystroke that reads as "cancel". The editor waits for the answer.
+    if (this.savingCell()) {
+      return;
+    }
     this.closeEditor();
   }
 
@@ -468,6 +498,20 @@ export class CourseList implements OnInit {
             rows.map((row) => (row.pkid === updated.pkid ? updated : row)),
           );
           this.closeEditor();
+
+          // The saved value is identical to what the editor was already showing, so without these
+          // two the completed save produces no visible change at all. The toast says the row was
+          // written; the highlight says which cell, which is what matters when several cells are
+          // edited one after another.
+          this.flashSaved(updated.pkid, field);
+          this.messageService.add({
+            severity: 'success',
+            summary: '已儲存',
+            // Record first, as every other toast in the app does, then the one thing a single-column
+            // write has that a whole-record save does not: which column. Read from the PUT response
+            // so editing 簡介代碼 or 課程名稱 reports the value just typed, not the stale one.
+            detail: `${updated.courseId} ${updated.title} — ${EDITABLE_COLUMNS[field].label}`,
+          });
         },
         error: (error: HttpErrorResponse) => {
           this.savingCell.set(false);
@@ -484,6 +528,28 @@ export class CourseList implements OnInit {
           });
         },
       });
+  }
+
+  /**
+   * Highlights the cell just written. The previous timer is cancelled first so that editing two
+   * cells in quick succession moves the highlight rather than letting the earlier one's timer cut
+   * the later one short.
+   */
+  private flashSaved(pkid: number, field: EditableField): void {
+    this.clearSavedFlash();
+    this.savedCell.set({ pkid, field });
+    this.savedFlashTimer = setTimeout(() => {
+      this.savedCell.set(null);
+      this.savedFlashTimer = null;
+    }, SAVED_FLASH_MS);
+  }
+
+  private clearSavedFlash(): void {
+    if (this.savedFlashTimer !== null) {
+      clearTimeout(this.savedFlashTimer);
+      this.savedFlashTimer = null;
+    }
+    this.savedCell.set(null);
   }
 
   private closeEditor(): void {

@@ -1,9 +1,15 @@
 <p-toast />
 <p-confirmDialog />
 
-<!-- Shared by every editable cell; there is only ever one open editor, so one message suffices. -->
-<ng-template #cellError>
-  @if (editError(); as error) {
+<!--
+  Shared by every editable cell; there is only ever one open editor, so one status block suffices.
+  The spinner is what tells the operator the two save requests are still on the wire — the editor
+  already shows the new value, so nothing else on screen would change until they land.
+-->
+<ng-template #cellStatus>
+  @if (savingCell()) {
+    <i class="pi pi-spin pi-spinner cell-saving" aria-label="儲存中"></i>
+  } @else if (editError(); as error) {
     <small class="cell-error">{{ error }}</small>
   }
 </ng-template>
@@ -101,6 +107,7 @@
         <td
           class="text-right editable-cell"
           [class.cell-editing]="isEditing(course, 'displayOrder')"
+          [class.cell-saved]="isSaved(course, 'displayOrder')"
           (dblclick)="startEdit(course, 'displayOrder')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -110,9 +117,10 @@
               [(ngModel)]="draft.number"
               [useGrouping]="false"
               ariaLabel="顯示順序"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.displayOrder }}
           }
@@ -121,6 +129,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'courseId')"
+          [class.cell-saved]="isSaved(course, 'courseId')"
           (dblclick)="startEdit(course, 'courseId')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -132,9 +141,10 @@
               maxlength="50"
               aria-label="簡介代碼"
               [(ngModel)]="draft.text"
+              [disabled]="savingCell()"
               (blur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.courseId }}
           }
@@ -143,6 +153,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'prodCourseId')"
+          [class.cell-saved]="isSaved(course, 'prodCourseId')"
           (dblclick)="startEdit(course, 'prodCourseId')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -154,9 +165,10 @@
               maxlength="50"
               aria-label="科目代碼"
               [(ngModel)]="draft.text"
+              [disabled]="savingCell()"
               (blur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.prodCourseId }}
           }
@@ -165,6 +177,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'title')"
+          [class.cell-saved]="isSaved(course, 'title')"
           (dblclick)="startEdit(course, 'title')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -176,9 +189,10 @@
               maxlength="200"
               aria-label="課程名稱"
               [(ngModel)]="draft.text"
+              [disabled]="savingCell()"
               (blur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.title }}
           }
@@ -190,6 +204,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'publishStatusPkid')"
+          [class.cell-saved]="isSaved(course, 'publishStatusPkid')"
           (dblclick)="startEdit(course, 'publishStatusPkid')"
           (keydown.escape)="cancelEdit()"
         >
@@ -203,9 +218,10 @@
               [(ngModel)]="draft.select"
               (onShow)="editorOverlayOpen.set(true)"
               (onHide)="editorOverlayOpen.set(false)"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.publishStatus?.description || '—' }}
           }
@@ -214,6 +230,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'scheduleOn')"
+          [class.cell-saved]="isSaved(course, 'scheduleOn')"
           (dblclick)="startEdit(course, 'scheduleOn')"
           (keydown.escape)="cancelEdit()"
         >
@@ -225,9 +242,10 @@
               [(ngModel)]="draft.date"
               (onShow)="editorOverlayOpen.set(true)"
               (onClose)="editorOverlayOpen.set(false)"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.scheduleOn | date: 'yyyy/MM/dd' }}
           }
@@ -236,6 +254,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'scheduleOff')"
+          [class.cell-saved]="isSaved(course, 'scheduleOff')"
           (dblclick)="startEdit(course, 'scheduleOff')"
           (keydown.escape)="cancelEdit()"
         >
@@ -247,9 +266,10 @@
               [(ngModel)]="draft.date"
               (onShow)="editorOverlayOpen.set(true)"
               (onClose)="editorOverlayOpen.set(false)"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.scheduleOff | date: 'yyyy/MM/dd' }}
           }
@@ -258,6 +278,7 @@
         <td
           class="text-right editable-cell"
           [class.cell-editing]="isEditing(course, 'hour')"
+          [class.cell-saved]="isSaved(course, 'hour')"
           (dblclick)="startEdit(course, 'hour')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -267,9 +288,10 @@
               [(ngModel)]="draft.number"
               [useGrouping]="false"
               ariaLabel="時數"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.hour }}
           }
@@ -278,6 +300,7 @@
         <td
           class="text-right editable-cell"
           [class.cell-editing]="isEditing(course, 'listPrice')"
+          [class.cell-saved]="isSaved(course, 'listPrice')"
           (dblclick)="startEdit(course, 'listPrice')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -287,9 +310,10 @@
               [(ngModel)]="draft.number"
               [maxFractionDigits]="0"
               ariaLabel="定價"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.listPrice | number: '1.0-0' }}
           }
@@ -298,6 +322,7 @@
         <td
           class="text-right editable-cell"
           [class.cell-editing]="isEditing(course, 'learningCredit')"
+          [class.cell-saved]="isSaved(course, 'learningCredit')"
           (dblclick)="startEdit(course, 'learningCredit')"
           (keydown.enter)="commit()"
           (keydown.escape)="cancelEdit()"
@@ -308,9 +333,10 @@
               [minFractionDigits]="1"
               [maxFractionDigits]="1"
               ariaLabel="點數"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             {{ course.learningCredit | number: '1.1-1' }}
           }
@@ -319,6 +345,7 @@
         <td
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'canRepeat')"
+          [class.cell-saved]="isSaved(course, 'canRepeat')"
           (dblclick)="startEdit(course, 'canRepeat')"
           (keydown.escape)="cancelEdit()"
         >
@@ -327,9 +354,10 @@
               [binary]="true"
               ariaLabel="允許重聽"
               [(ngModel)]="draft.checkbox"
+              [disabled]="savingCell()"
               (onBlur)="commit()"
             />
-            <ng-container [ngTemplateOutlet]="cellError" />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
           } @else {
             <p-tag
               [value]="course.canRepeat ? '是' : '否'"

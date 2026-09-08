@@ -1,9 +1,9 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { ConfirmationService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 
 import { environment } from '@env';
 import { CourseList } from './course-list';
@@ -953,6 +953,219 @@ describe('CourseList', () => {
 
       expect(api()['courses']()[0].hour).toBe(21);
       expect(api()['editingCell']()).toBeNull();
+    });
+
+    // --- save feedback ---
+
+    it('toasts 已儲存 naming the edited column and the course', () => {
+      initAndFlush();
+      const messageService = fixture.debugElement.injector.get(MessageService);
+      const add = spyOn(messageService, 'add');
+
+      openEditor(courses[0], 'title');
+      api()['draft'].text = 'Azure 進階管理';
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ title: 'Azure 進階管理' }));
+
+      expect(add).toHaveBeenCalledWith({
+        severity: 'success',
+        summary: '已儲存',
+        detail: 'AZ-104 Azure 進階管理 — 課程名稱',
+      });
+    });
+
+    it('highlights the saved cell and only that cell', () => {
+      initAndFlush();
+
+      openEditor(courses[0], 'hour');
+      api()['draft'].number = 28;
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28 }));
+      fixture.detectChanges();
+
+      expect(api()['savedCell']()).toEqual({ pkid: 1, field: 'hour' });
+      expect(cellAt(0, CELL.hour).classList).toContain('cell-saved');
+      expect(cellAt(0, CELL.title).classList).not.toContain('cell-saved');
+      expect(cellAt(1, CELL.hour).classList).not.toContain('cell-saved');
+    });
+
+    it('clears the highlight once the flash window has passed', fakeAsync(() => {
+      initAndFlush();
+
+      openEditor(courses[0], 'hour');
+      api()['draft'].number = 28;
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28 }));
+      expect(api()['savedCell']()).not.toBeNull();
+
+      // Also drains the startEdit focus timeout, so no timer is left in the queue.
+      tick(1200);
+      fixture.detectChanges();
+
+      expect(api()['savedCell']()).toBeNull();
+      expect(cellAt(0, CELL.hour).classList).not.toContain('cell-saved');
+    }));
+
+    it('moves the highlight to the second cell when two are saved in quick succession', fakeAsync(() => {
+      initAndFlush();
+
+      openEditor(courses[0], 'hour');
+      api()['draft'].number = 28;
+      api()['commit']();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28 }));
+
+      // Well inside the first flash window: the first timer must not cut the second one short.
+      tick(400);
+      openEditor(courses[0], 'listPrice');
+      api()['draft'].number = 30000;
+      api()['commit']();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28, listPrice: 30000 }));
+
+      tick(900);
+      expect(api()['savedCell']()).toEqual({ pkid: 1, field: 'listPrice' });
+
+      tick(400);
+      expect(api()['savedCell']()).toBeNull();
+      flush();
+    }));
+
+    it('locks the editor and shows a spinner while the save is in flight', async () => {
+      initAndFlush();
+
+      const cell = cellAt(0, CELL.title);
+      doubleClick(cell);
+      api()['draft'].text = 'Azure 進階管理';
+      api()['commit']();
+      fixture.detectChanges();
+
+      // Both requests are still outstanding at this point.
+      expect(api()['savingCell']()).toBeTrue();
+      expect(cell.querySelector('.cell-saving')).not.toBeNull();
+
+      // NgModel applies a [disabled] binding through setDisabledState on a microtask, so the
+      // attribute is not on the element until the queue drains.
+      await fixture.whenStable();
+      expect((cell.querySelector('input') as HTMLInputElement).disabled).toBeTrue();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ title: 'Azure 進階管理' }));
+      fixture.detectChanges();
+
+      expect(api()['savingCell']()).toBeFalse();
+      expect(cellAt(0, CELL.title).querySelector('.cell-saving')).toBeNull();
+    });
+
+    it('ignores a blur raised by the editor being disabled mid-save', () => {
+      initAndFlush();
+      openEditor(courses[0], 'title');
+
+      api()['draft'].text = 'Azure 進階管理';
+      api()['commit']();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+
+      // Disabling the focused input fires blur, which lands back on commit().
+      api()['commit']();
+
+      // Still exactly one PUT — the guard held. expectOne throws if a second was queued.
+      const put = httpMock.expectOne(baseUrl);
+      expect(put.request.body.title).toBe('Azure 進階管理');
+      put.flush(makeCourse({ title: 'Azure 進階管理' }));
+    });
+
+    it('neither toasts nor highlights when the save is rejected', () => {
+      initAndFlush();
+      const messageService = fixture.debugElement.injector.get(MessageService);
+      const add = spyOn(messageService, 'add');
+
+      openEditor(courses[0], 'title');
+      api()['draft'].text = 'Azure 進階管理';
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush('boom', { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(api()['savedCell']()).toBeNull();
+      expect(cellAt(0, CELL.title).classList).not.toContain('cell-saved');
+      expect(add).toHaveBeenCalledTimes(1);
+      expect(add.calls.mostRecent().args[0].severity).toBe('error');
+    });
+
+    it('does not toast when the value was unchanged and nothing was written', () => {
+      initAndFlush();
+      const messageService = fixture.debugElement.injector.get(MessageService);
+      const add = spyOn(messageService, 'add');
+
+      openEditor(courses[0], 'title');
+      api()['commit']();
+
+      httpMock.expectNone(`${baseUrl}/1`);
+      expect(add).not.toHaveBeenCalled();
+      expect(api()['savedCell']()).toBeNull();
+    });
+
+    it('drops the pending flash timer when the component is destroyed', fakeAsync(() => {
+      initAndFlush();
+
+      openEditor(courses[0], 'hour');
+      api()['draft'].number = 28;
+      api()['commit']();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28 }));
+
+      expect(api()['savedFlashTimer']).not.toBeNull();
+
+      fixture.destroy();
+
+      // Nothing is left to fire; a surviving timer would trip fakeAsync's queue check.
+      flush();
+      expect(api()['savedFlashTimer']).toBeNull();
+      expect(api()['savedCell']()).toBeNull();
+    }));
+
+    it('drops the highlight as soon as another editor opens, so a repeat save flashes again', () => {
+      initAndFlush();
+
+      openEditor(courses[0], 'hour');
+      api()['draft'].number = 28;
+      api()['commit']();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28 }));
+      expect(api()['savedCell']()).not.toBeNull();
+
+      // Re-adding a class the <td> already carries would not restart the animation, so the class
+      // has to come off before the same cell can flash a second time.
+      openEditor(courses[0], 'hour');
+      fixture.detectChanges();
+
+      expect(api()['savedCell']()).toBeNull();
+      expect(api()['savedFlashTimer']).toBeNull();
+      expect(cellAt(0, CELL.hour).classList).not.toContain('cell-saved');
+    });
+
+    it('ignores Escape while the save is on the wire', () => {
+      initAndFlush();
+      openEditor(courses[0], 'hour');
+
+      api()['draft'].number = 28;
+      api()['commit']();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+
+      // The PUT cannot be called back, so the editor must not close behind it.
+      api()['cancelEdit']();
+      expect(api()['editingCell']()).toEqual({ pkid: 1, field: 'hour' });
+
+      httpMock.expectOne(baseUrl).flush(makeCourse({ hour: 28 }));
+      expect(api()['editingCell']()).toBeNull();
+      expect(api()['courses']()[0].hour).toBe(28);
     });
   });
 });

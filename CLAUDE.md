@@ -72,6 +72,12 @@ running it non-interactively.
 - **QR codes go through `core/utils/qr-code.util.ts`** — `qrPngDataUrl` / `downloadDataUrl` wrap
   `qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so the
   `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
+- **Every successful write tells the operator.** `messageService.add` with the fixed verb as
+  `summary` (`已儲存` / `已刪除` / `已複製`) and the record's **own identifying text** as `detail` —
+  never generic wording. `<p-toast />` stays a bare tag; nothing sets `life` or `key`. Where the
+  write leaves the screen looking identical — an in-place edit closes showing the text the editor
+  was already showing — the toast is not enough on its own and the changed cell is highlighted too.
+  `spec/conventions/frontend.md` has the detail.
 - **Language split:** UI labels and validation messages are Traditional Chinese, usually paired with
   the English entity name (`角色 AppRole`, `權限等級`). Code, identifiers, comments and commit
   messages are English.

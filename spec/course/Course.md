@@ -817,11 +817,23 @@ not a key of it, so the read-only guard does not depend on the template alone.
   drops the draft.
 - Only one cell is open at a time; opening another commits the first through its blur.
 - A cell whose value is unchanged closes without calling the API.
+- While the two save requests are in flight the editor is `[disabled]` and a `pi-spin` spinner
+  overlays it. Escape is inert for that window — the PUT cannot be called back, and closing the
+  editor behind it would let the save land after a keystroke that reads as cancel.
 
 **Validation failure** keeps the cell in edit mode and renders the message as a `.cell-error`
 `<small>` under the editor. **Save failure** closes the editor, leaving the stored value on screen —
 the row is never written optimistically, so closing *is* the revert — and reports the error as a
 toast.
+
+**Success is announced twice, on purpose.** The PUT response replaces the row and the editor closes
+in the same tick, so the cell ends up showing exactly the text the editor was already showing —
+a completed save produces no visible change on its own. A `已儲存` toast carries
+`{courseId} {title} — {column label}` (record first, as every other toast in the app does, then the
+one thing a single-column write has that a whole-record save does not), and the cell holds a green
+wash for `SAVED_FLASH_MS` (1.2 s) so the operator can see *which* cell the toast is about. Opening
+any editor clears a running flash: re-adding a class the element already carries would not restart
+the animation, so the same cell saved twice inside the window would otherwise flash only once.
 
 **The save re-reads the record first.** `GET /courses/{pkid}` then `PUT /courses`. The list and
 query endpoints return `certificationPkids` and `jobCategoryPkids` empty (they are populated by GET
@@ -941,6 +953,28 @@ textareas to reach 定價.
 
 Reactive Forms throughout, with a `forkJoin` of the five lookups (and, in edit mode, the record) on
 init — the first feature where the `forkJoin` CLAUDE.md describes actually has parallel work to do.
+
+#### Pinned action bar
+
+The 取消 / 儲存 bar stays put while the form body scrolls under it, on both 新增 and 編輯 — the form
+is long enough that Save would otherwise be three screens up. `.page-header` is wrapped in a
+`.form-toolbar` that carries `position: sticky; top: 0; z-index: 10`.
+
+Two things it depends on:
+
+- **`.app-main` has to be the element that scrolls.** It was already a scrollport
+  (`overflow-x: auto` computes `overflow-y` to `auto` as well) but had no height of its own, so the
+  document scrolled instead and a sticky child of it could never stick. `app.scss` now gives
+  `.app-shell` `height: 100dvh` and `.app-main` `overflow: auto`, which also keeps the pin inside
+  the page content region — the sidebar scrolls separately and is never covered.
+- **The sticky box is the wrapper, not `.page-header`.** It carries the page background and the
+  1rem gap down to the first card as its own `padding-bottom`; a bare sticky `.page-header` leaves
+  that gap transparent and the form is seen scrolling through it.
+
+`top: 0` pins against the scrollport, which is a padding box — the bar lands just inside
+`.app-main`'s padding with nothing drawn above it, so it needs no negative margin bleeding out over
+that padding. `.page-header` also gained `flex-wrap: wrap`, so the buttons drop under the heading on
+a narrow window instead of overflowing the bar.
 
 ### Detail page
 
@@ -1072,7 +1106,11 @@ Hand-written fakes, not a mocking library (house rule).
   every validation arm (required text, over-length, cleared/NaN number, negative, fractional in a
   whole-number column, two decimals on 點數, cleared/unparsable date, 上架日期 after 下架日期 from
   either end, equal dates accepted, cleared 上架狀態) leaving the cell open with its message and
-  writing nothing; and a 500 and a 404 both reverting the cell.
+  writing nothing; and a 500 and a 404 both reverting the cell. Feedback: the 已儲存 toast
+  naming the record and the column, the highlight landing on the saved cell only and clearing both
+  on its timer (`fakeAsync`) and when the next editor opens, the editor disabled with a spinner
+  while the requests are outstanding, Escape inert for that window, and neither toast nor highlight
+  on an unchanged value or a rejected save.
 - `.../course-detail/course-detail.spec.ts` — loads the record, renders the nav-object links with
   the right hrefs, omits the course-group link when null, renders both n-n chip sets and the four
   counts, `404` path, no-id path, back/edit navigation; and the QR code — the URL built from the
@@ -1090,6 +1128,11 @@ Hand-written fakes, not a mocking library (house rule).
   `yyyy-MM-dd`, both pkid arrays sent); edit mode (主代碼 shown as text, PUT includes the key in the
   body, the loaded `scheduleOff` surviving the auto-default subscription, multiselects patched from
   the record); and the `ScheduleOn` → `ScheduleOff + 10 years` behaviour in add mode.
+  The pinned toolbar has its own three: the computed `position` / `top` / `z-index` on
+  `.form-toolbar` plus 取消 and 儲存 still inside it, asserted on **both** the add and the edit
+  form, and one that mounts the fixture in a real scrolling element and checks the bar sits at the
+  scrollport edge after scrolling. That last one is the only check that a rule declaring `sticky`
+  actually pins — it is inert without a scrolling ancestor, which is the failure mode here.
 - `app.spec.ts` — 課程管理 Course now renders three items.
 
 ---
@@ -1149,6 +1192,7 @@ Hand-written fakes, not a mocking library (house rule).
 | `src/CMS.NG/.../course-list.spec.ts` | Create |
 | `src/CMS.NG/.../course-detail.spec.ts` | Create |
 | `src/CMS.NG/.../course-form.spec.ts` | Create |
+| `src/CMS.NG/src/app/app.scss` | Modify — the shell owns the viewport so `.app-main` scrolls |
 | `src/CMS.NG/src/app/core/services/lookup.service.spec.ts` | Modify |
 | `src/CMS.NG/src/app/app.spec.ts` | Modify |
 
@@ -1165,8 +1209,10 @@ Hand-written fakes, not a mocking library (house rule).
   follow-up work, not a one-entity cross-cutting invention.
 - **No mocking library.** CLAUDE.md mandates hand-written fakes in `src/CMS.API.Tests/Fakes/`; the
   skill's suggestion of Moq is not followed.
-- **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature
-  matches them rather than introducing a second header pattern.
+- **A pinned action bar, but not a `p-toolbar`.** The Save / Cancel bar on the form is sticky as
+  the skill asks, but it stays the existing `.page-header` markup wrapped in a sticky
+  `.form-toolbar` rather than a `p-toolbar` — the other pages use `.page-header` and a second
+  header pattern is not worth the divergence. See **Form layout → Pinned action bar**.
 
 ### From `spec/sample1.spec.md`
 
