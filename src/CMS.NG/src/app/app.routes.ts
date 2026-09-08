@@ -138,5 +138,12 @@ export const routes: Routes = [
     loadComponent: () =>
       import('@features/app-users/app-user-form/app-user-form').then((m) => m.AppUserForm),
   },
+  {
+    path: 'featured-promo-items',
+    loadComponent: () =>
+      import('@features/featured-promo-items/featured-promo-item-list/featured-promo-item-list').then(
+        (m) => m.FeaturedPromoItemList,
+      ),
+  },
   { path: '**', redirectTo: 'app-roles' },
 ];

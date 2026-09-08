@@ -46,3 +46,18 @@ export function addYears(value: Date, years: number): Date {
   }
   return result;
 }
+
+/** Adds whole days in local time; the Date constructor normalises overflow across month ends. */
+export function addDays(value: Date, days: number): Date {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate() + days);
+}
+
+/**
+ * Local midnight of the Monday on or before `value`. JavaScript numbers Sunday as 0, so the
+ * offset is rotated to make Monday the first day of the week — Sunday belongs to the week that
+ * started six days earlier, not to a new one.
+ */
+export function startOfWeek(value: Date): Date {
+  const daysSinceMonday = (value.getDay() + 6) % 7;
+  return addDays(value, -daysSinceMonday);
+}

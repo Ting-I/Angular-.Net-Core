@@ -161,4 +161,113 @@ public class LookupsControllerTests
         Assert.Equal(3, jobCategories[0].Pkid);
         Assert.Equal("軟體開發", jobCategories[1].Description);
     }
+
+    [Fact]
+    public async Task GetTrainingCenters_ReturnsLookupListCarryingTheDefaultFlag()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            TrainingCenters =
+            [
+                new TrainingCenterLookup { Pkid = 1, Name = "台北", AppKey = "TPE", IsDefault = true },
+                new TrainingCenterLookup { Pkid = 2, Name = "新竹", AppKey = "HSC" },
+            ],
+        });
+
+        var result = await controller.GetTrainingCenters(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var centres = Assert.IsAssignableFrom<IEnumerable<TrainingCenterLookup>>(ok.Value).ToList();
+        Assert.Equal(2, centres.Count);
+        Assert.Equal("台北", centres[0].Name);
+        Assert.True(centres[0].IsDefault);
+        Assert.False(centres[1].IsDefault);
+    }
+
+    private static FakeLookupRepository PromotionRepository() => new()
+    {
+        Promotions =
+        [
+            new PromotionLookup
+            {
+                Pkid = 10,
+                PromoCode = "20251204_SkillTrainAI",
+                Topic = "成為能AI協作的程式設計師",
+                Description = "轉職就業養成班",
+            },
+            new PromotionLookup
+            {
+                Pkid = 11,
+                PromoCode = "251211_GoogleAI",
+                Topic = "Google AI工具一次掌握",
+                Description = "不需技術基礎",
+            },
+            new PromotionLookup
+            {
+                Pkid = 12,
+                PromoCode = "20251215_n8n",
+                Topic = "n8n自動化三部曲",
+                Description = "從自動化新手到企業級AI架構師",
+            },
+        ],
+    };
+
+    [Fact]
+    public async Task SearchPromotions_ReturnsCodesContainingTheKeywordNewestFirst()
+    {
+        var controller = new LookupsController(PromotionRepository());
+
+        var result = await controller.SearchPromotions("2025", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var promotions = Assert.IsAssignableFrom<IEnumerable<PromotionLookup>>(ok.Value).ToList();
+        Assert.Equal(["20251215_n8n", "20251204_SkillTrainAI"], promotions.Select(p => p.PromoCode).ToArray());
+    }
+
+    [Fact]
+    public async Task SearchPromotions_WithoutKeyword_ReturnsEverything()
+    {
+        var controller = new LookupsController(PromotionRepository());
+
+        var result = await controller.SearchPromotions(null, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(3, Assert.IsAssignableFrom<IEnumerable<PromotionLookup>>(ok.Value).Count());
+    }
+
+    /// <summary>The PromoCode → Promotion_pkid resolution the 上稿作業 form relies on.</summary>
+    [Fact]
+    public async Task GetPromotionByCode_WhenFound_ReturnsThePkidAndPrefillText()
+    {
+        var controller = new LookupsController(PromotionRepository());
+
+        var result = await controller.GetPromotionByCode("251211_GoogleAI", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var promotion = Assert.IsType<PromotionLookup>(ok.Value);
+        Assert.Equal(11, promotion.Pkid);
+        Assert.Equal("Google AI工具一次掌握", promotion.Topic);
+        Assert.Equal("不需技術基礎", promotion.Description);
+    }
+
+    [Fact]
+    public async Task GetPromotionByCode_TrimsTheCode()
+    {
+        var controller = new LookupsController(PromotionRepository());
+
+        var result = await controller.GetPromotionByCode("  20251215_n8n  ", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(12, Assert.IsType<PromotionLookup>(ok.Value).Pkid);
+    }
+
+    [Fact]
+    public async Task GetPromotionByCode_WhenMissing_Returns404()
+    {
+        var controller = new LookupsController(PromotionRepository());
+
+        var result = await controller.GetPromotionByCode("NOPE", CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
 }

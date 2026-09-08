@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '@env';
@@ -10,6 +10,8 @@ import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
 import { CertificationLookup } from '@core/models/certification-lookup.model';
 import { JobCategoryLookup } from '@core/models/job-category-lookup.model';
+import { TrainingCenterLookup } from '@core/models/training-center-lookup.model';
+import { PromotionLookup } from '@core/models/promotion-lookup.model';
 
 @Injectable({ providedIn: 'root' })
 export class LookupService {
@@ -42,5 +44,22 @@ export class LookupService {
 
   getJobCategories(): Observable<JobCategoryLookup[]> {
     return this.http.get<JobCategoryLookup[]>(`${this.baseUrl}/job-categories`);
+  }
+
+  getTrainingCenters(): Observable<TrainingCenterLookup[]> {
+    return this.http.get<TrainingCenterLookup[]>(`${this.baseUrl}/training-centers`);
+  }
+
+  /** Autocomplete feed: promotions whose PromoCode contains the keyword, newest first. */
+  searchPromotions(keyword: string): Observable<PromotionLookup[]> {
+    const params = new HttpParams().set('keyword', keyword);
+    return this.http.get<PromotionLookup[]>(`${this.baseUrl}/promotions`, { params });
+  }
+
+  /** Exact PromoCode → Promotion2 row. The code is a string key, so it is URL-encoded. */
+  getPromotionByCode(promoCode: string): Observable<PromotionLookup> {
+    return this.http.get<PromotionLookup>(
+      `${this.baseUrl}/promotions/${encodeURIComponent(promoCode)}`,
+    );
   }
 }

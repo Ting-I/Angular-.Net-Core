@@ -11,6 +11,8 @@ import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
 import { CertificationLookup } from '@core/models/certification-lookup.model';
 import { JobCategoryLookup } from '@core/models/job-category-lookup.model';
+import { TrainingCenterLookup } from '@core/models/training-center-lookup.model';
+import { PromotionLookup } from '@core/models/promotion-lookup.model';
 
 describe('LookupService', () => {
   let service: LookupService;
@@ -128,5 +130,57 @@ describe('LookupService', () => {
 
     expect(result?.length).toBe(2);
     expect(result?.[1].description).toBe('軟體開發');
+  });
+
+  it('getTrainingCenters() issues GET to the training-centers lookup route', () => {
+    let result: TrainingCenterLookup[] | undefined;
+    service.getTrainingCenters().subscribe((centres) => (result = centres));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/lookups/training-centers`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { pkid: 1, name: '台北', appKey: 'TPE', isDefault: true },
+      { pkid: 2, name: '新竹', appKey: 'HSC', isDefault: false },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[0].isDefault).toBeTrue();
+    expect(result?.[1].name).toBe('新竹');
+  });
+
+  it('searchPromotions() issues GET to the promotions lookup route with the keyword', () => {
+    let result: PromotionLookup[] | undefined;
+    service.searchPromotions('2025').subscribe((promotions) => (result = promotions));
+
+    const req = httpMock.expectOne(
+      (r) =>
+        r.url === `${environment.apiUrl}/lookups/promotions` && r.params.get('keyword') === '2025',
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      {
+        pkid: 12,
+        promoCode: '20251215_n8n',
+        topic: 'n8n自動化三部曲',
+        description: '從自動化新手',
+      },
+      { pkid: 10, promoCode: '20251204_SkillTrainAI', topic: '成為能AI協作', description: '轉職' },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[0].promoCode).toBe('20251215_n8n');
+  });
+
+  it('getPromotionByCode() issues GET to the encoded promo-code route', () => {
+    let result: PromotionLookup | undefined;
+    service.getPromotionByCode('2026/03 Promo&1').subscribe((promotion) => (result = promotion));
+
+    const req = httpMock.expectOne(
+      `${environment.apiUrl}/lookups/promotions/${encodeURIComponent('2026/03 Promo&1')}`,
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ pkid: 11, promoCode: '2026/03 Promo&1', topic: 'T', description: 'D' });
+
+    expect(result?.pkid).toBe(11);
   });
 });

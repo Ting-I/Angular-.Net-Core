@@ -1,4 +1,4 @@
-import { addYears, fromIso, toIso } from './date.util';
+import { addDays, addYears, fromIso, startOfWeek, toIso } from './date.util';
 
 describe('date.util', () => {
   describe('toIso', () => {
@@ -77,6 +77,49 @@ describe('date.util', () => {
       addYears(original, 10);
 
       expect(original.getFullYear()).toBe(2026);
+    });
+  });
+
+  describe('addDays', () => {
+    it('adds days and rolls across the month end', () => {
+      expect(toIso(addDays(new Date(2026, 2, 30), 3))).toBe('2026-04-02');
+    });
+
+    it('subtracts days and rolls across the year start', () => {
+      expect(toIso(addDays(new Date(2027, 0, 1), -4))).toBe('2026-12-28');
+    });
+
+    it('does not mutate its input', () => {
+      const original = new Date(2026, 2, 16);
+      addDays(original, 7);
+
+      expect(toIso(original)).toBe('2026-03-16');
+    });
+  });
+
+  describe('startOfWeek', () => {
+    /** 2026-03-16 is a Monday; every day through Sunday the 22nd maps back to it. */
+    it('returns the same day for a Monday', () => {
+      expect(toIso(startOfWeek(new Date(2026, 2, 16)))).toBe('2026-03-16');
+    });
+
+    it('returns the preceding Monday for a mid-week day', () => {
+      expect(toIso(startOfWeek(new Date(2026, 2, 19)))).toBe('2026-03-16');
+    });
+
+    it('treats Sunday as the last day of the week, not the first', () => {
+      expect(toIso(startOfWeek(new Date(2026, 2, 22)))).toBe('2026-03-16');
+    });
+
+    it('starts a new week on the following Monday', () => {
+      expect(toIso(startOfWeek(new Date(2026, 2, 23)))).toBe('2026-03-23');
+    });
+
+    it('returns local midnight', () => {
+      const monday = startOfWeek(new Date(2026, 2, 19, 15, 45));
+
+      expect(monday.getHours()).toBe(0);
+      expect(monday.getMinutes()).toBe(0);
     });
   });
 });

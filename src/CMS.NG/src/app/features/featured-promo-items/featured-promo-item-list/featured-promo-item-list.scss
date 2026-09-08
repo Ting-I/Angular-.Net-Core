@@ -1,0 +1,125 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.9rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.page-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+}
+
+.page-subtitle {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.page-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.page-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem 1rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+
+.week-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #1e293b;
+  min-width: 8rem;
+  text-align: center;
+}
+
+.week-grid.loading {
+  opacity: 0.6;
+}
+
+.day {
+  margin-bottom: 0.75rem;
+}
+
+.day-header {
+  margin: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+.slot-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  td {
+    padding: 0.25rem 0.5rem;
+    vertical-align: middle;
+  }
+}
+
+.slot-no {
+  width: 2rem;
+  text-align: center;
+  font-weight: 600;
+  color: #475569;
+}
+
+.slot-actions {
+  width: 12rem;
+  white-space: nowrap;
+}
+
+.slot-code,
+.slot-topic,
+.slot-description {
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.slot-code {
+  width: 20%;
+}
+
+.slot-topic {
+  width: 25%;
+}
+
+.slot-row.empty {
+  .slot-code,
+  .slot-topic,
+  .slot-description {
+    color: #cbd5e1;
+  }
+}
+
+.editor-row td {
+  padding: 0 0.5rem 0.5rem 2.5rem;
+}

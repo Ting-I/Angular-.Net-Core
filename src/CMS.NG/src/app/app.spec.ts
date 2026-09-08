@@ -78,6 +78,29 @@ describe('App', () => {
     ]);
   });
 
+  it('renders the 上稿作業 FeaturedPromoItem item once 首頁管理 Home is expanded', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as unknown as Record<string, any>;
+
+    expect(fixture.nativeElement.textContent).not.toContain('上稿作業 FeaturedPromoItem');
+
+    component['toggleGroup']('首頁管理 Home');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('上稿作業 FeaturedPromoItem');
+
+    const hrefs = Array.from(
+      fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
+    ).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual([
+      '/featured-promo-items',
+      '/app-roles',
+      '/publish-statuses',
+      '/app-users',
+    ]);
+  });
+
   it('collapses and expands a nav group', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

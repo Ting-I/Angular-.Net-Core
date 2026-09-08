@@ -1,0 +1,58 @@
+.inline-form {
+  border: 2px solid #1e293b;
+  border-radius: 6px;
+  background: #fff;
+  padding: 1rem 1.25rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  input {
+    width: 100%;
+  }
+}
+
+.lookup-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+
+  ::ng-deep .p-autocomplete,
+  ::ng-deep .p-autocomplete input {
+    width: 100%;
+  }
+
+  ::ng-deep .p-autocomplete {
+    flex: 1;
+  }
+}
+
+.required {
+  color: #ef4444;
+}
+
+.field-error {
+  color: #ef4444;
+  font-size: 0.78rem;
+}
+
+.field-hint {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+}

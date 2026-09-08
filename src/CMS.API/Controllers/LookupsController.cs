@@ -62,4 +62,34 @@ public class LookupsController : ControllerBase
     public async Task<ActionResult<IEnumerable<JobCategoryLookup>>> GetJobCategories(
         CancellationToken cancellationToken)
         => Ok(await _repository.GetJobCategoriesAsync(cancellationToken));
+
+    /// <summary>訓練中心 TrainingCenter lookup list — the 上稿作業 tabs.</summary>
+    [HttpGet("training-centers")]
+    [ProducesResponseType(typeof(IEnumerable<TrainingCenterLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<TrainingCenterLookup>>> GetTrainingCenters(
+        CancellationToken cancellationToken)
+        => Ok(await _repository.GetTrainingCentersAsync(cancellationToken));
+
+    /// <summary>活動 Promotion2 autocomplete — codes containing the keyword, newest first.</summary>
+    [HttpGet("promotions")]
+    [ProducesResponseType(typeof(IEnumerable<PromotionLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<PromotionLookup>>> SearchPromotions(
+        [FromQuery] string? keyword,
+        CancellationToken cancellationToken)
+        => Ok(await _repository.SearchPromotionsAsync(keyword, cancellationToken));
+
+    /// <summary>
+    /// Resolve one 活動代碼 PromoCode to its Promotion2 row. PromoCode is nvarchar, so the route has
+    /// no type constraint and the Angular service must encodeURIComponent it.
+    /// </summary>
+    [HttpGet("promotions/{promoCode}")]
+    [ProducesResponseType(typeof(PromotionLookup), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PromotionLookup>> GetPromotionByCode(
+        string promoCode,
+        CancellationToken cancellationToken)
+    {
+        var promotion = await _repository.GetPromotionByCodeAsync(promoCode, cancellationToken);
+        return promotion is null ? NotFound() : Ok(promotion);
+    }
 }
