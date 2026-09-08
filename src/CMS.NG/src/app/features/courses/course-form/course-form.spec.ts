@@ -125,6 +125,102 @@ describe('CourseForm', () => {
 
   afterEach(() => httpMock.verify());
 
+  /**
+   * The Save / Cancel bar is pinned with position: sticky on .sticky-toolbar rather than by any
+   * component state, so the assertion is on the computed style — a refactor that drops the rule
+   * fails here instead of only being visible by scrolling a long form in a browser.
+   */
+  function expectStickyToolbar(): void {
+    const toolbar: HTMLElement = fixture.nativeElement.querySelector('.sticky-toolbar');
+    expect(toolbar).withContext('the action toolbar renders').not.toBeNull();
+
+    const style = getComputedStyle(toolbar);
+    expect(style.position).toBe('sticky');
+    // top cancels the wrapper's own padding-top: that padding is the bleed out over .app-main's
+    // padding, and the negative inset is what lands the pinned box on the clip edge above it.
+    expect(parseFloat(style.paddingTop)).toBeGreaterThan(0);
+    expect(parseFloat(style.top))
+      .withContext('top has to negate the bleed, or the form shows above the bar')
+      .toBeCloseTo(-parseFloat(style.paddingTop), 1);
+    // Stacked over the form cards, so a field can never scroll on top of the buttons.
+    expect(style.zIndex).not.toBe('auto');
+    expect(Number(style.zIndex)).toBeGreaterThan(0);
+
+    // The buttons stay inside the pinned box — outside it they would scroll away with the form.
+    const labels: string[] = Array.from(
+      toolbar.querySelectorAll('.page-actions button'),
+      (button) => (button as HTMLElement).textContent?.trim() ?? '',
+    );
+    expect(labels.length).toBe(2);
+    expect(labels[0]).toContain('取消');
+    expect(labels[1]).toContain('儲存');
+  }
+
+  // ---------- Pinned action toolbar ----------
+
+  describe('sticky action toolbar', () => {
+    it('pins the Save / Cancel bar on the add form', async () => {
+      await setup(null);
+      init(null);
+
+      expectStickyToolbar();
+    });
+
+    it('pins the Save / Cancel bar on the edit form', async () => {
+      await setup('1');
+      init('1');
+
+      expectStickyToolbar();
+      // Still one bar, not a second one added alongside the 主代碼 heading.
+      expect(fixture.nativeElement.querySelectorAll('.sticky-toolbar').length).toBe(1);
+    });
+
+    /**
+     * position: sticky is inert unless an ancestor actually scrolls, which is why app.scss gives
+     * .app-shell the viewport height and lets .app-main scroll inside it. This stands in for that
+     * ancestor — padding included, because that padding is the subtle part: the scroll container
+     * clips at its padding box but pins sticky children to its content box, so the strip between
+     * the two shows the form scrolling past above the bar unless the bar is bled out over it.
+     */
+    it('holds the toolbar against the top edge of a scrolling content region', async () => {
+      await setup(null);
+      init(null);
+
+      const scroller = document.createElement('div');
+      scroller.style.cssText = 'height: 300px; overflow: auto; padding: 20px;';
+      document.body.appendChild(scroller);
+      scroller.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+
+      const toolbar: HTMLElement = fixture.nativeElement.querySelector('.sticky-toolbar');
+      const bar: HTMLElement = toolbar.querySelector('.page-header')!;
+      try {
+        expect(scroller.scrollHeight)
+          .withContext('the form has to overflow, or nothing is being tested')
+          .toBeGreaterThan(scroller.clientHeight + 400);
+
+        // No border on the scroller, so this is both its clip edge and its padding-box top.
+        const clipEdge = () => scroller.getBoundingClientRect().top;
+        const restingOffset = bar.getBoundingClientRect().top - clipEdge();
+
+        scroller.scrollTop = 400;
+
+        const above = toolbar.getBoundingClientRect().top - clipEdge();
+        expect(Math.abs(above))
+          .withContext(`${above}px of the form was left showing above the pinned toolbar`)
+          .toBeLessThan(1.5);
+
+        // And it pins where it already sat, rather than dropping by the container's padding.
+        const moved = bar.getBoundingClientRect().top - clipEdge() - restingOffset;
+        expect(Math.abs(moved))
+          .withContext(`the action bar jumped ${moved}px when it pinned`)
+          .toBeLessThan(1.5);
+      } finally {
+        scroller.remove();
+      }
+    });
+  });
+
   // ---------- Add mode ----------
 
   describe('add mode', () => {

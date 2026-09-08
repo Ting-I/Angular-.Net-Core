@@ -1168,4 +1168,124 @@ describe('CourseList', () => {
       expect(api()['courses']()[0].hour).toBe(28);
     });
   });
+
+  // ---------- Pinned action toolbar ----------
+
+  describe('sticky action toolbar', () => {
+    it('pins the 搜尋條件 / 新增 bar', () => {
+      initAndFlush();
+
+      const toolbar: HTMLElement = fixture.nativeElement.querySelector('.sticky-toolbar');
+      expect(toolbar).withContext('the action toolbar renders').not.toBeNull();
+
+      const style = getComputedStyle(toolbar);
+      expect(style.position).toBe('sticky');
+      // top cancels the wrapper's own padding-top: that padding is the bleed out over .app-main's
+      // padding, and the negative inset is what lands the pinned box on the clip edge above it.
+      expect(parseFloat(style.paddingTop)).toBeGreaterThan(0);
+      expect(parseFloat(style.top))
+        .withContext('top has to negate the bleed, or the table shows above the bar')
+        .toBeCloseTo(-parseFloat(style.paddingTop), 1);
+      // Over the table, so a row can never scroll on top of the buttons.
+      expect(style.zIndex).not.toBe('auto');
+      expect(Number(style.zIndex)).toBeGreaterThan(0);
+
+      // The buttons stay inside the pinned box — outside it they scroll away with the table.
+      const labels: string[] = Array.from(
+        toolbar.querySelectorAll('.page-actions button'),
+        (button) => (button as HTMLElement).textContent?.trim() ?? '',
+      );
+      expect(labels.length).toBe(2);
+      expect(labels[0]).toContain('搜尋條件');
+      expect(labels[1]).toContain('新增');
+    });
+
+    /**
+     * The same check course-form carries: position: sticky is inert unless an ancestor actually
+     * scrolls, and the scroll container clips at its padding box while pinning sticky children to
+     * its content box — so the strip between the two shows the table scrolling past above the bar
+     * unless the bar is bled out over it.
+     */
+    it('holds the toolbar against the top edge of a scrolling content region', () => {
+      const many = Array.from({ length: 20 }, (_, i) =>
+        makeCourse({ pkid: i + 1, title: `課程 ${i + 1}`, courseId: `C-${i + 1}` }),
+      );
+      initAndFlush(many);
+
+      // The table body has its own height now, so make it tall enough that the PAGE overflows —
+      // the short-viewport case the pinned bar exists for.
+      fixture.nativeElement.style.setProperty('--course-list-table-height', '1200px');
+      fixture.detectChanges();
+
+      const scroller = document.createElement('div');
+      scroller.style.cssText = 'height: 300px; overflow: auto; padding: 20px;';
+      document.body.appendChild(scroller);
+      scroller.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+
+      const toolbar: HTMLElement = fixture.nativeElement.querySelector('.sticky-toolbar');
+      const bar: HTMLElement = toolbar.querySelector('.page-header')!;
+      try {
+        expect(scroller.scrollHeight)
+          .withContext('the table has to overflow, or nothing is being tested')
+          .toBeGreaterThan(scroller.clientHeight + 400);
+
+        // No border on the scroller, so this is both its clip edge and its padding-box top.
+        const clipEdge = () => scroller.getBoundingClientRect().top;
+        const restingOffset = bar.getBoundingClientRect().top - clipEdge();
+
+        scroller.scrollTop = 400;
+
+        const above = toolbar.getBoundingClientRect().top - clipEdge();
+        expect(Math.abs(above))
+          .withContext(`${above}px of the table was left showing above the pinned toolbar`)
+          .toBeLessThan(1.5);
+
+        // And it pins where it already sat, rather than dropping by the container's padding.
+        const moved = bar.getBoundingClientRect().top - clipEdge() - restingOffset;
+        expect(Math.abs(moved))
+          .withContext(`the action bar jumped ${moved}px when it pinned`)
+          .toBeLessThan(1.5);
+      } finally {
+        scroller.remove();
+      }
+    });
+
+    /**
+     * The table header is the same trap one level down: PrimeNG marks the thead sticky whenever
+     * [scrollable] is set, but its container had no height, so it never pinned. scrollHeight is
+     * what gives the container one.
+     */
+    it('pins the table header inside the scrolling table body', () => {
+      const many = Array.from({ length: 40 }, (_, i) =>
+        makeCourse({ pkid: i + 1, title: `課程 ${i + 1}`, courseId: `C-${i + 1}` }),
+      );
+      initAndFlush(many);
+
+      // The shipped height is a viewport calc; pin it so the assertion does not depend on the
+      // size of the Karma window.
+      fixture.nativeElement.style.setProperty('--course-list-table-height', '240px');
+      fixture.detectChanges();
+
+      const container: HTMLElement = fixture.nativeElement.querySelector(
+        '.p-datatable-table-container',
+      );
+      const thead: HTMLElement = container.querySelector('.p-datatable-thead')!;
+
+      expect(getComputedStyle(thead).position).toBe('sticky');
+      expect(container.scrollHeight)
+        .withContext('the table has to overflow its container, or nothing is being tested')
+        .toBeGreaterThan(container.clientHeight + 100);
+
+      const offset = () => thead.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      expect(Math.abs(offset())).toBeLessThan(1.5);
+
+      container.scrollTop = 150;
+
+      const after = offset();
+      expect(Math.abs(after))
+        .withContext(`the header slid ${after}px out of the container when the rows scrolled`)
+        .toBeLessThan(1.5);
+    });
+  });
 });

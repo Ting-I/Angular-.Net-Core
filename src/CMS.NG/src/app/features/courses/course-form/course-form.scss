@@ -1,7 +1,14 @@
+@use '../../../../styles/sticky-toolbar' as toolbar;
+
+.sticky-toolbar {
+  @include toolbar.sticky-toolbar;
+}
+
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   background: #fff;
   border-radius: 8px;

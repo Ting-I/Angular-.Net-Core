@@ -756,14 +756,32 @@ Fourteen data columns plus 操作, exactly as requested:
 | 14 | 允許重聽 | `canRepeat` | `p-tag` 是／否 |
 | 15 | 操作 | — | 檢視 / 編輯 / 複製 / 刪除 |
 
-The table needs horizontal scrolling at this width: `[scrollable]="true"`, `scrollHeight="flex"`,
-and explicit `style="width: …"` on the narrow columns so the wide ones absorb the slack.
+The table needs horizontal scrolling at this width: `[scrollable]="true"`,
+`scrollHeight="var(--course-list-table-height)"`, and explicit `style="width: …"` on the narrow
+columns so the wide ones absorb the slack.
 
 PrimeNG sorts `pSortableColumn="partner.name"` through a dotted field path natively, so the nav
 object needs no flattening.
 
 Sortable, paginated `p-table`, `dataKey="pkid"`, default sort `{ field: 'displayOrder', order: 1 }`,
 default page `{ first: 0, rows: 20 }`, paginator on top, `rowsPerPageOptions [10, 20, 50, 100]`.
+
+The 搜尋條件 / 新增 bar is pinned, the same way and by the same mixin as the form's — see
+**Form layout → Pinned action bar** for the geometry.
+
+The column header pins under it, and it is the same trap one level down. `[scrollable]="true"`
+already puts `position: sticky` on the thead (PrimeNG sets it inline whenever the table is
+scrollable), but `.p-datatable-table-container` is a scrollport with no height of its own, so the
+header never pinned. `scrollHeight` gives the container a `max-height`; it is passed
+`var(--course-list-table-height)` so the measurement lives in `course-list.scss` next to the
+layout it is derived from rather than as a bare number in the template.
+
+That height is a budget — `calc(100dvh - 12.5rem)`, covering `.app-main`'s padding, the pinned
+toolbar and its gap, the card padding and the paginator. Being a little off is not a defect: the
+page then scrolls by the difference, which is exactly what the pinned toolbar absorbs. This is why
+it is a viewport calc rather than the `scrollHeight="flex"` the earlier draft of this spec called
+for — `flex` needs a definite-height flex chain through the host and the card, which is more
+fragile for the same result.
 
 **Filter drawer** (`p-drawer`, `position="right"`), in order: 關鍵字 `input pInputText`; 原廠,
 課程群組 and 上架狀態 `p-select` (each `appendTo="body"`, each `[filter]="true"` — partner and course
@@ -958,23 +976,32 @@ init — the first feature where the `forkJoin` CLAUDE.md describes actually has
 
 The 取消 / 儲存 bar stays put while the form body scrolls under it, on both 新增 and 編輯 — the form
 is long enough that Save would otherwise be three screens up. `.page-header` is wrapped in a
-`.form-toolbar` that carries `position: sticky; top: 0; z-index: 10`.
+`.sticky-toolbar` that carries `position: sticky`. The list page pins its 搜尋條件 / 新增 bar the
+same way, so the mechanics are a mixin in `src/styles/_sticky-toolbar.scss` that both `@include`
+rather than a block copied into each — a mixin and not a global class because the wrapper zeroes
+the `margin-bottom` of the `.page-header` it wraps, and a global rule loses that specificity tie to
+the component stylesheet declaring `.page-header`.
 
-Two things it depends on:
+Three things it depends on:
 
 - **`.app-main` has to be the element that scrolls.** It was already a scrollport
   (`overflow-x: auto` computes `overflow-y` to `auto` as well) but had no height of its own, so the
   document scrolled instead and a sticky child of it could never stick. `app.scss` now gives
   `.app-shell` `height: 100dvh` and `.app-main` `overflow: auto`, which also keeps the pin inside
   the page content region — the sidebar scrolls separately and is never covered.
-- **The sticky box is the wrapper, not `.page-header`.** It carries the page background and the
-  1rem gap down to the first card as its own `padding-bottom`; a bare sticky `.page-header` leaves
-  that gap transparent and the form is seen scrolling through it.
+- **The bar has to be bled out over `.app-main`'s padding.** A scroll container clips at its
+  padding box but pins sticky children to its **content** box, so the 1.25rem between the two is
+  visible and the form scrolls through it — a strip of live form above the pinned bar. The wrapper
+  takes `margin-top: calc(-1 * var(--app-main-padding))` to cover that strip, `padding-top` of the
+  same amount to put the white bar back where it was, and `top` of the negated amount so the pinned
+  box lands on the clip edge instead of 1.25rem below it. `.app-main` publishes the measurement as
+  `--app-main-padding` rather than the two files each hard-coding `1.25rem`.
+- **The sticky box is the wrapper, not `.page-header`.** Besides the bleed, it carries the 1rem gap
+  down to the first card as its own `padding-bottom`; a bare sticky `.page-header` leaves that gap
+  transparent and the form is seen scrolling through it too.
 
-`top: 0` pins against the scrollport, which is a padding box — the bar lands just inside
-`.app-main`'s padding with nothing drawn above it, so it needs no negative margin bleeding out over
-that padding. `.page-header` also gained `flex-wrap: wrap`, so the buttons drop under the heading on
-a narrow window instead of overflowing the bar.
+`.page-header` also gained `flex-wrap: wrap`, so the buttons drop under the heading on a narrow
+window instead of overflowing the bar.
 
 ### Detail page
 
@@ -1097,6 +1124,11 @@ Hand-written fakes, not a mocking library (house rule).
   restores session state; an incoming `?partnerPkid=` overriding only that saved filter; query
   failure; add/view/edit navigation; the copy dialog's success and `409` paths; delete on confirm;
   and the 409 toast.
+- `.../course-list/course-list.spec.ts` (pinned toolbar) — the same two the form carries, against
+  `.sticky-toolbar`: the computed `position` / `top` / `z-index` with 搜尋條件 and 新增 inside it,
+  and the scrolling-element check that the bar sits on the clip edge with nothing above it. A third
+  covers the table header: with the height pinned to a fixed value so it does not depend on the
+  Karma window, the thead is sticky and stays at the container top once the rows scroll.
 - `.../course-list/course-list.spec.ts` (inline editing) — a double-click opening an editor and a
   single click not opening one; the three read-only columns carrying neither `.editable-cell` nor
   an editor, and `startEdit` refusing a field outside `EDITABLE_COLUMNS`; a blur on the editor
@@ -1129,10 +1161,13 @@ Hand-written fakes, not a mocking library (house rule).
   body, the loaded `scheduleOff` surviving the auto-default subscription, multiselects patched from
   the record); and the `ScheduleOn` → `ScheduleOff + 10 years` behaviour in add mode.
   The pinned toolbar has its own three: the computed `position` / `top` / `z-index` on
-  `.form-toolbar` plus 取消 and 儲存 still inside it, asserted on **both** the add and the edit
-  form, and one that mounts the fixture in a real scrolling element and checks the bar sits at the
-  scrollport edge after scrolling. That last one is the only check that a rule declaring `sticky`
-  actually pins — it is inert without a scrolling ancestor, which is the failure mode here.
+  `.sticky-toolbar` — `top` asserted against the negated `padding-top`, since one cancelling the
+  other is the whole bleed — plus 取消 and 儲存 still inside it, both asserted on **both** the add
+  and the edit form. The third mounts the fixture in a real scrolling element **with padding** and
+  checks, after scrolling, that the bar sits on the clip edge with nothing above it and that it
+  has not jumped from where it rested. Only that one can catch either real failure: a rule that
+  declares `sticky` is inert without a scrolling ancestor, and the padding strip above the bar is
+  invisible to any assertion on the declared style.
 - `app.spec.ts` — 課程管理 Course now renders three items.
 
 ---
@@ -1193,6 +1228,7 @@ Hand-written fakes, not a mocking library (house rule).
 | `src/CMS.NG/.../course-detail.spec.ts` | Create |
 | `src/CMS.NG/.../course-form.spec.ts` | Create |
 | `src/CMS.NG/src/app/app.scss` | Modify — the shell owns the viewport so `.app-main` scrolls |
+| `src/CMS.NG/src/styles/_sticky-toolbar.scss` | Create — the pinned action bar, shared by both pages |
 | `src/CMS.NG/src/app/core/services/lookup.service.spec.ts` | Modify |
 | `src/CMS.NG/src/app/app.spec.ts` | Modify |
 
@@ -1211,7 +1247,7 @@ Hand-written fakes, not a mocking library (house rule).
   skill's suggestion of Moq is not followed.
 - **A pinned action bar, but not a `p-toolbar`.** The Save / Cancel bar on the form is sticky as
   the skill asks, but it stays the existing `.page-header` markup wrapped in a sticky
-  `.form-toolbar` rather than a `p-toolbar` — the other pages use `.page-header` and a second
+  `.sticky-toolbar` rather than a `p-toolbar` — the other pages use `.page-header` and a second
   header pattern is not worth the divergence. See **Form layout → Pinned action bar**.
 
 ### From `spec/sample1.spec.md`

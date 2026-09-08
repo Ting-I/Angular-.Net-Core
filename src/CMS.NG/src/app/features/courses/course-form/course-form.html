@@ -1,28 +1,30 @@
 <p-toast />
 
 <form [formGroup]="form" (ngSubmit)="save()">
-  <div class="page-header">
-    <h1>
-      {{ isEdit() ? '編輯課程' : '新增課程' }}
-      @if (isEdit() && pkid() !== null) {
-        <span class="page-key">主代碼 {{ pkid() }}</span>
-      }
-    </h1>
-    <div class="page-actions">
-      <p-button
-        label="取消"
-        icon="pi pi-times"
-        severity="secondary"
-        type="button"
-        (onClick)="cancel()"
-      />
-      <p-button
-        label="儲存"
-        icon="pi pi-check"
-        severity="success"
-        type="submit"
-        [loading]="saving()"
-      />
+  <div class="sticky-toolbar">
+    <div class="page-header">
+      <h1>
+        {{ isEdit() ? '編輯課程' : '新增課程' }}
+        @if (isEdit() && pkid() !== null) {
+          <span class="page-key">主代碼 {{ pkid() }}</span>
+        }
+      </h1>
+      <div class="page-actions">
+        <p-button
+          label="取消"
+          icon="pi pi-times"
+          severity="secondary"
+          type="button"
+          (onClick)="cancel()"
+        />
+        <p-button
+          label="儲存"
+          icon="pi pi-check"
+          severity="success"
+          type="submit"
+          [loading]="saving()"
+        />
+      </div>
     </div>
   </div>
 

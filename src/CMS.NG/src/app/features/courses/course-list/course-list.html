@@ -14,20 +14,22 @@
   }
 </ng-template>
 
-<div class="page-header">
-  <div class="page-title">
-    <h1>課程 Course</h1>
-    <span class="page-subtitle">訓練課程主資料</span>
-  </div>
-  <div class="page-actions">
-    <p-button
-      label="搜尋條件"
-      icon="pi pi-filter"
-      severity="secondary"
-      [badge]="hasActiveFilters ? activeFilterCount.toString() : undefined"
-      (onClick)="openFilterDrawer()"
-    />
-    <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+<div class="sticky-toolbar">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>課程 Course</h1>
+      <span class="page-subtitle">訓練課程主資料</span>
+    </div>
+    <div class="page-actions">
+      <p-button
+        label="搜尋條件"
+        icon="pi pi-filter"
+        severity="secondary"
+        [badge]="hasActiveFilters ? activeFilterCount.toString() : undefined"
+        (onClick)="openFilterDrawer()"
+      />
+      <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+    </div>
   </div>
 </div>
 
@@ -43,6 +45,7 @@
     [sortOrder]="sort.order"
     [totalRecords]="courses().length"
     [scrollable]="true"
+    scrollHeight="var(--course-list-table-height)"
     dataKey="pkid"
     currentPageReportTemplate="{first}–{last} 筆，共 {totalRecords} 筆"
     [showCurrentPageReport]="true"

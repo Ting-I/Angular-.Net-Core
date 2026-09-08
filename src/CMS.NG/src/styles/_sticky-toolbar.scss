@@ -1,0 +1,33 @@
+/* The pinned page action bar, shared by the pages that have one.
+
+   A mixin rather than a global `.sticky-toolbar` class: the bar has to zero the `margin-bottom` of
+   the `.page-header` it wraps, and every page declares `.page-header` in its own component
+   stylesheet. Those are injected after the global sheet at equal specificity, so a global rule
+   would lose the tie. Compiled into the component, the nested rule carries that component's
+   encapsulation attributes and wins.
+
+   The geometry: `.app-main` clips at its padding box but pins sticky children against its content
+   box, so the 1.25rem between the two would show the page scrolling past above the bar. The
+   wrapper is pulled up over that padding by the negative margin, puts it back as its own padding,
+   and carries the same amount as a negative `top` so the pinned box lands on the clip edge. Net
+   effect: the bar holds exactly the position it has unscrolled, with nothing drawn above it.
+
+   `$gap` is the space down to the content below, held as the wrapper's own padding so that strip
+   is covered too — as a margin it would collapse out and the page would be seen scrolling
+   through it. */
+@mixin sticky-toolbar($gap: 1rem) {
+  --toolbar-bleed: var(--app-main-padding, 1.25rem);
+
+  position: sticky;
+  top: calc(-1 * var(--toolbar-bleed));
+  // Over the page content below it, and under PrimeNG's body-level overlays.
+  z-index: 10;
+  margin-top: calc(-1 * var(--toolbar-bleed));
+  padding-top: var(--toolbar-bleed);
+  padding-bottom: $gap;
+  background: var(--p-surface-50);
+
+  .page-header {
+    margin-bottom: 0;
+  }
+}

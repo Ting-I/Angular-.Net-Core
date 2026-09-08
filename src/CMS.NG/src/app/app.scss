@@ -2,10 +2,16 @@
    uppercase group labels, rounded menu items, primary-tinted active state.
    Colours come from PrimeNG theme tokens so the shell follows the active preset. */
 
+/* The shell owns the viewport and .app-main scrolls inside it, rather than the document
+   scrolling as a whole. A page that pins a toolbar with position: sticky needs that: .app-main is
+   already a scrollport (overflow-x: auto), and a sticky child of a scrollport that never scrolls
+   itself never sticks. Giving the shell the viewport height makes .app-main the region that
+   actually scrolls, and keeps the sidebar out of the pinned toolbar's way. */
 .app-shell {
   display: grid;
   grid-template-columns: 16rem 1fr;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   background: var(--p-surface-50);
   transition: grid-template-columns 0.2s ease;
 
@@ -154,6 +160,10 @@
 }
 
 .app-main {
-  padding: 1.25rem;
-  overflow-x: auto;
+  /* Published so a sticky child can bleed back out over it — the padding area is inside the
+     clip edge, so content scrolls visibly through it unless something covers it. */
+  --app-main-padding: 1.25rem;
+
+  padding: var(--app-main-padding);
+  overflow: auto;
 }

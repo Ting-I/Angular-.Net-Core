@@ -1,3 +1,22 @@
+@use '../../../../styles/sticky-toolbar' as toolbar;
+
+.sticky-toolbar {
+  @include toolbar.sticky-toolbar;
+}
+
+/* The table body is what scrolls, so its header pins under the toolbar instead of scrolling away.
+   PrimeNG puts position: sticky on the thead whenever [scrollable] is set, but its container has
+   no height of its own, and a sticky child of a scrollport that never scrolls never sticks — the
+   same trap as the page bar. scrollHeight gives the container a max-height; it reads this so the
+   measurement sits next to the layout it is derived from.
+
+   The budget: .app-main padding (2.5rem), the pinned toolbar and its gap (5.5rem), the card
+   padding (1rem) and the paginator (3.5rem). Being a little off is not a defect — the page then
+   scrolls by the difference, which is what the pinned toolbar is there to absorb. */
+:host {
+  --course-list-table-height: calc(100dvh - 12.5rem);
+}
+
 .page-header {
   display: flex;
   align-items: center;

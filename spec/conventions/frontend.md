@@ -65,13 +65,22 @@ column table. A second entity that wants it should lift the pieces out rather th
 - A form rendered inside another component rather than on its own route takes its record and its
   position through `input()` and reports back through `output()` — see
   `featured-promo-item-form`, which the list renders inside the grid row it is editing.
-- **A long form pins its action bar.** `course-form` is the pattern: `.page-header` wrapped in a
-  `.form-toolbar` with `position: sticky; top: 0`, the wrapper carrying the background and the gap
-  to the first card so the form is not seen scrolling through them. This works only because
-  `.app-shell` is `height: 100dvh` and `.app-main` scrolls inside it — `.app-main` is a scrollport
-  either way, and a sticky child of one that never scrolls never sticks. Assert it with a computed
-  style, and against a real scrolling element; a spec that only checks the class name passes on a
-  bar that has stopped pinning.
+- **A page with an action bar pins it.** `course-form` and `course-list` both do: `.page-header`
+  wrapped in a sticky `.sticky-toolbar` carrying the page background, the gap down to the content
+  below, and a bleed out over `.app-main`’s padding. The mechanics live in one place,
+  `src/styles/_sticky-toolbar.scss`, as a mixin each page `@include`s — a mixin rather than a
+  global class because the bar zeroes the `margin-bottom` of the `.page-header` it wraps, and a
+  global rule loses that specificity tie to the component stylesheet that declares `.page-header`. Two things bite here, and both look fine in a screenshot of an
+  unscrolled page:
+  - `.app-main` is a scrollport either way (`overflow-x: auto` computes `overflow-y` to `auto`),
+    and a sticky child of one that never scrolls never sticks. It scrolls because `.app-shell` is
+    `height: 100dvh`.
+  - A scroll container clips at its padding box but pins sticky children to its **content** box,
+    so the padding between them shows the page scrolling past **above** the pinned bar. Cancel it
+    with `margin-top: calc(-1 * var(--app-main-padding))`, the same value as `padding-top`, and
+    `top` set to the negated value.
+  Assert both against a real scrolling element **with padding**, not just on the computed style —
+  a spec that only reads back `position: sticky` passes on a bar that pins in the wrong place.
 - An FK the operator knows by a code rather than a key is entered as text and resolved before the
   save: `p-autoComplete` fed by a search lookup, plus an exact by-code lookup whose `404` means
   "no such code" and blocks the save. Pre-fill only the text fields that are still empty, so an
