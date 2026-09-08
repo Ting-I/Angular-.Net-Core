@@ -19,6 +19,14 @@ Every new feature needs both sides covered: list/filter, view, add, edit.
   with every repository swapped for its fake and `IDbConnectionFactory` swapped for
   `ThrowingDbConnectionFactory` — a repository nobody replaced fails loudly instead of opening a
   connection. Everything else still tests a controller instance directly.
+- **A repository can be tested too, and still not touch SQL Server.** `FakeDbConnection` (with
+  `FakeDbCommand` / `FakeDataReader` / `FakeDbConnectionFactory`) is a scripted ADO.NET provider:
+  statements are matched by substring and consumed in registration order, and every one is recorded
+  with its bound parameters and the transaction it ran on. It derives from `DbConnection` because
+  Dapper's async methods reject a bare `IDbConnection`. Use it where the behaviour under test is
+  the repository's own sequencing rather than a controller's decisions —
+  `PartnerRepositoryAuditTests` pins the 異動紀錄 retrofit that way, including that a failed change
+  writes no audit row.
 - SQL and filter logic is tested directly against `{Table}Sql.BuildWhere` and the other static
   members — projection contents, `splitOn`, default ordering, and any date arithmetic such as
   `FeaturedPromoItemSql.WeekOf`. These need no fake and no database.

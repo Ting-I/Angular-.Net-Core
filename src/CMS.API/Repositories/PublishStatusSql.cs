@@ -23,6 +23,20 @@ public static class PublishStatusSql
         FROM PublishStatus p
         """;
 
+    /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns and nothing else. The counts belong to other
+    /// tables and would report as changed on every save, which is not what the trail is for.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT p.pkid AS Pkid,
+               p.Description,
+               p.IsDraft,
+               p.IsPublished,
+               p.IsDiscontinued
+        FROM PublishStatus p
+        WHERE p.pkid = @Pkid
+        """;
+
     public const string DefaultOrderBy = "ORDER BY p.pkid ASC";
 
     /// <summary>

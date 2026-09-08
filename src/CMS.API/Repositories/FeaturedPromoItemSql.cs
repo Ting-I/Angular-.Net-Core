@@ -27,6 +27,22 @@ public static class FeaturedPromoItemSql
         INNER JOIN Promotion2 p ON p.pkid = fpi.Promotion_pkid
         """;
 
+    /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns and nothing else. The two nav objects compare by
+    /// reference, so a projection carrying them would report every save as a change to both.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT fpi.pkid AS Pkid,
+               fpi.ScheduleOn,
+               fpi.TrainingCenter_pkid AS TrainingCenterPkid,
+               fpi.Slot,
+               fpi.Promotion_pkid AS PromotionPkid,
+               fpi.Topic,
+               fpi.Description
+        FROM FeaturedPromoItem fpi
+        WHERE fpi.pkid = @Pkid
+        """;
+
     /// <summary>Split points for the two nav objects appended to the projection.</summary>
     public const string SplitOn = "Pkid,Pkid";
 

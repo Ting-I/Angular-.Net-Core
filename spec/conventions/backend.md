@@ -36,6 +36,35 @@ Register the repository in `Program.cs` alongside the others.
   `certifications`, `job-categories`, `training-centers`, `promotions?keyword=` (autocomplete) and
   `promotions/{promoCode}` (exact match, `404` when unknown).
 
+## Credentials
+
+**`PasswordHash` leaves the server in exactly one shape: none.** `AuthSql.SelectCredential` is the
+only query in the API that selects it, and `AppUserCredential` the only model that carries it — a
+repository-to-controller value that is never serialized. Keep the column out of
+`AppUserSql.SelectBase`, out of every response model, and out of the JWT payload. A second query
+that needs it is a sign the check belongs where the first one already is.
+
+**The client never hashes.** Plaintext goes up over HTTPS and `PasswordHasher.Sha256Hex` runs on
+the server, so the stored format stays a server-side decision. `PasswordHasher.Matches` compares in
+fixed time and ignores hex case, because rows written by hand or by an older tool may be uppercase.
+
+SHA-256 here is unsalted and uniterated because that is what the schema can hold — `PasswordHash`
+is a bare `nvarchar(800)` with no companion salt or work-factor column, and `database/*.sql` is
+read-only reference. It is not a password-storage primitive; moving to PBKDF2 or bcrypt needs
+either a schema change or an encoded composite value, and is open follow-up.
+
+**`POST /api/auth/login` answers one identical `401` for all three failures** — an unknown UserId,
+an `IsActive = 0` account, and a wrong password — so the endpoint cannot be used to enumerate
+accounts. Every arm still runs the hash compare where it can rather than short-circuiting on the
+cheap check, and the rejection body must stay free of anything attempt-specific.
+
+A new password is checked against `PasswordPolicy`: at least 8 characters over at least 3 of the 4
+classes (uppercase / lowercase / digit / symbol), where "symbol" is anything that is not one of the
+other three, so a space or a 中文字 counts. `PasswordPolicy.RequirementMessage` is the exact
+Chinese wording the UI shows — it travels as the `ProblemDetails` `Title`, with the English
+sentence as `Detail`. The Angular form applies the same rule for the operator's sake; the API
+re-checks regardless.
+
 ## Authorization
 
 Every endpoint requires an authenticated user. That is a `FallbackPolicy` in `Program.cs`, not an
@@ -206,3 +235,60 @@ Anything that touches more than one row runs in a single transaction. Two shapes
   neighbour is parked on slot `0` (a value the UI never assigns), the moving row takes the target,
   and the neighbour lands in the vacated slot. All three steps share one transaction so a failure
   cannot strand a row on slot 0. **Nothing else may ever write slot 0.**
+
+## 異動紀錄 — every write leaves a RowAudit row
+
+`RowAudit` is the cross-cutting change log in `database/admin.sql`. Every repository that writes a
+business table writes one, through `IRowAuditWriter` — injected alongside `IDbConnectionFactory`,
+registered scoped in `Program.cs`. It is not an `I{Table}Repository`, and no controller calls it:
+a change is audited by the code that made it, or the trail can be told a change happened that did
+not.
+
+**The three shapes.** Each one is `{Table}Repository`'s whole audit contract.
+
+- **Insert** — write the row, read it back with `{Table}Sql.SelectRow`, `LogInsertAsync`. Reading
+  back rather than echoing the request means the trail describes what was stored.
+- **Update** — read the "before" **first**, apply the change, read the "after", `LogUpdateAsync`.
+  The order is the point: ActionDesc is the list of columns that actually differ, and a comparison
+  against anything but the row as it stood is a guess. The before-read doubles as the existence
+  check, so `UpdateAsync` returns `false` from it rather than from an affected-row count.
+- **Delete** — read the row **first**, delete it, `LogDeleteAsync`. Once it is gone the trail is
+  the only thing that still says what it was.
+
+**The audit row rides the caller's transaction.** Every `Log*Async` takes the `IDbTransaction` the
+change is running in and inserts on its connection, inside it. So a repository that had no
+transaction has one now — `Partner`, `CourseGroup`, `PublishStatus` and `FeaturedPromoItem` each
+open one for a single statement, purely so the change and its trail entry commit together. A failed
+or rolled-back change leaves no audit row, and the tests that matter are the ones proving that.
+
+**`{Table}Sql.SelectRow` is a projection of its own, and has to be.** It is the base table's own
+columns and nothing else — no `LEFT JOIN` nav objects, which compare by reference and would report
+as changed on every save; no child-count subqueries, which move when another table changes. n-n
+lists *are* part of the snapshot where the entity has them (`Course`, `AppRole`, `AppUser`), read
+by the same query the record read uses: they compare element by element, and without them a save
+that only re-picked roles or certifications would write no audit row at all — which is exactly the
+change somebody would want the trail to show.
+
+**`PasswordHash` stays out of it**, like every other projection. `AppUserSql.SelectRow` omits the
+column, so `ResetPasswordAsync` audits as `PasswordUpdatedTime` — the stamped time moves on every
+reset, so the row is still written and a password change is never silent in the trail.
+
+**What is written.** `TableName` is the real table name (`"Course"`, `"FeaturedPromoItem"`), held as
+a `private const string TableName` on the repository. `PrimaryKeyValues` is the row's `pkid` — every
+table here carries one, including the two whose real key is something else. `ActionDesc` is the
+entity's first string property on insert and delete, and the changed-column list on update.
+`UserName` comes from the request's token via `IHttpContextAccessor`, never from a parameter — see
+`RowAuditWriter`. A save that changed nothing writes no row.
+
+**Two writes are audited that are not plain CRUD.** `CourseRepository.CopyAsync` audits as an
+Insert on the new pkid — a row that did not exist now does, and nothing is recorded against the
+source, which was only read. `FeaturedPromoItemRepository.MoveToSlotAsync` writes one Update per
+row the swap moved; the neighbour's trip through slot 0 is scaffolding, so each before/after pair
+spans the whole swap rather than each statement inside it.
+
+**Testing a retrofitted repository** needs a provider, not a database: `FakeDbConnection` in
+`src/CMS.API.Tests/Fakes/` is a scripted `DbConnection` (it must derive from `DbConnection` —
+Dapper's async methods reject a bare `IDbConnection`) that records every statement, its bound
+parameters and the transaction it ran on. `PartnerRepositoryAuditTests` is the worked example, and
+it hands the writer a `ThrowingDbConnectionFactory` so an audit row that stops riding the caller's
+transaction fails the test instead of quietly opening a second connection.

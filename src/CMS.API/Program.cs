@@ -100,6 +100,11 @@ builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IFeaturedPromoItemRepository, FeaturedPromoItemRepository>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 
+// 異動紀錄 — cross-cutting, so it is not an I{Table}Repository. Scoped because it reads the
+// current request's principal through IHttpContextAccessor, registered above for the bearer
+// pipeline and required here too.
+builder.Services.AddScoped<IRowAuditWriter, RowAuditWriter>();
+
 var app = builder.Build();
 
 app.UseSwagger();

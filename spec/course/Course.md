@@ -1238,11 +1238,14 @@ Hand-written fakes, not a mocking library (house rule).
 
 ### From the `/crud` skill template
 
-- **No `RowAuditWriter` injection and no `RowAuditBadgeComponent`.** The `RowAudit` table exists in
-  `database/admin.sql`, but there is no writer, no badge component and no authentication to source a
-  `UserName` from, and none of the four built repositories writes audit rows. Same call as
-  `spec/admin/PublishStatus.md`, `spec/course/Partner.md` and `spec/course/CourseGroup.md`:
-  follow-up work, not a one-entity cross-cutting invention.
+- **~~No `RowAuditWriter` injection~~ — closed.** Recorded when no repository wrote the `RowAudit`
+  table and there was no authentication to source a `UserName` from. Both arrived later:
+  `CourseRepository` writes an audit row on every insert, update and delete, and one more for
+  `CopyAsync` — audited as an Insert on the new pkid, with nothing recorded against the source.
+  Both n-n lists are part of the update snapshot, so a save that only re-picked certifications or
+  job categories is still in the trail. See the 異動紀錄 section of
+  `spec/conventions/backend.md`. The `RowAuditBadgeComponent` the skill asks for still does not
+  exist — nothing reads the trail back.
 - **No mocking library.** CLAUDE.md mandates hand-written fakes in `src/CMS.API.Tests/Fakes/`; the
   skill's suggestion of Moq is not followed.
 - **A pinned action bar, but not a `p-toolbar`.** The Save / Cancel bar on the form is sticky as

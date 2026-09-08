@@ -23,6 +23,23 @@ public static class AppUserSql
         FROM AppUser u
         """;
 
+    /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns, keyed on the primary key rather than on the
+    /// non-key pkid IDENTITY column. PasswordHash is absent for the same reason it is absent from
+    /// <see cref="SelectBase"/>: AuthSql.SelectCredential is the only query that may select it. A
+    /// password change therefore audits as PasswordUpdatedTime, which is the whole of what the
+    /// trail is allowed to say.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT u.pkid AS Pkid,
+               u.UserId,
+               u.UserName,
+               u.IsActive,
+               u.PasswordUpdatedTime
+        FROM AppUser u
+        WHERE u.UserId = @UserId
+        """;
+
     public const string DefaultOrderBy = "ORDER BY u.UserId ASC";
 
     /// <summary>角色 — read on GetById only, on the same connection as the record.</summary>

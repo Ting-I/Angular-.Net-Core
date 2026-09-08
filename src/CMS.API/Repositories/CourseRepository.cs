@@ -7,11 +7,16 @@ namespace CMS.API.Repositories;
 
 public class CourseRepository : ICourseRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    /// <summary>The real table name, as it goes into RowAudit.TableName.</summary>
+    private const string TableName = "Course";
 
-    public CourseRepository(IDbConnectionFactory connectionFactory)
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IRowAuditWriter _auditWriter;
+
+    public CourseRepository(IDbConnectionFactory connectionFactory, IRowAuditWriter auditWriter)
     {
         _connectionFactory = connectionFactory;
+        _auditWriter = auditWriter;
     }
 
     /// <summary>
@@ -73,8 +78,9 @@ public class CourseRepository : ICourseRepository
 
     /// <summary>
     /// pkid is int IDENTITY, so it is omitted from the INSERT and read back through
-    /// SCOPE_IDENTITY(), which returns decimal and needs the explicit CAST. The INSERT and both
-    /// junction back-fills share one transaction — a half-saved course is worse than a failed one.
+    /// SCOPE_IDENTITY(), which returns decimal and needs the explicit CAST. The INSERT, both
+    /// junction back-fills and the 異動紀錄 row share one transaction — a half-saved course is
+    /// worse than a failed one, and a trail entry for a course that was rolled back is worse still.
     /// </summary>
     public async Task<int> CreateAsync(CourseRequest request, CancellationToken cancellationToken = default)
     {
@@ -95,6 +101,7 @@ public class CourseRepository : ICourseRepository
             cancellationToken: cancellationToken));
 
         await SyncJunctionsAsync(connection, transaction, pkid, request, cancellationToken);
+        await AuditInsertAsync(connection, transaction, pkid, cancellationToken);
 
         transaction.Commit();
         return pkid;
@@ -109,7 +116,16 @@ public class CourseRepository : ICourseRepository
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        // The "before" is read first and inside the transaction, or the changed-column list would
+        // be a comparison against a row somebody else may already have moved. It doubles as the
+        // existence check the affected-row count used to be.
+        var before = await ReadRowAsync(connection, transaction, request.Pkid, cancellationToken);
+        if (before is null)
+        {
+            return false;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE Course
             SET Title = @Title,
@@ -141,13 +157,10 @@ public class CourseRepository : ICourseRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        if (affected == 0)
-        {
-            transaction.Rollback();
-            return false;
-        }
-
         await SyncJunctionsAsync(connection, transaction, request.Pkid, request, cancellationToken);
+
+        var after = await ReadRowAsync(connection, transaction, request.Pkid, cancellationToken);
+        await _auditWriter.LogUpdateAsync(TableName, before, after!, transaction, cancellationToken);
 
         transaction.Commit();
         return true;
@@ -163,16 +176,25 @@ public class CourseRepository : ICourseRepository
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
+        // Read first: once the row is gone the trail is the only thing that still says what it was.
+        var row = await ReadRowAsync(connection, transaction, pkid, cancellationToken);
+        if (row is null)
+        {
+            return false;
+        }
+
         await ClearJunctionsAsync(connection, transaction, pkid, cancellationToken);
 
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM Course WHERE pkid = @Pkid",
             new { Pkid = pkid },
             transaction,
             cancellationToken: cancellationToken));
 
+        await _auditWriter.LogDeleteAsync(TableName, row, transaction, cancellationToken);
+
         transaction.Commit();
-        return affected > 0;
+        return true;
     }
 
     public async Task<bool> CourseIdExistsAsync(
@@ -198,6 +220,9 @@ public class CourseRepository : ICourseRepository
     /// value); both junctions are back-filled from the source rows. All of it in one transaction.
     /// SCOPE_IDENTITY() comes back NULL when the source pkid matched nothing, which surfaces as the
     /// null return the controller turns into a 404.
+    ///
+    /// The copy audits as an Insert on the new pkid, because that is what it is: a row that did not
+    /// exist now does. Nothing is recorded against the source, which was only read.
     /// </summary>
     public async Task<int?> CopyAsync(
         int pkid,
@@ -247,8 +272,63 @@ public class CourseRepository : ICourseRepository
             transaction,
             cancellationToken: cancellationToken));
 
+        await AuditInsertAsync(connection, transaction, createdPkid, cancellationToken);
+
         transaction.Commit();
         return createdPkid;
+    }
+
+    /// <summary>Reads the created row back so the trail describes what was stored, not what was asked for.</summary>
+    private async Task AuditInsertAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        int pkid,
+        CancellationToken cancellationToken)
+    {
+        var row = await ReadRowAsync(connection, transaction, pkid, cancellationToken);
+        if (row is not null)
+        {
+            await _auditWriter.LogInsertAsync(TableName, row, transaction, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// The 異動紀錄 snapshot of one course: the row's own columns plus both n-n lists, on the
+    /// caller's connection and transaction. The lists are part of the snapshot because a save that
+    /// only re-picked certifications or job categories changes no column of Course at all — without
+    /// them that save would write no audit row, which is exactly the change somebody would want the
+    /// trail to show. They compare element by element, so re-reading them is not itself a change.
+    /// </summary>
+    private static async Task<Course?> ReadRowAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        int pkid,
+        CancellationToken cancellationToken)
+    {
+        var course = await connection.QuerySingleOrDefaultAsync<Course>(new CommandDefinition(
+            CourseSql.SelectRow,
+            new { Pkid = pkid },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (course is null)
+        {
+            return null;
+        }
+
+        course.CertificationPkids = (await connection.QueryAsync<int>(new CommandDefinition(
+            CourseSql.SelectCertificationPkids,
+            new { Pkid = pkid },
+            transaction,
+            cancellationToken: cancellationToken))).ToList();
+
+        course.JobCategoryPkids = (await connection.QueryAsync<short>(new CommandDefinition(
+            CourseSql.SelectJobCategoryPkids,
+            new { Pkid = pkid },
+            transaction,
+            cancellationToken: cancellationToken))).ToList();
+
+        return course;
     }
 
     /// <summary>

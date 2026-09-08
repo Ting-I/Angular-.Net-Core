@@ -28,6 +28,24 @@ public static class PartnerSql
         FROM Partner p
         """;
 
+    /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns and nothing else. The counts are other tables'
+    /// business and the nav objects compare by reference, so both would report as changed on every
+    /// save; <see cref="AuditHelper.ChangedColumns"/> is only accurate over a projection this
+    /// narrow.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT p.pkid AS Pkid,
+               p.Name,
+               p.AppKey,
+               p.NameOnPartnerMenu,
+               p.NameOnCourseDetailPage,
+               p.DisplayOrder,
+               p.ImageFilename
+        FROM Partner p
+        WHERE p.pkid = @Pkid
+        """;
+
     /// <summary>pkid breaks the tie so rows sharing a DisplayOrder still paginate deterministically.</summary>
     public const string DefaultOrderBy = "ORDER BY p.DisplayOrder ASC, p.pkid ASC";
 

@@ -19,7 +19,30 @@ public static class AppRoleSql
         FROM AppRole r
         """;
 
+    /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns, keyed on the primary key rather than on the
+    /// non-key pkid IDENTITY column. UserCount is left out: the junction is read separately, so a
+    /// role whose members changed reports the member list, not a number.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT r.pkid AS Pkid,
+               r.RoleId,
+               r.RoleName,
+               r.PermissionLevel,
+               r.Description
+        FROM AppRole r
+        WHERE r.RoleId = @RoleId
+        """;
+
     public const string DefaultOrderBy = "ORDER BY r.RoleId ASC";
+
+    /// <summary>成員 — read on GetById and by the 異動紀錄 snapshot, on the caller's connection.</summary>
+    public const string SelectUserIds = """
+        SELECT ur.UserId
+        FROM AppUserRole ur
+        WHERE ur.RoleId = @RoleId
+        ORDER BY ur.UserId ASC
+        """;
 
     /// <summary>
     /// Builds the WHERE clause (empty string when the query is unfiltered) plus the

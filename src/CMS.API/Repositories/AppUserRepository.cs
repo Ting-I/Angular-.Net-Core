@@ -7,11 +7,16 @@ namespace CMS.API.Repositories;
 
 public class AppUserRepository : IAppUserRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    /// <summary>The real table name, as it goes into RowAudit.TableName.</summary>
+    private const string TableName = "AppUser";
 
-    public AppUserRepository(IDbConnectionFactory connectionFactory)
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IRowAuditWriter _auditWriter;
+
+    public AppUserRepository(IDbConnectionFactory connectionFactory, IRowAuditWriter auditWriter)
     {
         _connectionFactory = connectionFactory;
+        _auditWriter = auditWriter;
     }
 
     public async Task<IEnumerable<AppUser>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -82,6 +87,12 @@ public class AppUserRepository : IAppUserRepository
 
         await SyncUserRolesAsync(connection, transaction, request.UserId, request.RoleIds, cancellationToken);
 
+        var row = await ReadRowAsync(connection, transaction, request.UserId, cancellationToken);
+        if (row is not null)
+        {
+            await _auditWriter.LogInsertAsync(TableName, row, transaction, cancellationToken);
+        }
+
         transaction.Commit();
         return request.UserId;
     }
@@ -91,9 +102,17 @@ public class AppUserRepository : IAppUserRepository
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
+        // The "before" is read first and inside the transaction, or the changed-column list would
+        // be a comparison against a row somebody else may already have moved.
+        var before = await ReadRowAsync(connection, transaction, request.UserId, cancellationToken);
+        if (before is null)
+        {
+            return false;
+        }
+
         // UserId is the primary key and is not updatable. PasswordHash and PasswordUpdatedTime are
         // deliberately absent from the SET list — only ResetPasswordAsync writes them.
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE AppUser
             SET UserName = @UserName,
@@ -104,13 +123,10 @@ public class AppUserRepository : IAppUserRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        if (affected == 0)
-        {
-            transaction.Rollback();
-            return false;
-        }
-
         await SyncUserRolesAsync(connection, transaction, request.UserId, request.RoleIds, cancellationToken);
+
+        var after = await ReadRowAsync(connection, transaction, request.UserId, cancellationToken);
+        await _auditWriter.LogUpdateAsync(TableName, before, after!, transaction, cancellationToken);
 
         transaction.Commit();
         return true;
@@ -122,30 +138,58 @@ public class AppUserRepository : IAppUserRepository
         CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
 
-        // One column, one row, no transaction: nothing else changes and AppUserRole is not touched
-        // at all — which is why this exists instead of calling UpdateAsync with a built-up request,
-        // whose delete-then-reinsert would clear the user's roles.
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        // One column, one row, and AppUserRole is not touched at all — which is why this exists
+        // instead of calling UpdateAsync with a built-up request, whose delete-then-reinsert would
+        // clear the user's roles. The transaction is here for the 異動紀錄 row: an operator
+        // renaming themselves is a change to AppUser and belongs in the trail like any other.
+        var before = await ReadRowAsync(connection, transaction, userId, cancellationToken);
+        if (before is null)
+        {
+            return false;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE AppUser
             SET UserName = @UserName
             WHERE UserId = @UserId;
             """,
             new { UserId = userId, UserName = userName },
+            transaction,
             cancellationToken: cancellationToken));
 
-        return affected > 0;
+        var after = await ReadRowAsync(connection, transaction, userId, cancellationToken);
+        await _auditWriter.LogUpdateAsync(TableName, before, after!, transaction, cancellationToken);
+
+        transaction.Commit();
+        return true;
     }
 
+    /// <summary>
+    /// Writes PasswordHash and PasswordUpdatedTime and nothing else.
+    ///
+    /// The 異動紀錄 row it leaves reads "PasswordUpdatedTime", not "PasswordHash": the snapshot
+    /// projection may not select the hash column (AuthSql.SelectCredential is the only query that
+    /// may), so the changed-column list cannot name it. The stamped time moves on every reset, so
+    /// the row is written regardless — a password change is never silent in the trail.
+    /// </summary>
     public async Task<bool> ResetPasswordAsync(
         string userId,
         string passwordHash,
         CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
 
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        var before = await ReadRowAsync(connection, transaction, userId, cancellationToken);
+        if (before is null)
+        {
+            return false;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE AppUser
             SET PasswordHash = @PasswordHash,
@@ -153,15 +197,27 @@ public class AppUserRepository : IAppUserRepository
             WHERE UserId = @UserId;
             """,
             new { UserId = userId, PasswordHash = passwordHash },
+            transaction,
             cancellationToken: cancellationToken));
 
-        return affected > 0;
+        var after = await ReadRowAsync(connection, transaction, userId, cancellationToken);
+        await _auditWriter.LogUpdateAsync(TableName, before, after!, transaction, cancellationToken);
+
+        transaction.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(string userId, CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
+
+        // Read first: once the row is gone the trail is the only thing that still says what it was.
+        var row = await ReadRowAsync(connection, transaction, userId, cancellationToken);
+        if (row is null)
+        {
+            return false;
+        }
 
         // FK_AppUserRole_AppUser carries no ON DELETE action, so the junction rows must go first
         // or SQL error 547 follows. Nothing else in the schema references AppUser.
@@ -171,14 +227,49 @@ public class AppUserRepository : IAppUserRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM AppUser WHERE UserId = @UserId",
             new { UserId = userId },
             transaction,
             cancellationToken: cancellationToken));
 
+        await _auditWriter.LogDeleteAsync(TableName, row, transaction, cancellationToken);
+
         transaction.Commit();
-        return affected > 0;
+        return true;
+    }
+
+    /// <summary>
+    /// The 異動紀錄 snapshot of one account: the row's own columns plus its roles, on the caller's
+    /// connection and transaction. The roles are part of the snapshot because a save that only
+    /// added or removed them changes no column of AppUser at all — without it that save would write
+    /// no audit row, which is exactly the change somebody would want the trail to show.
+    /// </summary>
+    private static async Task<AppUser?> ReadRowAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await connection.QuerySingleOrDefaultAsync<AppUser>(new CommandDefinition(
+            AppUserSql.SelectRow,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (user is null)
+        {
+            return null;
+        }
+
+        var roleIds = await connection.QueryAsync<string>(new CommandDefinition(
+            AppUserSql.SelectRoleIds,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        user.RoleIds = roleIds.ToList();
+        return user;
     }
 
     /// <summary>

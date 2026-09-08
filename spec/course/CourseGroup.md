@@ -570,12 +570,12 @@ Fakes, not a mocking library (house rule).
 
 ## Deviations from the /crud skill template
 
-- **No `RowAuditWriter` injection and no `RowAuditBadgeComponent`.** The `RowAudit` table exists in
-  `database/admin.sql`, but the repository layer has no `RowAuditWriter`, no audit badge component,
-  and no authentication to source a `UserName` from. None of `AppRoleRepository`,
-  `PublishStatusRepository` or `PartnerRepository` writes audit rows. Same call as
-  `spec/admin/PublishStatus.md` and `spec/course/Partner.md`: follow-up work, not a one-entity
-  cross-cutting invention.
+- **~~No `RowAuditWriter` injection~~ — closed.** Recorded when no repository wrote the `RowAudit`
+  table and there was no authentication to source a `UserName` from. Both arrived later:
+  `CourseGroupRepository` writes an audit row on every insert, update and delete, on the same
+  transaction as the change — which is why a single-statement write here opens one at all. See the
+  異動紀錄 section of `spec/conventions/backend.md`. The `RowAuditBadgeComponent` the skill asks
+  for still does not exist — nothing reads the trail back.
 - **No mocking library for the backend tests.** CLAUDE.md mandates hand-written fakes in
   `src/CMS.API.Tests/Fakes/`; the skill's suggestion of Moq is not followed.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature matches
