@@ -52,6 +52,15 @@
         <i class="pi pi-user"></i>
         <span class="topbar-user-name">{{ userName() }}</span>
       </span>
+      <a
+        class="topbar-link"
+        routerLink="/profile"
+        routerLinkActive="active"
+        data-testid="profile-link"
+      >
+        <i class="pi pi-id-card"></i>
+        <span>個人資料 My Profile</span>
+      </a>
       <p-button
         label="登出"
         icon="pi pi-sign-out"

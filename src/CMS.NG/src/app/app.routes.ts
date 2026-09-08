@@ -17,6 +17,11 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'app-roles' },
       {
+        // 個人資料 — reachable by every signed-in operator, so it carries no role gate.
+        path: 'profile',
+        loadComponent: () => import('@features/auth/profile/profile').then((m) => m.Profile),
+      },
+      {
         path: 'app-roles',
         loadComponent: () =>
           import('@features/app-roles/app-role-list/app-role-list').then((m) => m.AppRoleList),

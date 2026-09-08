@@ -64,6 +64,22 @@ The 401 comes from middleware, not from a controller, so it is only observable t
 pipeline: `TestApiFactory` hosts the API in process with every repository swapped for its fake and
 `IDbConnectionFactory` swapped for one that throws.
 
+**`[AllowAnonymous]` is not undone by an `[Authorize]` further in.** The authorization middleware
+short-circuits on any `IAllowAnonymous` in an endpoint's metadata, wherever it came from, so an
+`[Authorize]` action inside `AuthController` would still be reachable without a token. An endpoint
+that needs the caller identified therefore belongs in a controller of its own, even when it shares
+the route prefix: `ProfileController` is `[Route("api/auth")]` and serves `PUT /api/auth/profile`
+next to `POST /api/auth/login`, protected by the fallback policy because it says nothing about
+authorization at all. `AuthorizationTests` keeps `AuthController` the only anonymous class.
+
+An endpoint acting **on the caller** takes the key from `User.FindFirstValue(
+JwtTokenService.UserIdClaimType)` and nowhere else. The request DTO must not carry the key at all —
+`ProfileRequest` has one property, `UserName` — so a client that names somebody else's account is
+not "rejected", it is discarded by the deserializer with nothing to bind to. Anything else the
+endpoint must not change (roles, there) is absent for the same reason, and the repository call is
+narrowed to match: `UpdateUserNameAsync` writes one column, where `UpdateAsync` would rewrite
+`AppUserRole` from a request that carries no roles.
+
 ## Primary keys — check the schema, never assume
 
 `pkid int IDENTITY` is the common case, but two entities already break it in different ways. Read

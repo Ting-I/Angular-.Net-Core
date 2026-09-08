@@ -133,6 +133,21 @@ the `<img>` and the saved file are the same PNG bytes. `course-detail` is the wo
   rather than navigating. `/login` sits outside that parent and is the only public route.
 - **Hiding a menu is presentation, not protection.** The API decides who may call what; the
   sidebar's `requiresRole` only keeps an unusable menu off the screen.
+- 個人資料 My Profile (`/profile`, `features/auth/profile`) is the operator's own account: 使用者代碼
+  and 角色 rendered read-only, 使用者名稱 editable. It reads all three from `AuthService` — the key
+  and the name from the stored session, the roles from the token, per the rule above — and saves
+  through `AuthService.updateProfile`, which `PUT`s `{ userName }` alone. That folds the new name
+  back into the session so the top bar follows without a re-login; the token is left as it was, so
+  its now-stale `userName` claim is one more reason nothing may read a name from the claims. The
+  page sits under the guarded parent with no role gate, and the top bar's `.topbar-link` is the way
+  in.
+- **The name in the top bar is session state, not a per-page read** — it comes from the `auth-profile`
+  entry written at login and is never re-fetched. So *any* page that renames the signed-in operator
+  has to say so, or the shell shows the login-time name until the next sign-in. 使用者 AppUser is
+  the case that already exists: an administrator editing their own row writes `PUT /api/app-users`,
+  which `AuthService` knows nothing about, so `AppUserForm.save()` calls
+  `AuthService.syncUserName(userId, userName)` — a no-op for every other account, matching the key
+  case-insensitively as the API does. Add the same call to any future path that writes `UserName`.
 - In a spec, seed `sessionStorage` **before** the first injection — `AuthService` reads storage
   when it is constructed. `@core/testing/fake-jwt` builds a structurally valid unsigned token with
   whatever claims the test needs.

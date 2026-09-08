@@ -23,6 +23,9 @@ public class TestApiFactory : WebApplicationFactory<Program>
     /// <summary>Backs POST /api/auth/login.</summary>
     public FakeAuthRepository Auth { get; } = new();
 
+    /// <summary>Backs PUT /api/auth/profile, and the 使用者 AppUser endpoints.</summary>
+    public FakeAppUserRepository AppUsers { get; } = new();
+
     /// <summary>Supplies the signing key both the issuer and the validator read.</summary>
     public FakeSysConfigRepository SysConfig { get; } = new();
 
@@ -39,12 +42,12 @@ public class TestApiFactory : WebApplicationFactory<Program>
             Replace<IDbConnectionFactory>(services, new ThrowingDbConnectionFactory());
 
             Replace<IAppRoleRepository>(services, AppRoles);
+            Replace<IAppUserRepository>(services, AppUsers);
             Replace<IAuthRepository>(services, Auth);
             Replace<ISysConfigRepository>(services, SysConfig);
 
             // The rest are here so an authenticated request to any controller can reach its action
             // and prove it was not the authorization middleware that answered.
-            Replace<IAppUserRepository>(services, new FakeAppUserRepository());
             Replace<IPublishStatusRepository>(services, new FakePublishStatusRepository());
             Replace<IPartnerRepository>(services, new FakePartnerRepository());
             Replace<ICourseGroupRepository>(services, new FakeCourseGroupRepository());

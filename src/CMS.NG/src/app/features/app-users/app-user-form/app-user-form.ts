@@ -12,6 +12,7 @@ import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { AppUserService } from '@core/services/app-user.service';
+import { AuthService } from '@core/services/auth.service';
 import { LookupService } from '@core/services/lookup.service';
 import { AppUser, AppUserRequest } from '@core/models/app-user.model';
 import { AppRoleLookup } from '@core/models/app-role-lookup.model';
@@ -37,6 +38,7 @@ export class AppUserForm implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
+  private readonly auth = inject(AuthService);
 
   protected readonly isEdit = signal(false);
   protected readonly loading = signal(true);
@@ -126,6 +128,12 @@ export class AppUserForm implements OnInit {
     save$.subscribe({
       next: (user) => {
         this.saving.set(false);
+
+        // An administrator editing their own account renames the signed-in operator. The session
+        // holds the name from login, so without this the app shell keeps showing the old one until
+        // the next sign-in. A no-op for every other account.
+        this.auth.syncUserName(user.userId, user.userName);
+
         this.messageService.add({ severity: 'success', summary: '已儲存', detail: user.userName });
         void this.router.navigate(['/app-users', user.userId]);
       },

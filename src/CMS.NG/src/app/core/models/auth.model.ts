@@ -14,3 +14,20 @@ export interface AuthProfile {
   userName: string;
   accessToken: string;
 }
+
+/**
+ * 個人資料 — body of PUT /api/auth/profile.
+ *
+ * 使用者名稱 alone, mirroring the server's `ProfileRequest`. There is deliberately no `userId`:
+ * the server takes the account from the token, and a key sent here would be discarded anyway.
+ */
+export interface ProfileRequest {
+  userName: string;
+}
+
+/** 個人資料 — what PUT /api/auth/profile answers with. `roleIds` is display only. */
+export interface UserProfile {
+  userId: string;
+  userName: string;
+  roleIds: string[];
+}

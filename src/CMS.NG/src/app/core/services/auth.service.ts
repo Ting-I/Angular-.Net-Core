@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import { environment } from '@env';
-import { AuthProfile, LoginRequest } from '@core/models/auth.model';
+import { AuthProfile, LoginRequest, ProfileRequest, UserProfile } from '@core/models/auth.model';
 
 /**
  * Session storage, not local storage: the sign-in dies with the browser tab, so a shared machine
@@ -46,6 +46,36 @@ export class AuthService {
       .pipe(tap((profile) => this.store(profile)));
   }
 
+  /**
+   * 個人資料 — renames the signed-in operator, and folds the new 使用者名稱 back into the live
+   * session so the app shell shows it without a re-login.
+   *
+   * The server picks the account from the token, so the request carries no key. The stored token
+   * is left exactly as it was: its `userName` claim is now stale, but nothing reads a name from
+   * the claims — only the roles come from there — and re-signing it would mean a second login.
+   */
+  updateProfile(request: ProfileRequest): Observable<UserProfile> {
+    return this.http
+      .put<UserProfile>(`${this.baseUrl}/profile`, request)
+      .pipe(tap((profile) => this.storeUserName(profile.userName)));
+  }
+
+  /**
+   * Keeps the session in step when the signed-in operator is renamed from somewhere other than
+   * 個人資料 — today that is 使用者 AppUser, whose form writes `PUT /api/app-users` and would
+   * otherwise leave the app shell showing the name from login until the next sign-in.
+   *
+   * A no-op for anybody else's account, so the AppUser form can call it after every save without
+   * asking whose row it just wrote. UserId is compared case-insensitively, because SQL Server's
+   * default collation is and the API looks the key up the same way.
+   */
+  syncUserName(userId: string, userName: string): void {
+    const current = this.stored();
+    if (current?.userId.toLowerCase() === userId.toLowerCase()) {
+      this.storeUserName(userName);
+    }
+  }
+
   /** 登出 — drops the session. Navigation is the caller's business. */
   logout(): void {
     this.clearSession();
@@ -63,6 +93,17 @@ export class AuthService {
   private store(profile: AuthProfile): void {
     sessionStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
     this.stored.set(profile);
+  }
+
+  /**
+   * Replaces the name in the stored session, keeping the key and the token. A signed-out service
+   * has nothing to rename — a 401 would have cleared the session before the response landed.
+   */
+  private storeUserName(userName: string): void {
+    const current = this.stored();
+    if (current) {
+      this.store({ ...current, userName });
+    }
   }
 }
 

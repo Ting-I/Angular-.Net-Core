@@ -124,6 +124,126 @@ describe('AuthService', () => {
     expect(service().roles()).toEqual([]);
   });
 
+  // ---------- 個人資料 ----------
+
+  describe('updateProfile', () => {
+    const profileUrl = `${environment.apiUrl}/auth/profile`;
+
+    function signIn(): AuthProfile {
+      const profile = fakeProfile('helen', 'Helen Lin', ['Admin', 'Editor']);
+      sessionStorage.setItem('auth-profile', JSON.stringify(profile));
+      return profile;
+    }
+
+    it('PUTs the 使用者名稱 alone, with no key in the body', () => {
+      signIn();
+
+      service().updateProfile({ userName: 'Helen Chen' }).subscribe();
+
+      const request = httpMock.expectOne(profileUrl);
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ userName: 'Helen Chen' });
+
+      request.flush({ userId: 'helen', userName: 'Helen Chen', roleIds: ['Admin', 'Editor'] });
+    });
+
+    it('folds the new name into the live session and its storage', () => {
+      const before = signIn();
+      const auth = service();
+
+      auth.updateProfile({ userName: 'Helen Chen' }).subscribe();
+      httpMock
+        .expectOne(profileUrl)
+        .flush({ userId: 'helen', userName: 'Helen Chen', roleIds: ['Admin', 'Editor'] });
+
+      expect(auth.userName()).toBe('Helen Chen');
+      expect((JSON.parse(sessionStorage.getItem('auth-profile')!) as AuthProfile).userName).toBe(
+        'Helen Chen',
+      );
+
+      // The key and the token ride through untouched — so the roles are unchanged too.
+      expect(auth.profile()!.userId).toBe('helen');
+      expect(auth.accessToken()).toBe(before.accessToken);
+      expect(auth.roles()).toEqual(['Admin', 'Editor']);
+    });
+
+    it('changes nothing when the save is rejected', () => {
+      signIn();
+      const auth = service();
+
+      auth.updateProfile({ userName: '' }).subscribe({ error: () => undefined });
+      httpMock.expectOne(profileUrl).flush('', { status: 400, statusText: 'Bad Request' });
+
+      expect(auth.userName()).toBe('Helen Lin');
+      expect((JSON.parse(sessionStorage.getItem('auth-profile')!) as AuthProfile).userName).toBe(
+        'Helen Lin',
+      );
+    });
+
+    it('stores nothing when there is no session to update', () => {
+      // A 401 clears the session before the response lands; there is then nothing to rename.
+      const auth = service();
+
+      auth.updateProfile({ userName: 'Helen Chen' }).subscribe();
+      httpMock
+        .expectOne(profileUrl)
+        .flush({ userId: 'helen', userName: 'Helen Chen', roleIds: [] });
+
+      expect(sessionStorage.getItem('auth-profile')).toBeNull();
+      expect(auth.isAuthenticated()).toBeFalse();
+    });
+  });
+
+  // ---------- syncUserName ----------
+
+  describe('syncUserName', () => {
+    function signIn(userId = 'helen'): void {
+      sessionStorage.setItem(
+        'auth-profile',
+        JSON.stringify(fakeProfile(userId, 'Helen Lin', ['Admin'])),
+      );
+    }
+
+    it('renames the session when the key is the signed-in one', () => {
+      signIn();
+      const auth = service();
+
+      auth.syncUserName('helen', '林海倫');
+
+      expect(auth.userName()).toBe('林海倫');
+      expect((JSON.parse(sessionStorage.getItem('auth-profile')!) as AuthProfile).userName).toBe(
+        '林海倫',
+      );
+    });
+
+    it('matches the key case-insensitively, as SQL Server does', () => {
+      signIn('Helen');
+      const auth = service();
+
+      auth.syncUserName('HELEN', '林海倫');
+
+      expect(auth.userName()).toBe('林海倫');
+    });
+
+    it('is a no-op for anybody else', () => {
+      signIn();
+      const auth = service();
+
+      auth.syncUserName('miles', 'Miles Sun');
+
+      expect(auth.userName()).toBe('Helen Lin');
+    });
+
+    it('is a no-op when nobody is signed in', () => {
+      const auth = service();
+
+      auth.syncUserName('helen', '林海倫');
+
+      expect(sessionStorage.getItem('auth-profile')).toBeNull();
+      expect(auth.isAuthenticated()).toBeFalse();
+    });
+  });
+
   // ---------- Logout ----------
 
   it('clears session storage on logout', () => {

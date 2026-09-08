@@ -191,6 +191,29 @@
   font-weight: 600;
 }
 
+/* 個人資料 — a link rather than a p-button, so it carries a real href the router can mark
+   active, and so a middle click opens it like any other route. */
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  color: var(--p-text-muted-color);
+  font-size: 0.9rem;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--p-surface-100);
+    color: var(--p-text-color);
+  }
+
+  &.active {
+    color: var(--p-primary-color);
+    font-weight: 600;
+  }
+}
+
 .app-main {
   grid-column: 2;
   grid-row: 2;

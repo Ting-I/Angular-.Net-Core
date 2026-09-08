@@ -8,6 +8,8 @@ import { environment } from '@env';
 import { AppUserForm } from './app-user-form';
 import { AppUser } from '@core/models/app-user.model';
 import { AppRoleLookup } from '@core/models/app-role-lookup.model';
+import { AuthService } from '@core/services/auth.service';
+import { fakeProfile } from '@core/testing/fake-jwt';
 
 describe('AppUserForm', () => {
   let fixture: ComponentFixture<AppUserForm>;
@@ -265,6 +267,62 @@ describe('AppUserForm', () => {
 
       expect(api()['loading']()).toBeFalse();
       expect(component['form'].getRawValue().userName).toBe('');
+    });
+  });
+
+  // ---------- Renaming yourself from 使用者 AppUser ----------
+
+  describe('when the edited account is the signed-in one', () => {
+    /** AuthService reads storage when constructed, so the session is seeded before setup(). */
+    function signIn(userId: string, userName: string): void {
+      sessionStorage.setItem(
+        'auth-profile',
+        JSON.stringify(fakeProfile(userId, userName, ['Admin'])),
+      );
+    }
+
+    beforeEach(() => sessionStorage.clear());
+    afterEach(() => sessionStorage.clear());
+
+    it('updates the name the app shell reads', async () => {
+      signIn('helen', 'Helen Lin');
+      await setup('helen');
+      init('helen');
+      const auth = TestBed.inject(AuthService);
+
+      component['form'].patchValue({ userName: '林海倫' });
+      api()['save']();
+      httpMock.expectOne(baseUrl).flush({ ...user, userName: '林海倫' });
+
+      // Without this the top bar would keep the login-time name until the next sign-in.
+      expect(auth.userName()).toBe('林海倫');
+      expect(
+        (JSON.parse(sessionStorage.getItem('auth-profile')!) as { userName: string }).userName,
+      ).toBe('林海倫');
+    });
+
+    it('matches the key case-insensitively, as the API does', async () => {
+      signIn('HELEN', 'Helen Lin');
+      await setup('helen');
+      init('helen');
+
+      component['form'].patchValue({ userName: '林海倫' });
+      api()['save']();
+      httpMock.expectOne(baseUrl).flush({ ...user, userName: '林海倫' });
+
+      expect(TestBed.inject(AuthService).userName()).toBe('林海倫');
+    });
+
+    it('leaves the session alone when somebody else is edited', async () => {
+      signIn('miles', 'Miles Sun');
+      await setup('helen');
+      init('helen');
+
+      component['form'].patchValue({ userName: '林海倫' });
+      api()['save']();
+      httpMock.expectOne(baseUrl).flush({ ...user, userName: '林海倫' });
+
+      expect(TestBed.inject(AuthService).userName()).toBe('Miles Sun');
     });
   });
 });

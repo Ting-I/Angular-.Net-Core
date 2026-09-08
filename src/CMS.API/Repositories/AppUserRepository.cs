@@ -116,6 +116,28 @@ public class AppUserRepository : IAppUserRepository
         return true;
     }
 
+    public async Task<bool> UpdateUserNameAsync(
+        string userId,
+        string userName,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+
+        // One column, one row, no transaction: nothing else changes and AppUserRole is not touched
+        // at all — which is why this exists instead of calling UpdateAsync with a built-up request,
+        // whose delete-then-reinsert would clear the user's roles.
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE AppUser
+            SET UserName = @UserName
+            WHERE UserId = @UserId;
+            """,
+            new { UserId = userId, UserName = userName },
+            cancellationToken: cancellationToken));
+
+        return affected > 0;
+    }
+
     public async Task<bool> ResetPasswordAsync(
         string userId,
         string passwordHash,

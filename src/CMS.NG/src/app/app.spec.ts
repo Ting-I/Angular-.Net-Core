@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
+import { environment } from '@env';
 import { App } from './app';
+import { AuthService } from '@core/services/auth.service';
 import { fakeProfile } from '@core/testing/fake-jwt';
 
 describe('App', () => {
@@ -188,6 +190,45 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.topbar-user-name').textContent).toContain(
       'Helen Lin',
     );
+  });
+
+  it('links to 個人資料 My Profile from the top bar', () => {
+    signIn('Admin');
+    const fixture = createApp();
+
+    const link = fixture.nativeElement.querySelector('[data-testid="profile-link"]');
+    expect(link.getAttribute('href')).toBe('/profile');
+    expect(link.textContent).toContain('個人資料 My Profile');
+  });
+
+  it('offers 個人資料 to an operator with no roles at all', () => {
+    // Not a role-gated page: every signed-in operator has a profile of their own.
+    signIn();
+    const fixture = createApp();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="profile-link"]')).not.toBeNull();
+  });
+
+  it('shows the new 使用者名稱 after the profile page saves one', () => {
+    signIn('Admin');
+    const fixture = createApp();
+    const auth = TestBed.inject(AuthService);
+    const httpMock = TestBed.inject(HttpTestingController);
+
+    // The save the Profile page makes; the shell binds to the same AuthService signal.
+    auth.updateProfile({ userName: 'Helen Chen' }).subscribe();
+    httpMock
+      .expectOne(`${environment.apiUrl}/auth/profile`)
+      .flush({ userId: 'helen', userName: 'Helen Chen', roleIds: ['Admin'] });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.topbar-user-name').textContent).toContain(
+      'Helen Chen',
+    );
+
+    // The Admin group is still there — the roles come from the token, which the save left alone.
+    expect(fixture.nativeElement.textContent).toContain('系統管理 Admin');
+    httpMock.verify();
   });
 
   it('clears session storage and returns to the Login page on logout', () => {
