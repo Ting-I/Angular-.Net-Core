@@ -5,6 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { environment } from '@env';
 import { LookupService } from './lookup.service';
 import { AppUserLookup } from '@core/models/app-user-lookup.model';
+import { AppRoleLookup } from '@core/models/app-role-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
 import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
@@ -34,6 +35,22 @@ describe('LookupService', () => {
     req.flush([{ userId: 'helen', userName: 'helen', isActive: true }]);
 
     expect(result?.length).toBe(1);
+  });
+
+  it('getAppRoles() issues GET to the app-roles lookup route', () => {
+    let result: AppRoleLookup[] | undefined;
+    service.getAppRoles().subscribe((roles) => (result = roles));
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/lookups/app-roles`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { roleId: 'Admin', roleName: 'Administrator', permissionLevel: 1 },
+      { roleId: 'User', roleName: 'User', permissionLevel: 100 },
+    ]);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[0].roleName).toBe('Administrator');
+    expect(result?.[1].permissionLevel).toBe(100);
   });
 
   it('getPublishStatuses() issues GET to the publish-statuses lookup route', () => {

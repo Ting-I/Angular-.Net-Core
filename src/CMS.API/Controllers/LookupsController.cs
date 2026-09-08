@@ -23,6 +23,12 @@ public class LookupsController : ControllerBase
     public async Task<ActionResult<IEnumerable<AppUserLookup>>> GetAppUsers(CancellationToken cancellationToken)
         => Ok(await _repository.GetAppUsersAsync(cancellationToken));
 
+    /// <summary>角色 AppRole lookup list.</summary>
+    [HttpGet("app-roles")]
+    [ProducesResponseType(typeof(IEnumerable<AppRoleLookup>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<AppRoleLookup>>> GetAppRoles(CancellationToken cancellationToken)
+        => Ok(await _repository.GetAppRolesAsync(cancellationToken));
+
     /// <summary>發布狀態 PublishStatus lookup list.</summary>
     [HttpGet("publish-statuses")]
     [ProducesResponseType(typeof(IEnumerable<PublishStatusLookup>), StatusCodes.Status200OK)]

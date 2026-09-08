@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { environment } from '@env';
 import { AppUserLookup } from '@core/models/app-user-lookup.model';
+import { AppRoleLookup } from '@core/models/app-role-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
 import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
@@ -17,6 +18,10 @@ export class LookupService {
 
   getAppUsers(): Observable<AppUserLookup[]> {
     return this.http.get<AppUserLookup[]>(`${this.baseUrl}/app-users`);
+  }
+
+  getAppRoles(): Observable<AppRoleLookup[]> {
+    return this.http.get<AppRoleLookup[]>(`${this.baseUrl}/app-roles`);
   }
 
   getPublishStatuses(): Observable<PublishStatusLookup[]> {

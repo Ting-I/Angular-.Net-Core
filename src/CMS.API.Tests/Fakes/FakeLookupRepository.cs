@@ -7,6 +7,8 @@ public class FakeLookupRepository : ILookupRepository
 {
     public List<AppUserLookup> AppUsers { get; init; } = [];
 
+    public List<AppRoleLookup> AppRoles { get; init; } = [];
+
     public List<PublishStatusLookup> PublishStatuses { get; init; } = [];
 
     public List<PartnerLookup> Partners { get; init; } = [];
@@ -19,6 +21,9 @@ public class FakeLookupRepository : ILookupRepository
 
     public Task<IEnumerable<AppUserLookup>> GetAppUsersAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(AppUsers.AsEnumerable());
+
+    public Task<IEnumerable<AppRoleLookup>> GetAppRolesAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(AppRoles.AsEnumerable());
 
     public Task<IEnumerable<PublishStatusLookup>> GetPublishStatusesAsync(
         CancellationToken cancellationToken = default)

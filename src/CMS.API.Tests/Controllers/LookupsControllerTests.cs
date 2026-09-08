@@ -28,6 +28,28 @@ public class LookupsControllerTests
     }
 
     [Fact]
+    public async Task GetAppRoles_ReturnsLookupListOrderedByPermissionLevel()
+    {
+        var controller = new LookupsController(new FakeLookupRepository
+        {
+            AppRoles =
+            [
+                new AppRoleLookup { RoleId = "Admin", RoleName = "Administrator", PermissionLevel = 1 },
+                new AppRoleLookup { RoleId = "User", RoleName = "User", PermissionLevel = 100 },
+            ],
+        });
+
+        var result = await controller.GetAppRoles(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var roles = Assert.IsAssignableFrom<IEnumerable<AppRoleLookup>>(ok.Value).ToList();
+        Assert.Equal(2, roles.Count);
+        Assert.Equal("Admin", roles[0].RoleId);
+        Assert.Equal(1, roles[0].PermissionLevel);
+        Assert.Equal("User", roles[1].RoleName);
+    }
+
+    [Fact]
     public async Task GetPublishStatuses_ReturnsLookupList()
     {
         var controller = new LookupsController(new FakeLookupRepository

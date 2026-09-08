@@ -35,16 +35,17 @@ describe('App', () => {
     expect(link.getAttribute('href')).toBe('/app-roles');
   });
 
-  it('renders the 發布狀態 PublishStatus item under 系統管理 Admin', () => {
+  it('renders the 發布狀態 PublishStatus and 使用者 AppUser items under 系統管理 Admin', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('發布狀態 PublishStatus');
+    expect(fixture.nativeElement.textContent).toContain('使用者 AppUser');
 
     const hrefs = Array.from(
       fixture.nativeElement.querySelectorAll('a.nav-item') as NodeListOf<HTMLAnchorElement>,
     ).map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/app-roles', '/publish-statuses']);
+    expect(hrefs).toEqual(['/app-roles', '/publish-statuses', '/app-users']);
   });
 
   it('renders the 課程管理 Course items once the group is expanded', () => {
@@ -73,6 +74,7 @@ describe('App', () => {
       '/courses',
       '/app-roles',
       '/publish-statuses',
+      '/app-users',
     ]);
   });
 

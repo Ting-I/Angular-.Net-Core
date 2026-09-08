@@ -1,0 +1,71 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page-header">
+  <h1>檢視使用者</h1>
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (user()) {
+      <p-button
+        label="重設密碼"
+        icon="pi pi-key"
+        severity="warn"
+        [outlined]="true"
+        [loading]="resetting()"
+        (onClick)="confirmResetPassword()"
+      />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此使用者。</div>
+} @else if (user(); as data) {
+  <section class="page-card">
+    <h2>使用者資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>使用者代碼</dt>
+        <dd>{{ data.userId }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>使用者名稱</dt>
+        <dd>{{ data.userName }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>啟用</dt>
+        <dd>{{ data.isActive ? '是' : '否' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>密碼更新時間</dt>
+        <dd>
+          @if (data.passwordUpdatedTime) {
+            {{ data.passwordUpdatedTime + 'Z' | date: 'yyyy/MM/dd HH:mm' }}
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>角色<span class="count-badge">{{ data.roleCount }}</span></h2>
+    @if (assignedRoles.length) {
+      <div class="role-tags">
+        @for (role of assignedRoles; track role.roleId) {
+          <p-tag [value]="role.roleName + ' (' + role.roleId + ')'" severity="secondary" />
+        }
+      </div>
+    } @else {
+      <p class="state-message">尚未指派角色。</p>
+    }
+  </section>
+}

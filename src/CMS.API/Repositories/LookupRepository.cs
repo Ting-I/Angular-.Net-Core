@@ -25,6 +25,22 @@ public class LookupRepository : ILookupRepository
             cancellationToken: cancellationToken));
     }
 
+    /// <summary>
+    /// Ordered by PermissionLevel first: an operator picking roles reads them by authority, not
+    /// alphabetically. RoleName breaks ties.
+    /// </summary>
+    public async Task<IEnumerable<AppRoleLookup>> GetAppRolesAsync(CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
+        return await connection.QueryAsync<AppRoleLookup>(new CommandDefinition(
+            """
+            SELECT r.RoleId, r.RoleName, r.PermissionLevel
+            FROM AppRole r
+            ORDER BY r.PermissionLevel ASC, r.RoleName ASC
+            """,
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<IEnumerable<PublishStatusLookup>> GetPublishStatusesAsync(
         CancellationToken cancellationToken = default)
     {
