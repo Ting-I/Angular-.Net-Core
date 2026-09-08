@@ -44,6 +44,29 @@
         <dt>友善網址</dt>
         <dd>{{ data.friendlyUrl }}</dd>
       </div>
+      <div class="detail-field detail-field-wide">
+        <dt>QR Code</dt>
+        <dd>
+          @if (qrImage(); as image) {
+            <figure class="qr-code">
+              <figcaption class="qr-code-title">{{ data.courseId }}</figcaption>
+              <img class="qr-code-image" [src]="image" [alt]="'課程 QR Code — ' + data.courseId" />
+              <a class="qr-code-url" [href]="qrUrl()" target="_blank" rel="noopener">
+                {{ qrUrl() }}
+              </a>
+              <p-button
+                label="下載 QR Code"
+                icon="pi pi-download"
+                severity="secondary"
+                size="small"
+                (onClick)="downloadQrCode()"
+              />
+            </figure>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
     </dl>
   </section>
 

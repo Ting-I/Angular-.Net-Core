@@ -895,7 +895,34 @@ their detail pages), **課程內容** (the eight long-text fields, `white-space:
 empty), and **使用狀況** (the four child counts, with 「此課程仍被引用，無法刪除。」 when any is
 non-zero). The two n-n sets render as `p-tag` chips under 分類與排程.
 
-No QR code and no 列印PDF button — see **Deviations**.
+No 列印PDF button — see **Deviations**.
+
+#### QR Code
+
+A `QR Code` field at the end of **基本資料**, rendered as a `<figure class="qr-code">`:
+
+| Part | Content |
+|------|---------|
+| Title (`figcaption`) | `Course.CourseId` |
+| Image | the QR, an `<img>` fed a `image/png` data URL |
+| Caption link | the encoded URL, `target="_blank" rel="noopener"` |
+| Action | `下載 QR Code` — `p-button` `size="small"` `severity="secondary"` |
+
+Encoded URL: `https://www.uuu.com.tw/Course/Show/{Course.pkid}/{Course.CourseId}`. Both values come
+from the loaded **record**, not from the route param. `CourseId` is operator-entered `varchar(50)`
+under no unique constraint, so it is `trim()`ed and `encodeURIComponent`d rather than dropped into
+the path as-is.
+
+`core/utils/qr-code.util.ts` holds the generic half — `renderQrToCanvas`, `qrPngDataUrl` and
+`downloadDataUrl`. It wraps `qrcode-generator` (zero runtime dependencies, ships its own `.d.ts` and
+an ESM build, so no `allowedCommonJsDependencies` entry is needed). The library only yields the
+module matrix and a GIF data URL, so the util draws the matrix onto a canvas itself — error
+correction `M`, type number `0` (smallest symbol that fits), a 4-module quiet zone, 6px cells — and
+takes the PNG off that canvas. The same data URL serves the `<img>` and the download, so the file
+the operator saves is exactly the code on screen. Download is an `<a download>` click named
+`course-{CourseId}-qrcode.png`; the image is the QR alone, with no caption drawn into it.
+
+The whole block is inside `@if (qrImage(); as image)`, so the not-found state renders `—`.
 
 ### Delete Confirmation Message
 
@@ -984,7 +1011,16 @@ Hand-written fakes, not a mocking library (house rule).
   and the 409 toast.
 - `.../course-detail/course-detail.spec.ts` — loads the record, renders the nav-object links with
   the right hrefs, omits the course-group link when null, renders both n-n chip sets and the four
-  counts, `404` path, no-id path, back/edit navigation.
+  counts, `404` path, no-id path, back/edit navigation; and the QR code — the URL built from the
+  record's `pkid`/`CourseId` rather than the route param, surrounding whitespace trimmed out of it,
+  the `<img src>` matching `qrPngDataUrl` of that URL, `CourseId` shown as the title inside 基本資料,
+  the download producing PNG bytes under the `course-{CourseId}-qrcode.png` name, and no figure at
+  all on the `404` path.
+- `.../core/utils/qr-code.util.spec.ts` — canvas sized to module count plus both quiet zones; every
+  drawn module sampled back out of `getImageData` and compared against an independently built
+  `qrcode(0, 'M')` matrix, which is what proves the image really encodes the text; the quiet zone
+  left light; the data URL carrying the PNG magic bytes; different text producing different images;
+  and `downloadDataUrl` clicking an anchor with the right `href` and `download`.
 - `.../course-form/course-form.spec.ts` — add mode (required-field validation across all thirteen
   required fields, POST body shape, blank optionals normalised to `null`, dates serialised as local
   `yyyy-MM-dd`, both pkid arrays sent); edit mode (主代碼 shown as text, PUT includes the key in the
@@ -1024,6 +1060,8 @@ Hand-written fakes, not a mocking library (house rule).
 | `src/CMS.NG/src/app/core/models/job-category-lookup.model.ts` | Create |
 | `src/CMS.NG/src/app/core/services/course.service.ts` | Create |
 | `src/CMS.NG/src/app/core/utils/date.util.ts` | Create |
+| `src/CMS.NG/src/app/core/utils/qr-code.util.ts` | Create |
+| `src/CMS.NG/package.json` | Modify — add `qrcode-generator` |
 | `src/CMS.NG/src/app/features/courses/course-list/*` (ts/html/scss) | Create |
 | `src/CMS.NG/src/app/features/courses/course-detail/*` | Create |
 | `src/CMS.NG/src/app/features/courses/course-form/*` | Create |
@@ -1043,6 +1081,7 @@ Hand-written fakes, not a mocking library (house rule).
 | `src/CMS.API.Tests/Controllers/LookupsControllerTests.cs` | Modify |
 | `src/CMS.NG/.../course.service.spec.ts` | Create |
 | `src/CMS.NG/.../date.util.spec.ts` | Create |
+| `src/CMS.NG/.../qr-code.util.spec.ts` | Create |
 | `src/CMS.NG/.../course-list.spec.ts` | Create |
 | `src/CMS.NG/.../course-detail.spec.ts` | Create |
 | `src/CMS.NG/.../course-form.spec.ts` | Create |
@@ -1085,9 +1124,9 @@ exists. Where it and this spec differ:
 - **Primary-Foreign navigation is counts, not link buttons**, for all four child tables, because
   none of those features is built. sample1 specified 查看 buttons to routes that would 404.
 - **No inline sub-panels** (課程相關連結, 推薦課程) — the specs they reference don't exist.
-- **No QR code and no 列印PDF.** sample1 defers both to "`spec/course/Course.md` for details" —
-  i.e. to this file — but no QR library is in `package.json` and no print stylesheet exists. Neither
-  is CRUD.
+- **No 列印PDF.** sample1 defers it to "`spec/course/Course.md` for details" — i.e. to this file —
+  but no print stylesheet exists and it is not CRUD. The QR code sample1 defers the same way **is**
+  built — see **Detail page → QR Code**; it added `qrcode-generator` to `package.json`.
 - **Copy returns the full created `Course`**, not `{ pkid }`, matching `POST /api/courses`.
 - **`date.util.ts` is created here**, not assumed to exist; sample1 refers to it as if it did.
 - **`spec/dapper.md` does not exist** either; the type handlers are in

@@ -29,7 +29,7 @@ dotnet test                                # 417 xUnit tests
 
 cd src\CMS.NG
 npm start                                  # UI   -> http://localhost:4200
-npm test -- --watch=false --browsers=ChromeHeadless   # 389 Karma/Jasmine specs
+npm test -- --watch=false --browsers=ChromeHeadless   # 401 Karma/Jasmine specs
 ```
 
 `npm test` without flags enters watch mode and opens a browser — always pass the flags above when
@@ -64,6 +64,9 @@ running it non-interactively.
 - `nchar(n)` needs `RTRIM()` in every SELECT; `date` / `time(7)` map to `DateOnly` / `TimeOnly` via
   the handlers already registered in `Program.cs`.
 - **No mocking library.** Backend tests run against hand-written fakes and never touch SQL Server.
+- **QR codes go through `core/utils/qr-code.util.ts`** — `qrPngDataUrl` / `downloadDataUrl` wrap
+  `qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so the
+  `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
 - **Language split:** UI labels and validation messages are Traditional Chinese, usually paired with
   the English entity name (`角色 AppRole`, `權限等級`). Code, identifiers, comments and commit
   messages are English.

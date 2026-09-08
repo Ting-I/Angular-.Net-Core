@@ -7,6 +7,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { environment } from '@env';
 import { CourseDetail } from './course-detail';
 import { Course } from '@core/models/course.model';
+import { qrPngDataUrl } from '@core/utils/qr-code.util';
 
 describe('CourseDetail', () => {
   let fixture: ComponentFixture<CourseDetail>;
@@ -175,6 +176,74 @@ describe('CourseDetail', () => {
       });
 
       expect(fixture.nativeElement.textContent).not.toContain('此課程仍被引用');
+    });
+
+    describe('QR code', () => {
+      const publicUrl = 'https://www.uuu.com.tw/Course/Show/1/AZ-104';
+
+      const figure = (): HTMLElement =>
+        fixture.nativeElement.querySelector('section.page-card figure.qr-code');
+
+      it('encodes the public course URL built from the record pkid and CourseId', () => {
+        init();
+
+        expect(api()['qrUrl']()).toBe(publicUrl);
+        expect(figure().querySelector('img.qr-code-image')!.getAttribute('src')).toBe(
+          qrPngDataUrl(publicUrl),
+        );
+      });
+
+      it('takes the pkid and CourseId from the record, not the route', () => {
+        init({ ...course, pkid: 42, courseId: 'AZ-900' });
+
+        const expected = 'https://www.uuu.com.tw/Course/Show/42/AZ-900';
+        expect(api()['qrUrl']()).toBe(expected);
+        expect(figure().querySelector('img.qr-code-image')!.getAttribute('src')).toBe(
+          qrPngDataUrl(expected),
+        );
+      });
+
+      it('trims surrounding whitespace out of the encoded CourseId', () => {
+        init({ ...course, courseId: 'AZ-104   ' });
+
+        expect(api()['qrUrl']()).toBe(publicUrl);
+      });
+
+      it('shows the CourseId as the QR code title, inside 基本資料', () => {
+        init();
+
+        const section = figure().closest('section.page-card')!;
+        expect(section.querySelector('h2')!.textContent!.trim()).toBe('基本資料');
+        expect(figure().querySelector('.qr-code-title')!.textContent!.trim()).toBe('AZ-104');
+      });
+
+      it('downloads the QR code as a PNG image named after the CourseId', () => {
+        init();
+
+        const anchor = document.createElement('a');
+        const click = spyOn(anchor, 'click');
+        const create = document.createElement.bind(document);
+        spyOn(document, 'createElement').and.callFake((tag: string) =>
+          tag === 'a' ? anchor : create(tag),
+        );
+
+        api()['downloadQrCode']();
+
+        expect(click).toHaveBeenCalled();
+        expect(anchor.download).toBe('course-AZ-104-qrcode.png');
+
+        const href = anchor.getAttribute('href')!;
+        expect(href.startsWith('data:image/png;base64,')).toBeTrue();
+        expect(atob(href.split(',')[1]).slice(0, 8)).toBe('\x89PNG\r\n\x1a\n');
+      });
+
+      it('renders no QR code when the record is missing', () => {
+        init(null, 404);
+
+        expect(api()['qrUrl']()).toBeNull();
+        expect(api()['qrImage']()).toBeNull();
+        expect(figure()).toBeNull();
+      });
     });
 
     it('falls back to the pkid when a lookup does not resolve', () => {

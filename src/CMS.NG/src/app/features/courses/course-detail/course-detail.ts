@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
@@ -11,6 +11,10 @@ import { LookupService } from '@core/services/lookup.service';
 import { Course } from '@core/models/course.model';
 import { CertificationLookup } from '@core/models/certification-lookup.model';
 import { JobCategoryLookup } from '@core/models/job-category-lookup.model';
+import { downloadDataUrl, qrPngDataUrl } from '@core/utils/qr-code.util';
+
+/** Public site the QR code points at. */
+const PUBLIC_COURSE_URL = 'https://www.uuu.com.tw/Course/Show';
 
 @Component({
   selector: 'app-course-detail',
@@ -31,6 +35,24 @@ export class CourseDetail implements OnInit {
   /** Resolve the n-n pkid lists into names for display. */
   private readonly certifications = signal<CertificationLookup[]>([]);
   private readonly jobCategories = signal<JobCategoryLookup[]>([]);
+
+  /**
+   * Public course URL the QR code encodes. `CourseId` is operator-entered `varchar(50)` under no
+   * unique constraint, so it is trimmed and escaped rather than dropped into the path as-is.
+   */
+  protected readonly qrUrl = computed(() => {
+    const course = this.course();
+    if (!course) {
+      return null;
+    }
+    return `${PUBLIC_COURSE_URL}/${course.pkid}/${encodeURIComponent(course.courseId.trim())}`;
+  });
+
+  /** The QR itself, as a PNG data URL so the same bytes serve the <img> and the download. */
+  protected readonly qrImage = computed(() => {
+    const url = this.qrUrl();
+    return url ? qrPngDataUrl(url) : null;
+  });
 
   ngOnInit(): void {
     const rawId = this.route.snapshot.paramMap.get('id');
@@ -81,6 +103,17 @@ export class CourseDetail implements OnInit {
       course.hotCourseCount +
       course.courseRecommCount
     );
+  }
+
+  /** Saves the rendered QR code as `course-{CourseId}-qrcode.png`. */
+  protected downloadQrCode(): void {
+    const course = this.course();
+    const image = this.qrImage();
+    if (!course || !image) {
+      return;
+    }
+
+    downloadDataUrl(image, `course-${course.courseId.trim()}-qrcode.png`);
   }
 
   protected back(): void {
