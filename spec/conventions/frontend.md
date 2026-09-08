@@ -18,6 +18,19 @@ src/app/features/{table-plural}/{table}-list|-detail|-form/
   calls for something else builds what the spec says — `featured-promo-items` has a list and an
   inline form and no detail page at all. Record the deviation in the generated feature spec.
 
+## Writes
+
+- **Never PUT a list row straight back.** The list and `query` endpoints return the n-n key
+  arrays empty — only `GET /{table}/{key}` populates them — and the repositories rewrite their
+  junction tables from whatever the request carries, so a write built from a list row silently
+  clears the relations. Re-read the record first. `course-list.ts` `saveCell` is the worked
+  example; `CourseRepository.SyncJunctionsAsync` is the code that does the clearing.
+- **Every successful write tells the operator.** `messageService.add` with the fixed verb as
+  `summary` (`已儲存` / `已刪除` / `已複製`) and the record's **own identifying text** as
+  `detail` — never generic wording. `<p-toast />` stays a bare tag; nothing sets `life` or `key`.
+  Where the write leaves the screen looking identical, the toast is not enough on its own — see
+  **Inline cell editing** below for the highlight that has to go with it.
+
 ## List pages
 
 - Persist filter / sort / page to session storage under `{table}-list-filters` / `-sort` / `-page`.
@@ -56,7 +69,8 @@ column table. A second entity that wants it should lift the pieces out rather th
 - **`p-select` and `p-datepicker` move focus into their panel when it opens**, which fires the
   editor's blur. Guard `commit()` with a flag set from `(onShow)` and `(onHide)` / `(onClose)`, or
   the row saves the moment the operator opens the picker.
-- The save is `GET /{table}/{key}` then `PUT` — see the list-row rule in `CLAUDE.md`.
+- The save is `GET /{table}/{key}` then `PUT` — see **Writes** above for why the re-read is not
+  optional.
 
 ## Forms
 
@@ -67,7 +81,7 @@ column table. A second entity that wants it should lift the pieces out rather th
   `featured-promo-item-form`, which the list renders inside the grid row it is editing.
 - **A page with an action bar pins it.** `course-form` and `course-list` both do: `.page-header`
   wrapped in a sticky `.sticky-toolbar` carrying the page background, the gap down to the content
-  below, and a bleed out over `.app-main`’s padding. The mechanics live in one place,
+  below, and a bleed out over `.app-main`'s padding. The mechanics live in one place,
   `src/styles/_sticky-toolbar.scss`, as a mixin each page `@include`s — a mixin rather than a
   global class because the bar zeroes the `margin-bottom` of the `.page-header` it wraps, and a
   global rule loses that specificity tie to the component stylesheet that declares `.page-header`. Two things bite here, and both look fine in a screenshot of an
@@ -94,6 +108,12 @@ column table. A second entity that wants it should lift the pieces out rather th
   `toISOString()`: it converts to UTC first, which lands a UTC+8 operator on the previous day.
 - `addYears`, `addDays`, `startOfWeek`. `startOfWeek` returns the Monday, so it rotates
   JavaScript's Sunday-as-0 numbering; Sunday belongs to the week that started six days earlier.
+
+## QR codes
+
+Go through `core/utils/qr-code.util.ts` — `qrPngDataUrl` / `downloadDataUrl` wrap
+`qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so
+the `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
 
 ## Wiring
 

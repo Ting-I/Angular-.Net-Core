@@ -261,7 +261,7 @@ slot, promoCode?, promotionPkid?, topic?, description? }`); outputs `saved`, `ca
 | FK chosen from a `p-select` | PromoCode typed into a `p-autoComplete` and resolved to `Promotion_pkid` via the exact lookup | Spec: "Enter Promotion2.PromoCode, lookup then set Promotion_pkid" |
 | Only `[Required]` / `[StringLength]` annotations | `[Range(1, 3)]` on `Slot`, `[Range(1, …)]` on both FK pkids | Slot is bounded by the UI and the swap logic; a 0 pkid would otherwise surface as a 500 from the FK |
 | Copy action = server-side `POST /{id}/copy` (as Course) | Copy/Paste is client-side: Copy captures the row, Paste opens the editor pre-filled | The mockup's Paste lands in a *different* cell chosen by the operator, and nothing should be written until they press Save |
-| `/crud` skill asks for Moq, `RowAuditWriter`, sticky `p-toolbar` | none of the three | They do not exist in this repo (CLAUDE.md) |
+| `/crud` skill asks for Moq, `RowAuditWriter`, sticky `p-toolbar` | none of the three | Moq and `RowAuditWriter` do not exist in this repo. A pinned action bar arrived later, as `.sticky-toolbar` around a `.page-header` rather than a `p-toolbar` (`spec/conventions/frontend.md`); this page predates it |
 
 Other decisions worth knowing:
 
