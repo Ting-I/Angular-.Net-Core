@@ -29,6 +29,28 @@ src/app/features/{table-plural}/{table}-list|-detail|-form/
 - `p-confirmDialog` has **no `escape` input** in PrimeNG 20; it always renders `message` through
   `[innerHTML]`. Markup in the message works, so HTML-escape any record text you interpolate.
 
+### Inline cell editing
+
+`course-list` is the pattern; `spec/course/Course.md` → **Inline editing on the list** has the full
+column table. A second entity that wants it should lift the pieces out rather than copy them.
+
+- **Not `pEditableColumn`.** PrimeNG's directive opens the cell from its own `click` host listener
+  with no input to change that, and single click belongs to sorting, paging and the row actions.
+  A `(dblclick)` on the `<td>` plus an `@if` swapping display for editor is the shape instead.
+- A module-level `Record<EditableField, …>` is the single source of the editable set: editor kind,
+  the label the messages use, `maxLength`, decimal places and the SQL upper bound. `startEdit`
+  refuses any field that is not a key of it, so the read-only guard does not live in the template
+  alone. Keys and FK lookup labels stay out of it — the Edit form owns the relations.
+- Blur persists, `Enter` commits the text and number editors, `Escape` drops the draft. An
+  unchanged value closes without calling the API.
+- **Validation failure keeps the cell open** with the message rendered under the editor; a **save
+  failure closes it**, which is the revert — never write the row optimistically and there is
+  nothing to roll back.
+- **`p-select` and `p-datepicker` move focus into their panel when it opens**, which fires the
+  editor's blur. Guard `commit()` with a flag set from `(onShow)` and `(onHide)` / `(onClose)`, or
+  the row saves the moment the operator opens the picker.
+- The save is `GET /{table}/{key}` then `PUT` — see the list-row rule in `CLAUDE.md`.
+
 ## Forms
 
 - Reactive Forms, with `forkJoin` for parallel lookup + record loads. Skip the `forkJoin` when the

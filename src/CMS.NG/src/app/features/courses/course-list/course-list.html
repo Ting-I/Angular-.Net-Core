@@ -1,6 +1,13 @@
 <p-toast />
 <p-confirmDialog />
 
+<!-- Shared by every editable cell; there is only ever one open editor, so one message suffices. -->
+<ng-template #cellError>
+  @if (editError(); as error) {
+    <small class="cell-error">{{ error }}</small>
+  }
+</ng-template>
+
 <div class="page-header">
   <div class="page-title">
     <h1>課程 Course</h1>
@@ -83,27 +90,254 @@
       </tr>
     </ng-template>
 
+    <!--
+      Inline editing: double-click opens a cell, blur persists it. The three read-only columns —
+      主代碼, 原廠, 課程群組 — carry no (dblclick) and no editor.
+    -->
     <ng-template #body let-course>
       <tr>
         <td>{{ course.pkid }}</td>
-        <td class="text-right">{{ course.displayOrder }}</td>
-        <td>{{ course.courseId }}</td>
-        <td>{{ course.prodCourseId }}</td>
-        <td>{{ course.title }}</td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'displayOrder')"
+          (dblclick)="startEdit(course, 'displayOrder')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'displayOrder')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [useGrouping]="false"
+              ariaLabel="顯示順序"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.displayOrder }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'courseId')"
+          (dblclick)="startEdit(course, 'courseId')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'courseId')) {
+            <input
+              pInputText
+              type="text"
+              maxlength="50"
+              aria-label="簡介代碼"
+              [(ngModel)]="draft.text"
+              (blur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.courseId }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'prodCourseId')"
+          (dblclick)="startEdit(course, 'prodCourseId')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'prodCourseId')) {
+            <input
+              pInputText
+              type="text"
+              maxlength="50"
+              aria-label="科目代碼"
+              [(ngModel)]="draft.text"
+              (blur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.prodCourseId }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'title')"
+          (dblclick)="startEdit(course, 'title')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'title')) {
+            <input
+              pInputText
+              type="text"
+              maxlength="200"
+              aria-label="課程名稱"
+              [(ngModel)]="draft.text"
+              (blur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.title }}
+          }
+        </td>
+
         <td>{{ course.partner?.name || '—' }}</td>
         <td>{{ course.courseGroup?.description || '—' }}</td>
-        <td>{{ course.publishStatus?.description || '—' }}</td>
-        <td>{{ course.scheduleOn | date: 'yyyy/MM/dd' }}</td>
-        <td>{{ course.scheduleOff | date: 'yyyy/MM/dd' }}</td>
-        <td class="text-right">{{ course.hour }}</td>
-        <td class="text-right">{{ course.listPrice | number: '1.0-0' }}</td>
-        <td class="text-right">{{ course.learningCredit | number: '1.1-1' }}</td>
-        <td>
-          <p-tag
-            [value]="course.canRepeat ? '是' : '否'"
-            [severity]="course.canRepeat ? 'success' : 'secondary'"
-          />
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'publishStatusPkid')"
+          (dblclick)="startEdit(course, 'publishStatusPkid')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'publishStatusPkid')) {
+            <p-select
+              [options]="publishStatusOptions"
+              optionLabel="label"
+              optionValue="pkid"
+              appendTo="body"
+              ariaLabel="上架狀態"
+              [(ngModel)]="draft.select"
+              (onShow)="editorOverlayOpen.set(true)"
+              (onHide)="editorOverlayOpen.set(false)"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.publishStatus?.description || '—' }}
+          }
         </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'scheduleOn')"
+          (dblclick)="startEdit(course, 'scheduleOn')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'scheduleOn')) {
+            <p-datepicker
+              dateFormat="yy/mm/dd"
+              appendTo="body"
+              ariaLabel="上架日期"
+              [(ngModel)]="draft.date"
+              (onShow)="editorOverlayOpen.set(true)"
+              (onClose)="editorOverlayOpen.set(false)"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.scheduleOn | date: 'yyyy/MM/dd' }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'scheduleOff')"
+          (dblclick)="startEdit(course, 'scheduleOff')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'scheduleOff')) {
+            <p-datepicker
+              dateFormat="yy/mm/dd"
+              appendTo="body"
+              ariaLabel="下架日期"
+              [(ngModel)]="draft.date"
+              (onShow)="editorOverlayOpen.set(true)"
+              (onClose)="editorOverlayOpen.set(false)"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.scheduleOff | date: 'yyyy/MM/dd' }}
+          }
+        </td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'hour')"
+          (dblclick)="startEdit(course, 'hour')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'hour')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [useGrouping]="false"
+              ariaLabel="時數"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.hour }}
+          }
+        </td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'listPrice')"
+          (dblclick)="startEdit(course, 'listPrice')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'listPrice')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [maxFractionDigits]="0"
+              ariaLabel="定價"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.listPrice | number: '1.0-0' }}
+          }
+        </td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'learningCredit')"
+          (dblclick)="startEdit(course, 'learningCredit')"
+          (keydown.enter)="commit()"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'learningCredit')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [minFractionDigits]="1"
+              [maxFractionDigits]="1"
+              ariaLabel="點數"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            {{ course.learningCredit | number: '1.1-1' }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'canRepeat')"
+          (dblclick)="startEdit(course, 'canRepeat')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'canRepeat')) {
+            <p-checkbox
+              [binary]="true"
+              ariaLabel="允許重聽"
+              [(ngModel)]="draft.checkbox"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellError" />
+          } @else {
+            <p-tag
+              [value]="course.canRepeat ? '是' : '否'"
+              [severity]="course.canRepeat ? 'success' : 'secondary'"
+            />
+          }
+        </td>
+
         <td>
           <div class="row-actions">
             <p-button

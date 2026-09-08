@@ -1,13 +1,15 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { DrawerModule } from 'primeng/drawer';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { CheckboxModule } from 'primeng/checkbox';
 import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { TagModule } from 'primeng/tag';
@@ -16,11 +18,11 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Observable, forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, switchMap } from 'rxjs/operators';
 
 import { CourseService } from '@core/services/course.service';
 import { LookupService } from '@core/services/lookup.service';
-import { Course, CourseQuery } from '@core/models/course.model';
+import { Course, CourseQuery, CourseRequest } from '@core/models/course.model';
 import { PartnerLookup } from '@core/models/partner-lookup.model';
 import { CourseGroupLookup } from '@core/models/course-group-lookup.model';
 import { PublishStatusLookup } from '@core/models/publish-status-lookup.model';
@@ -62,6 +64,64 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Columns the list edits in place.
+ *
+ * `pkid`, `partner.name` and `courseGroup.description` are deliberately absent: the key is
+ * immutable on edit, and the two FK labels are lookups the Edit form owns. Anything not keyed here
+ * is read-only — `startEdit` refuses a field it cannot find, so the guard is not the template's
+ * alone.
+ */
+type EditableField =
+  | 'displayOrder'
+  | 'courseId'
+  | 'prodCourseId'
+  | 'title'
+  | 'publishStatusPkid'
+  | 'scheduleOn'
+  | 'scheduleOff'
+  | 'hour'
+  | 'listPrice'
+  | 'learningCredit'
+  | 'canRepeat';
+
+type EditorKind = 'text' | 'number' | 'date' | 'select' | 'checkbox';
+
+/** What a cell editor hands back before it is written into a CourseRequest. */
+type EditValue = string | number | Date | boolean | null;
+
+interface EditableColumn {
+  kind: EditorKind;
+  /** Used verbatim in the inline validation messages. */
+  label: string;
+  maxLength?: number;
+  /** Decimal places the column stores; 0 means the value must be a whole number. */
+  decimals?: number;
+  /** Upper bound implied by the SQL type — smallint / decimal(9, n). */
+  max?: number;
+}
+
+const EDITABLE_COLUMNS: Record<EditableField, EditableColumn> = {
+  displayOrder: { kind: 'number', label: '顯示順序', decimals: 0 },
+  courseId: { kind: 'text', label: '簡介代碼', maxLength: 50 },
+  prodCourseId: { kind: 'text', label: '科目代碼', maxLength: 50 },
+  title: { kind: 'text', label: '課程名稱', maxLength: 200 },
+  publishStatusPkid: { kind: 'select', label: '上架狀態' },
+  scheduleOn: { kind: 'date', label: '上架日期' },
+  scheduleOff: { kind: 'date', label: '下架日期' },
+  // Hour is smallint; ListPrice decimal(9, 0); LearningCredit decimal(9, 1).
+  hour: { kind: 'number', label: '時數', decimals: 0, max: 32767 },
+  listPrice: { kind: 'number', label: '定價', decimals: 0, max: 999999999 },
+  learningCredit: { kind: 'number', label: '點數', decimals: 1, max: 99999999.9 },
+  canRepeat: { kind: 'checkbox', label: '允許重聽' },
+};
+
+/** The one cell currently in edit mode. */
+interface EditingCell {
+  pkid: number;
+  field: EditableField;
+}
+
 const EMPTY_FILTERS: CourseQuery = {
   keyword: null,
   partnerPkid: null,
@@ -80,11 +140,14 @@ const EMPTY_FILTERS: CourseQuery = {
     FormsModule,
     DatePipe,
     DecimalPipe,
+    NgTemplateOutlet,
     TableModule,
     ButtonModule,
     DrawerModule,
     DialogModule,
     InputTextModule,
+    InputNumberModule,
+    CheckboxModule,
     SelectModule,
     DatePickerModule,
     TagModule,
@@ -103,6 +166,7 @@ export class CourseList implements OnInit {
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
 
   protected readonly courses = signal<Course[]>([]);
   protected readonly loading = signal(false);
@@ -125,6 +189,27 @@ export class CourseList implements OnInit {
 
   protected sort: ListSort = { field: 'displayOrder', order: 1 };
   protected page: ListPage = { first: 0, rows: 20 };
+
+  // --- inline cell editing ---
+  protected readonly editingCell = signal<EditingCell | null>(null);
+  protected readonly editError = signal<string | null>(null);
+  protected readonly savingCell = signal(false);
+
+  /**
+   * True while a p-select / p-datepicker panel is open. Both components move focus into the
+   * overlay when it opens, which fires the editor's blur — committing there would save the moment
+   * the operator opened the picker. The guard defers the commit to the blur that follows the close.
+   */
+  protected readonly editorOverlayOpen = signal(false);
+
+  /** One slot per editor kind; the edited column's `kind` decides which one the template binds. */
+  protected draft: {
+    text: string;
+    number: number | null;
+    date: Date | null;
+    select: number | null;
+    checkbox: boolean;
+  } = { text: '', number: null, date: null, select: null, checkbox: false };
 
   // --- copy dialog ---
   protected readonly copyDialogVisible = signal(false);
@@ -283,6 +368,289 @@ export class CourseList implements OnInit {
 
   protected edit(course: Course): void {
     void this.router.navigate(['/courses', course.pkid, 'edit']);
+  }
+
+  // --- inline cell editing ---
+
+  protected isEditing(course: Course, field: string): boolean {
+    const cell = this.editingCell();
+    return cell !== null && cell.pkid === course.pkid && cell.field === field;
+  }
+
+  /**
+   * Opens a cell for editing. Bound to `dblclick` only — a single click has to stay free for
+   * sorting, paging and the row action buttons, which is also why PrimeNG's own `pEditableColumn`
+   * is not used: that directive opens the cell from its own `click` host listener.
+   */
+  protected startEdit(course: Course, field: string): void {
+    if (!this.isEditableField(field)) {
+      return;
+    }
+
+    const current = this.editingCell();
+    if (current && current.pkid === course.pkid && current.field === field) {
+      return;
+    }
+
+    // A cell showing a validation error keeps the focus until the operator fixes or cancels it.
+    if (this.savingCell() || (current !== null && this.editError() !== null)) {
+      return;
+    }
+
+    this.editingCell.set({ pkid: course.pkid, field });
+    this.editError.set(null);
+    this.editorOverlayOpen.set(false);
+    this.loadDraft(course, field);
+    this.focusEditor();
+  }
+
+  /** Escape — drops the draft and leaves the stored value on screen. */
+  protected cancelEdit(): void {
+    this.closeEditor();
+  }
+
+  /**
+   * Validates the draft and, when it differs from the stored value, persists it through the normal
+   * Course update endpoint. A validation failure keeps the cell open so the value can be corrected
+   * in place; a rejected save reverts the cell and reports the error.
+   */
+  protected commit(): void {
+    const cell = this.editingCell();
+    if (!cell || this.savingCell() || this.editorOverlayOpen()) {
+      return;
+    }
+
+    const course = this.courses().find((c) => c.pkid === cell.pkid);
+    if (!course) {
+      this.closeEditor();
+      return;
+    }
+
+    const value = this.readDraft(EDITABLE_COLUMNS[cell.field].kind);
+    const error = this.validate(course, cell.field, value);
+    if (error) {
+      this.editError.set(error);
+      this.focusEditor();
+      return;
+    }
+
+    this.editError.set(null);
+    if (this.isUnchanged(course, cell.field, value)) {
+      this.closeEditor();
+      return;
+    }
+
+    this.saveCell(course, cell.field, value);
+  }
+
+  private isEditableField(field: string): field is EditableField {
+    return Object.prototype.hasOwnProperty.call(EDITABLE_COLUMNS, field);
+  }
+
+  private saveCell(course: Course, field: EditableField, value: EditValue): void {
+    this.savingCell.set(true);
+
+    // The list payload never carries the two n-n key arrays — they are populated by GET by pkid
+    // only — and the update endpoint rewrites both junction tables from whatever the request
+    // holds. Re-reading the record first is what keeps an inline edit from clearing a course's
+    // certifications and job categories.
+    this.service
+      .getById(course.pkid)
+      .pipe(
+        switchMap((full) =>
+          this.service.update(this.applyEdit(this.toRequest(full), field, value)),
+        ),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.savingCell.set(false);
+          this.courses.update((rows) =>
+            rows.map((row) => (row.pkid === updated.pkid ? updated : row)),
+          );
+          this.closeEditor();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.savingCell.set(false);
+          // The row was never written optimistically, so closing the editor is the revert: the
+          // cell falls back to rendering the stored value it was showing before the double-click.
+          this.closeEditor();
+          this.messageService.add({
+            severity: 'error',
+            summary: '儲存失敗',
+            detail:
+              error.status === 404
+                ? '查無此課程，請重新整理清單。'
+                : `${EDITABLE_COLUMNS[field].label}未儲存，已還原原值。`,
+          });
+        },
+      });
+  }
+
+  private closeEditor(): void {
+    this.editingCell.set(null);
+    this.editError.set(null);
+    this.editorOverlayOpen.set(false);
+  }
+
+  private loadDraft(course: Course, field: EditableField): void {
+    this.draft = { text: '', number: null, date: null, select: null, checkbox: false };
+
+    switch (EDITABLE_COLUMNS[field].kind) {
+      case 'text':
+        this.draft.text = (course[field] as string) ?? '';
+        break;
+      case 'number':
+        this.draft.number = course[field] as number;
+        break;
+      case 'date':
+        this.draft.date = fromIso(course[field] as string);
+        break;
+      case 'select':
+        this.draft.select = course[field] as number;
+        break;
+      case 'checkbox':
+        this.draft.checkbox = course[field] as boolean;
+        break;
+    }
+  }
+
+  private readDraft(kind: EditorKind): EditValue {
+    switch (kind) {
+      case 'text':
+        return this.draft.text;
+      case 'number':
+        return this.draft.number;
+      case 'date':
+        return this.draft.date;
+      case 'select':
+        return this.draft.select;
+      case 'checkbox':
+        return this.draft.checkbox;
+    }
+  }
+
+  /** Returns a message for an invalid edit, or null when the value may be persisted. */
+  private validate(course: Course, field: EditableField, value: EditValue): string | null {
+    const column = EDITABLE_COLUMNS[field];
+
+    switch (column.kind) {
+      case 'text': {
+        const text = typeof value === 'string' ? value.trim() : '';
+        if (text === '') {
+          return `${column.label}為必填。`;
+        }
+        if (column.maxLength !== undefined && text.length > column.maxLength) {
+          return `${column.label}不可超過 ${column.maxLength} 個字元。`;
+        }
+        return null;
+      }
+
+      case 'number': {
+        if (typeof value !== 'number' || Number.isNaN(value)) {
+          return `${column.label}為必填，且必須為數字。`;
+        }
+        if (value < 0) {
+          return `${column.label}不可小於 0。`;
+        }
+        if (column.decimals === 0 && !Number.isInteger(value)) {
+          return `${column.label}必須為整數。`;
+        }
+        if (column.decimals === 1 && Number(value.toFixed(1)) !== value) {
+          return `${column.label}最多只能有 1 位小數。`;
+        }
+        if (column.max !== undefined && value > column.max) {
+          return `${column.label}不可大於 ${column.max}。`;
+        }
+        return null;
+      }
+
+      case 'date': {
+        if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+          return `${column.label}為必填，且必須是有效日期。`;
+        }
+        // The other end of the range comes from the row, so either column can be edited alone.
+        const on = field === 'scheduleOn' ? toIso(value) : course.scheduleOn;
+        const off = field === 'scheduleOff' ? toIso(value) : course.scheduleOff;
+        if (on && off && on > off) {
+          return '上架日期不可晚於下架日期。';
+        }
+        return null;
+      }
+
+      case 'select':
+        return typeof value === 'number' ? null : `${column.label}為必填。`;
+
+      case 'checkbox':
+        return null;
+    }
+  }
+
+  private isUnchanged(course: Course, field: EditableField, value: EditValue): boolean {
+    if (value instanceof Date) {
+      return toIso(value) === (course[field] as string);
+    }
+    if (typeof value === 'string') {
+      return value.trim() === (course[field] as string);
+    }
+    return value === course[field];
+  }
+
+  /**
+   * Writes the single edited column onto the request. The computed key is cast rather than
+   * switched over eleven times; the field is already narrowed to a Course property by
+   * `EditableField`, and a Date is serialised with local components on the way through.
+   */
+  private applyEdit(request: CourseRequest, field: EditableField, value: EditValue): CourseRequest {
+    const patched = { ...request } as unknown as Record<string, unknown>;
+
+    if (value instanceof Date) {
+      patched[field] = toIso(value);
+    } else if (typeof value === 'string') {
+      patched[field] = value.trim();
+    } else {
+      patched[field] = value;
+    }
+
+    return patched as unknown as CourseRequest;
+  }
+
+  private toRequest(course: Course): CourseRequest {
+    return {
+      pkid: course.pkid,
+      title: course.title,
+      officialTitle: course.officialTitle,
+      courseId: course.courseId,
+      prodCourseId: course.prodCourseId,
+      friendlyUrl: course.friendlyUrl,
+      displayOrder: course.displayOrder,
+      partnerPkid: course.partnerPkid,
+      courseGroupPkid: course.courseGroupPkid,
+      publishStatusPkid: course.publishStatusPkid,
+      scheduleOn: course.scheduleOn,
+      scheduleOff: course.scheduleOff,
+      hour: course.hour,
+      listPrice: course.listPrice,
+      learningCredit: course.learningCredit,
+      material: course.material,
+      objective: course.objective,
+      target: course.target,
+      prerequisites: course.prerequisites,
+      outline: course.outline,
+      towardCertOrExam: course.towardCertOrExam,
+      note: course.note,
+      otherInfo: course.otherInfo,
+      canRepeat: course.canRepeat,
+      certificationPkids: course.certificationPkids,
+      jobCategoryPkids: course.jobCategoryPkids,
+    };
+  }
+
+  /** The editor is rendered by the same change detection pass that opens the cell. */
+  private focusEditor(): void {
+    setTimeout(() => {
+      const cell = this.host.nativeElement.querySelector<HTMLElement>('td.cell-editing');
+      cell?.querySelector<HTMLElement>('input, [role="combobox"]')?.focus();
+    });
   }
 
   // --- copy ---

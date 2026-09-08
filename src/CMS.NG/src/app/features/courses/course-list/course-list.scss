@@ -115,3 +115,34 @@
   color: #ef4444;
   font-size: 0.78rem;
 }
+
+/* Inline cell editing. The three read-only columns get no .editable-cell, so the affordance and
+   the double-click hint only appear where an editor will actually open. */
+.editable-cell {
+  cursor: cell;
+
+  &:hover {
+    background: #f8fafc;
+  }
+}
+
+.cell-editing {
+  background: #f1f5f9;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+
+  input,
+  ::ng-deep .p-select,
+  ::ng-deep .p-datepicker,
+  ::ng-deep .p-inputnumber {
+    width: 100%;
+  }
+}
+
+.cell-error {
+  display: block;
+  margin-top: 0.25rem;
+  color: #ef4444;
+  font-size: 0.75rem;
+  white-space: normal;
+}

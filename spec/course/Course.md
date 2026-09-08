@@ -781,6 +781,60 @@ would silently drop it. Nine possible filters, so the badge can read up to `9`.
 toast and navigate to the new course's detail page. On `409`, keep the dialog open and show
 「簡介代碼已存在。」 under the input.
 
+### Inline editing on the list
+
+The list table edits in place. Eleven of the fourteen data columns are editable; three are not.
+
+| Read-only column | Why |
+|---|---|
+| 主代碼 `pkid` | IDENTITY key, immutable on edit everywhere in this repo |
+| 原廠 `partner.name` | FK lookup label — the Edit form owns the relation |
+| 課程群組 `courseGroup.description` | FK lookup label, and nullable — same reason |
+
+| Editable column | Editor | Validation |
+|---|---|---|
+| 顯示順序 `displayOrder` | `p-inputNumber` `[useGrouping]="false"` | required, whole number, ≥ 0 |
+| 簡介代碼 `courseId` | `input pInputText` | required, ≤ 50 |
+| 科目代碼 `prodCourseId` | `input pInputText` | required, ≤ 50 |
+| 課程名稱 `title` | `input pInputText` | required, ≤ 200 |
+| 上架狀態 `publishStatusPkid` | `p-select` (`publishStatusOptions`) | required |
+| 上架日期 `scheduleOn` | `p-datepicker` | required, valid date, ≤ 下架日期 |
+| 下架日期 `scheduleOff` | `p-datepicker` | required, valid date, ≥ 上架日期 |
+| 時數 `hour` | `p-inputNumber` | required, whole number, 0–32767 (`smallint`) |
+| 定價 `listPrice` | `p-inputNumber` `[maxFractionDigits]="0"` | required, whole number, 0–999999999 (`decimal(9, 0)`) |
+| 點數 `learningCredit` | `p-inputNumber` 1 decimal | required, ≥ 0, at most 1 decimal (`decimal(9, 1)`) |
+| 允許重聽 `canRepeat` | `p-checkbox [binary]="true"` | always valid |
+
+`EDITABLE_COLUMNS` in `course-list.ts` is the single source of that table: kind, label used in the
+messages, `maxLength`, `decimals` and the SQL upper bound. `startEdit` refuses any field that is
+not a key of it, so the read-only guard does not depend on the template alone.
+
+**Interaction**
+
+- **Double-click** opens a cell. A single click must not — it belongs to sorting, paging and the
+  four row action buttons.
+- **Blur persists.** `Enter` commits the text and number editors, `Escape` closes any editor and
+  drops the draft.
+- Only one cell is open at a time; opening another commits the first through its blur.
+- A cell whose value is unchanged closes without calling the API.
+
+**Validation failure** keeps the cell in edit mode and renders the message as a `.cell-error`
+`<small>` under the editor. **Save failure** closes the editor, leaving the stored value on screen —
+the row is never written optimistically, so closing *is* the revert — and reports the error as a
+toast.
+
+**The save re-reads the record first.** `GET /courses/{pkid}` then `PUT /courses`. The list and
+query endpoints return `certificationPkids` and `jobCategoryPkids` empty (they are populated by GET
+by pkid only), and `CourseRepository.UpdateAsync` rewrites `CourseInCertification` and
+`CourseJobCategories` from whatever the request carries. Sending the list row straight back would
+silently clear both junction tables. The response of the `PUT` is the full JOINed `Course`, so it
+replaces the row and refreshes the 上架狀態 label without a reload.
+
+**Overlay focus guard.** `p-select` and `p-datepicker` move focus into their panel when it opens,
+which fires the editor's blur. `editorOverlayOpen`, set from `(onShow)` and `(onHide)` / `(onClose)`,
+makes `commit()` a no-op while the panel is up, so the save waits for the blur that follows the
+close.
+
 ### Session Storage Keys
 
 | Key | Contents |
@@ -1009,6 +1063,16 @@ Hand-written fakes, not a mocking library (house rule).
   restores session state; an incoming `?partnerPkid=` overriding only that saved filter; query
   failure; add/view/edit navigation; the copy dialog's success and `409` paths; delete on confirm;
   and the 409 toast.
+- `.../course-list/course-list.spec.ts` (inline editing) — a double-click opening an editor and a
+  single click not opening one; the three read-only columns carrying neither `.editable-cell` nor
+  an editor, and `startEdit` refusing a field outside `EDITABLE_COLUMNS`; a blur on the editor
+  issuing `GET /courses/1` then `PUT /courses`, with the re-read record's n-n key arrays surviving
+  into the request body; the date serialised with local components; the 上架狀態 label taken from
+  the PUT response; an unchanged value writing nothing; the overlay guard deferring a commit;
+  every validation arm (required text, over-length, cleared/NaN number, negative, fractional in a
+  whole-number column, two decimals on 點數, cleared/unparsable date, 上架日期 after 下架日期 from
+  either end, equal dates accepted, cleared 上架狀態) leaving the cell open with its message and
+  writing nothing; and a 500 and a 404 both reverting the cell.
 - `.../course-detail/course-detail.spec.ts` — loads the record, renders the nav-object links with
   the right hrefs, omits the course-group link when null, renders both n-n chip sets and the four
   counts, `404` path, no-id path, back/edit navigation; and the QR code — the URL built from the
@@ -1131,3 +1195,20 @@ exists. Where it and this spec differ:
 - **`date.util.ts` is created here**, not assumed to exist; sample1 refers to it as if it did.
 - **`spec/dapper.md` does not exist** either; the type handlers are in
   `src/CMS.API/Data/DapperTypeHandlers.cs` and are already registered in `Program.cs`.
+
+### From PrimeNG's own cell-edit directives
+
+The inline editing on the list is hand-rolled rather than built on `p-table [editMode]="cell"` with
+`pEditableColumn` / `p-cellEditor`:
+
+- **`pEditableColumn` opens the cell from its own `click` host listener**
+  (`primeng/table` → `EditableColumn.onClick`), and it offers no input to change that. The
+  requirement here is double-click only, so the directive is unusable as-is. `EDITABLE_COLUMNS` plus
+  a `(dblclick)` and an `@if` gives the same shape with the trigger under this feature's control.
+- Owning the open/commit cycle is also what makes the two behaviours the requirement asks for
+  expressible: a validation failure that **keeps** the cell open, and a save failure that closes and
+  reverts. `pEditableColumn`'s `isEditingCellValid()` only blocks the move to another cell.
+
+This is a list-page pattern the repo did not have before. A second entity that wants inline editing
+should lift `EDITABLE_COLUMNS`, `validate` and the commit cycle out of `course-list.ts` rather than
+copy them.

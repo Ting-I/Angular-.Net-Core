@@ -55,6 +55,11 @@ running it non-interactively.
   read the record in the controller, return `409` when a count is non-zero. `FK_Course_CourseGroup`
   is `ON DELETE CASCADE` and would silently destroy courses; `Seminar.Partner_pkid` has no FK behind
   it at all. Both cases are in `spec/conventions/backend.md`.
+- **Never PUT a list row straight back.** The list and `query` endpoints return the n-n key arrays
+  empty — they are populated by `GET /{table}/{key}` only — and the repositories rewrite their
+  junction tables from whatever the request carries. Any write built from a list row must re-read
+  the record first or it silently clears the relations. `course-list.ts` `saveCell` is the worked
+  example; `CourseRepository.SyncJunctionsAsync` is the code that does the clearing.
 - **Read the `CREATE TABLE` before assuming the key shape.** `pkid int IDENTITY` is common but not
   universal — `AppRole` has a string PK and `PublishStatus` a non-IDENTITY `tinyint` the operator
   supplies. Keys are always immutable on edit.

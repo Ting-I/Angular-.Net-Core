@@ -519,4 +519,440 @@ describe('CourseList', () => {
       req.flush([courses[1]]);
     });
   });
+
+  // ---------- Inline cell editing ----------
+
+  describe('inline cell editing', () => {
+    /** Column order in the body row; the three read-only ones are noted alongside. */
+    const CELL = {
+      pkid: 0, // read-only
+      displayOrder: 1,
+      courseId: 2,
+      prodCourseId: 3,
+      title: 4,
+      partner: 5, // read-only
+      courseGroup: 6, // read-only
+      publishStatus: 7,
+      scheduleOn: 8,
+      scheduleOff: 9,
+      hour: 10,
+      listPrice: 11,
+      learningCredit: 12,
+      canRepeat: 13,
+    };
+
+    function cellAt(row: number, index: number): HTMLTableCellElement {
+      return fixture.nativeElement
+        .querySelectorAll('tbody tr')
+        [row].querySelectorAll('td')[index] as HTMLTableCellElement;
+    }
+
+    function doubleClick(cell: HTMLElement): void {
+      cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      fixture.detectChanges();
+    }
+
+    /** Enters edit mode through the component so a test can go straight to the draft value. */
+    function openEditor(course: Course, field: string): void {
+      api()['startEdit'](course, field);
+      fixture.detectChanges();
+    }
+
+    /** The full record the save re-reads before it writes — carries both n-n key arrays. */
+    const fullCourse = makeCourse({ certificationPkids: [7, 8], jobCategoryPkids: [9] });
+
+    // --- entering edit mode ---
+
+    it('enters edit mode on a double-click and renders an editor in the cell', () => {
+      initAndFlush();
+
+      const cell = cellAt(0, CELL.title);
+      doubleClick(cell);
+
+      expect(api()['editingCell']()).toEqual({ pkid: 1, field: 'title' });
+      expect(cell.querySelector('input')).not.toBeNull();
+    });
+
+    it('does not enter edit mode on a single click', () => {
+      initAndFlush();
+
+      const cell = cellAt(0, CELL.title);
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      fixture.detectChanges();
+
+      expect(api()['editingCell']()).toBeNull();
+      expect(cell.querySelector('input')).toBeNull();
+      expect(cell.textContent).toContain('Azure 系統管理');
+    });
+
+    it('seeds the draft from the row it opens', () => {
+      initAndFlush();
+
+      openEditor(courses[0], 'title');
+      expect(api()['draft'].text).toBe('Azure 系統管理');
+
+      api()['cancelEdit']();
+      openEditor(courses[0], 'hour');
+      expect(api()['draft'].number).toBe(21);
+
+      api()['cancelEdit']();
+      openEditor(courses[0], 'scheduleOn');
+      expect(api()['draft'].date).toEqual(new Date(2026, 0, 1));
+
+      api()['cancelEdit']();
+      openEditor(courses[0], 'publishStatusPkid');
+      expect(api()['draft'].select).toBe(2);
+
+      api()['cancelEdit']();
+      openEditor(courses[0], 'canRepeat');
+      expect(api()['draft'].checkbox).toBeTrue();
+    });
+
+    it('closes the editor on escape without calling the API', () => {
+      initAndFlush();
+      openEditor(courses[0], 'title');
+
+      api()['draft'].text = '改到一半';
+      api()['cancelEdit']();
+      fixture.detectChanges();
+
+      expect(api()['editingCell']()).toBeNull();
+      httpMock.expectNone(baseUrl);
+      expect(api()['courses']()[0].title).toBe('Azure 系統管理');
+    });
+
+    // --- read-only columns ---
+
+    it('leaves the three read-only columns without an inline editor', () => {
+      initAndFlush();
+
+      for (const index of [CELL.pkid, CELL.partner, CELL.courseGroup]) {
+        const cell = cellAt(0, index);
+        expect(cell.classList).not.toContain('editable-cell');
+
+        doubleClick(cell);
+
+        expect(api()['editingCell']()).toBeNull();
+        expect(cell.querySelector('input')).toBeNull();
+      }
+    });
+
+    it('refuses to open a field that is not an editable column', () => {
+      initAndFlush();
+
+      // The key and the two FK columns behind 原廠 / 課程群組 are rejected by the guard, not only
+      // by the template omitting the (dblclick).
+      for (const field of ['pkid', 'partnerPkid', 'courseGroupPkid', 'friendlyUrl']) {
+        api()['startEdit'](courses[0], field);
+        expect(api()['editingCell']()).toBeNull();
+      }
+    });
+
+    // --- persisting on blur ---
+
+    it('persists the edited cell when the editor loses focus', () => {
+      initAndFlush();
+
+      const cell = cellAt(0, CELL.title);
+      doubleClick(cell);
+
+      const input = cell.querySelector('input') as HTMLInputElement;
+      input.value = 'Azure 進階管理';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      input.dispatchEvent(new Event('blur'));
+      fixture.detectChanges();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+
+      const put = httpMock.expectOne(baseUrl);
+      expect(put.request.method).toBe('PUT');
+      expect(put.request.body.pkid).toBe(1);
+      expect(put.request.body.title).toBe('Azure 進階管理');
+      put.flush(makeCourse({ title: 'Azure 進階管理' }));
+
+      expect(api()['courses']()[0].title).toBe('Azure 進階管理');
+      expect(api()['editingCell']()).toBeNull();
+    });
+
+    /**
+     * The list payload never carries the n-n keys, and the update endpoint rewrites both junction
+     * tables from the request. Saving the list row as-is would clear them.
+     */
+    it('re-reads the record so the update keeps the n-n keys', () => {
+      initAndFlush();
+      openEditor(courses[0], 'hour');
+
+      api()['draft'].number = 28;
+      api()['commit']();
+
+      const get = httpMock.expectOne(`${baseUrl}/1`);
+      expect(get.request.method).toBe('GET');
+      get.flush(fullCourse);
+
+      const put = httpMock.expectOne(baseUrl);
+      expect(put.request.body.hour).toBe(28);
+      expect(put.request.body.certificationPkids).toEqual([7, 8]);
+      expect(put.request.body.jobCategoryPkids).toEqual([9]);
+      put.flush(makeCourse({ hour: 28 }));
+    });
+
+    it('serialises an edited date with local components', () => {
+      initAndFlush();
+      openEditor(courses[0], 'scheduleOff');
+
+      // Late evening: toISOString() would report 2036-12-30 for a UTC+8 client.
+      api()['draft'].date = new Date(2036, 11, 31, 23, 30);
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      const put = httpMock.expectOne(baseUrl);
+      expect(put.request.body.scheduleOff).toBe('2036-12-31');
+      put.flush(makeCourse({ scheduleOff: '2036-12-31' }));
+    });
+
+    it('writes the selected 上架狀態 key and takes the new label from the response', () => {
+      initAndFlush();
+      openEditor(courses[0], 'publishStatusPkid');
+
+      api()['draft'].select = 1;
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      const put = httpMock.expectOne(baseUrl);
+      expect(put.request.body.publishStatusPkid).toBe(1);
+      put.flush(
+        makeCourse({ publishStatusPkid: 1, publishStatus: { pkid: 1, description: '未上架' } }),
+      );
+
+      expect(api()['courses']()[0].publishStatus?.description).toBe('未上架');
+    });
+
+    it('persists 允許重聽 as a boolean', () => {
+      initAndFlush();
+      openEditor(courses[0], 'canRepeat');
+
+      api()['draft'].checkbox = false;
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      const put = httpMock.expectOne(baseUrl);
+      expect(put.request.body.canRepeat).toBeFalse();
+      put.flush(makeCourse({ canRepeat: false }));
+
+      expect(api()['courses']()[0].canRepeat).toBeFalse();
+    });
+
+    it('closes without calling the API when the value did not change', () => {
+      initAndFlush();
+      openEditor(courses[0], 'title');
+
+      api()['commit']();
+
+      httpMock.expectNone(`${baseUrl}/1`);
+      expect(api()['editingCell']()).toBeNull();
+    });
+
+    it('defers the commit while a picker overlay holds the focus', () => {
+      initAndFlush();
+      openEditor(courses[0], 'scheduleOn');
+
+      // p-datepicker moves focus into its panel on open, which blurs the input.
+      api()['editorOverlayOpen'].set(true);
+      api()['draft'].date = new Date(2026, 5, 1);
+      api()['commit']();
+
+      httpMock.expectNone(`${baseUrl}/1`);
+      expect(api()['editingCell']()).toEqual({ pkid: 1, field: 'scheduleOn' });
+
+      api()['editorOverlayOpen'].set(false);
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ scheduleOn: '2026-06-01' }));
+    });
+
+    // --- validation ---
+
+    /** Every case leaves the cell open with an inline message and writes nothing. */
+    function expectRejected(field: string, seed: () => void, message: string): void {
+      openEditor(courses[0], field);
+      seed();
+      api()['commit']();
+      fixture.detectChanges();
+
+      httpMock.expectNone(`${baseUrl}/1`);
+      httpMock.expectNone(baseUrl);
+      expect(api()['editError']()).toBe(message);
+      expect(api()['editingCell']()).toEqual({ pkid: 1, field });
+
+      api()['cancelEdit']();
+      fixture.detectChanges();
+    }
+
+    it('rejects a cleared required text field', () => {
+      initAndFlush();
+
+      expectRejected('title', () => (api()['draft'].text = '   '), '課程名稱為必填。');
+      expectRejected('courseId', () => (api()['draft'].text = ''), '簡介代碼為必填。');
+      expectRejected('prodCourseId', () => (api()['draft'].text = ''), '科目代碼為必填。');
+    });
+
+    it('rejects text longer than the column', () => {
+      initAndFlush();
+
+      expectRejected(
+        'courseId',
+        () => (api()['draft'].text = 'A'.repeat(51)),
+        '簡介代碼不可超過 50 個字元。',
+      );
+    });
+
+    it('rejects a cleared numeric field', () => {
+      initAndFlush();
+
+      expectRejected('hour', () => (api()['draft'].number = null), '時數為必填，且必須為數字。');
+      expectRejected(
+        'listPrice',
+        () => (api()['draft'].number = Number.NaN),
+        '定價為必填，且必須為數字。',
+      );
+    });
+
+    it('rejects a negative number in the three numeric columns', () => {
+      initAndFlush();
+
+      expectRejected('hour', () => (api()['draft'].number = -1), '時數不可小於 0。');
+      expectRejected('listPrice', () => (api()['draft'].number = -0.5), '定價不可小於 0。');
+      expectRejected('learningCredit', () => (api()['draft'].number = -3), '點數不可小於 0。');
+    });
+
+    it('rejects a fractional value in a whole-number column', () => {
+      initAndFlush();
+
+      expectRejected('hour', () => (api()['draft'].number = 7.5), '時數必須為整數。');
+      expectRejected('listPrice', () => (api()['draft'].number = 100.25), '定價必須為整數。');
+    });
+
+    it('accepts one decimal place on 點數 but not two', () => {
+      initAndFlush();
+
+      expectRejected(
+        'learningCredit',
+        () => (api()['draft'].number = 3.25),
+        '點數最多只能有 1 位小數。',
+      );
+
+      openEditor(courses[0], 'learningCredit');
+      api()['draft'].number = 4.5;
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ learningCredit: 4.5 }));
+      expect(api()['editError']()).toBeNull();
+    });
+
+    it('rejects a cleared or unparsable date', () => {
+      initAndFlush();
+
+      expectRejected(
+        'scheduleOn',
+        () => (api()['draft'].date = null),
+        '上架日期為必填，且必須是有效日期。',
+      );
+      expectRejected(
+        'scheduleOff',
+        () => (api()['draft'].date = new Date('nope')),
+        '下架日期為必填，且必須是有效日期。',
+      );
+    });
+
+    it('rejects 上架日期 after 下架日期 from either end of the range', () => {
+      initAndFlush();
+
+      // Row 1 stores 2026-01-01 through 2036-01-01.
+      expectRejected(
+        'scheduleOn',
+        () => (api()['draft'].date = new Date(2037, 0, 1)),
+        '上架日期不可晚於下架日期。',
+      );
+      expectRejected(
+        'scheduleOff',
+        () => (api()['draft'].date = new Date(2025, 11, 31)),
+        '上架日期不可晚於下架日期。',
+      );
+    });
+
+    it('accepts 上架日期 equal to 下架日期', () => {
+      initAndFlush();
+      openEditor(courses[0], 'scheduleOff');
+
+      api()['draft'].date = new Date(2026, 0, 1);
+      api()['commit']();
+
+      expect(api()['editError']()).toBeNull();
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush(makeCourse({ scheduleOff: '2026-01-01' }));
+    });
+
+    it('rejects a cleared 上架狀態', () => {
+      initAndFlush();
+
+      expectRejected('publishStatusPkid', () => (api()['draft'].select = null), '上架狀態為必填。');
+    });
+
+    it('shows the inline message in the open cell and blocks a move to another cell', () => {
+      initAndFlush();
+
+      const cell = cellAt(0, CELL.title);
+      doubleClick(cell);
+      api()['draft'].text = '';
+      api()['commit']();
+      fixture.detectChanges();
+
+      expect(cell.querySelector('.cell-error')?.textContent).toContain('課程名稱為必填。');
+
+      // The invalid cell keeps the focus until it is fixed or cancelled.
+      doubleClick(cellAt(0, CELL.hour));
+      expect(api()['editingCell']()).toEqual({ pkid: 1, field: 'title' });
+
+      api()['cancelEdit']();
+      fixture.detectChanges();
+    });
+
+    // --- failed save ---
+
+    it('reverts the cell and reports the error when the save is rejected', () => {
+      initAndFlush();
+      openEditor(courses[0], 'title');
+
+      api()['draft'].text = 'Azure 進階管理';
+      api()['commit']();
+
+      httpMock.expectOne(`${baseUrl}/1`).flush(fullCourse);
+      httpMock.expectOne(baseUrl).flush('boom', { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(api()['courses']()[0].title).toBe('Azure 系統管理');
+      expect(api()['editingCell']()).toBeNull();
+      expect(api()['savingCell']()).toBeFalse();
+      expect(cellAt(0, CELL.title).textContent).toContain('Azure 系統管理');
+    });
+
+    it('reverts when the record has gone since the list was loaded', () => {
+      initAndFlush();
+      openEditor(courses[0], 'hour');
+
+      api()['draft'].number = 35;
+      api()['commit']();
+
+      httpMock
+        .expectOne(`${baseUrl}/1`)
+        .flush('missing', { status: 404, statusText: 'Not Found' });
+
+      expect(api()['courses']()[0].hour).toBe(21);
+      expect(api()['editingCell']()).toBeNull();
+    });
+  });
 });
