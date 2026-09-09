@@ -108,3 +108,26 @@ too — see the 異動紀錄 section of `spec/conventions/backend.md`. The `RowA
 asks for exists too, as `RowAuditBadge`; it goes at the start of the `.page-header`, which is where
 a `#start` toolbar slot lands in a codebase with no `p-toolbar`. Record the remaining deviations in
 the generated spec.
+
+## gstack
+
+Browsing goes through **`/browse`** (a gstack skill), always. Do not use the
+`mcp__claude-in-chrome__*` tools — not to open a page, not to screenshot one, not as a fallback
+when `/browse` is inconvenient. One browser path, so a page that renders for you renders the same
+way next session.
+
+Skills, as actually installed (`~/.claude/skills/`) — this list came off disk, not off a README:
+
+`/autoplan`, `/benchmark`, `/benchmark-models`, `/browse`, `/canary`, `/careful`, `/codex`,
+`/connect-chrome`, `/context-restore`, `/context-save`, `/cso`, `/design-consultation`,
+`/design-html`, `/design-review`, `/design-shotgun`, `/devex-review`, `/diagram`,
+`/document-generate`, `/document-release`, `/freeze`, `/gstack`, `/gstack-upgrade`, `/guard`,
+`/health`, `/investigate`, `/ios-clean`, `/ios-design-review`, `/ios-fix`, `/ios-qa`, `/ios-sync`,
+`/land-and-deploy`, `/landing-report`, `/learn`, `/make-pdf`, `/office-hours`,
+`/open-gstack-browser`, `/pair-agent`, `/plan-ceo-review`, `/plan-design-review`,
+`/plan-devex-review`, `/plan-eng-review`, `/plan-tune`, `/qa`, `/qa-only`, `/retro`, `/review`,
+`/scrape`, `/setup-browser-cookies`, `/setup-deploy`, `/setup-gbrain`, `/ship`, `/skillify`,
+`/spec`, `/sync-gbrain`, `/unfreeze`.
+
+Re-run `~/.claude/skills/gstack/setup` after every `git pull` of gstack — on Windows the skills are
+file copies, not symlinks, so they do not track the repo.
