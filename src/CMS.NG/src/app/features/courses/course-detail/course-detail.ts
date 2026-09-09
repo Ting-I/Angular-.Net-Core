@@ -144,7 +144,8 @@ export class CourseDetail implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     // A print that was never finished, or a tab restore that fires no `afterprint`, must not leave
-    // the body class behind: every later page would print with the sheet's zero page margin.
+    // the body class behind: every later page would print under the sheet's page box, with
+    // .app-main's print padding suppressed.
     this.endPrint();
   }
 

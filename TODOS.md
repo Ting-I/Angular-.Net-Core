@@ -21,7 +21,9 @@
 below (the table's columns are clipped horizontally). The margin mechanism also changed during that
 QA pass: see the entry below and `docs/designs/course-sheet-pdf.md`.
 
-**Update (2026-09-09, implemented):** shipped, with one correction to D13 — a class cannot scope `@page` (there is no descendant selector in a page context, eng review E2), so the mechanism is a **named page**: `@page sheet { margin: 0 }` claimed by `body.print-sheet app-course-sheet { page: sheet }`, while unnamed pages keep `@page { margin: 14mm 16mm }` and `.app-main` carries `padding: 14mm 16mm` under print (dropping to 0 only under the sheet's page, so the two never stack). Nothing is left to build here; what remains is one look at a real print preview of `/courses` and a form page, which is on the T5 QA list. Close the entry after that.
+**Update (2026-09-09, implemented):** shipped, with one correction to D13 — a class cannot scope `@page` (there is no descendant selector in a page context, eng review E2), so the mechanism is a **named page**: `@page sheet` claimed by `body.print-sheet app-course-sheet { page: sheet }`, while unnamed pages use `@page { margin: 14mm 16mm }`. Nothing is left to build here; what remains is one look at a real print preview of `/courses` and a form page, which is on the T5 QA list. Close the entry after that.
+
+**Correction (2026-09-09, /review):** the line above originally said `.app-main` also carried `padding: 14mm 16mm` under print, "dropping to 0 only under the sheet's page, so the two never stack". They did stack, on every page but the sheet's: the page box gave `/courses` 14/16 mm and the block padding added 14/16 mm more to page 1 only, because padding does not clone onto the next page fragment. That is the same first-page-deep, second-page-shallow shape the sheet's own margin work exists to remove. The padding is gone; margins now live in the page boxes alone, which is the rule CLAUDE.md states. The print preview of `/courses` on the T5 list is what confirms it.
 
 ### Bulk course-sheet export from the courses list
 

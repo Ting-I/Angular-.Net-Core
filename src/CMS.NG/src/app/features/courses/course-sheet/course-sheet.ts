@@ -42,6 +42,12 @@ interface SheetSection {
  */
 const MARKUP = /<\/?(p|br|div|span|ul|ol|li|h[1-6]|strong|b|em|i|u|font|table|tr|td|a|img)\b[^>]*>/i;
 
+/**
+ * The one tag that is content even though it strips to no text. A section whose column holds a pasted
+ * diagram and nothing else must still print, heading and all — see `normalise`.
+ */
+const IMAGE = /<img\b/i;
+
 /** Tags stripped, entities that render as blank removed — what is left is what a buyer would read. */
 function textOf(html: string): string {
   return html
@@ -168,6 +174,9 @@ export class CourseSheet {
    * event handlers and `style` are dropped, and the parser repairs the malformed nesting that
    * hand-pasted vendor copy is full of). Emptiness is judged on the *text* inside it, so a column
    * holding `<p>&nbsp;</p>` — which reads as blank on paper — omits its section like any other blank.
+   * An image is the exception, and it has to be: a 課程大綱 pasted as one diagram strips to no text at
+   * all, and dropping it would take the heading with it and tell nobody. `.sheet-section-html img` is
+   * already styled for exactly this, so the renderer was always expecting it.
    */
   private normalise(label: string, value: string | null): SheetSection | null {
     const text = value?.replace(/\r\n/g, '\n').trim();
@@ -176,7 +185,7 @@ export class CourseSheet {
     }
 
     if (MARKUP.test(text)) {
-      return textOf(text) ? { label, text, html: true } : null;
+      return textOf(text) || IMAGE.test(text) ? { label, text, html: true } : null;
     }
 
     return { label, text: text.replace(/\n{3,}/g, '\n\n'), html: false };

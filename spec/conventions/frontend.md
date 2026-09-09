@@ -142,8 +142,12 @@ have PDF" off this one.
   are in `src/styles.scss`: `@page { margin: 14mm 16mm }` for ordinary pages, and a **named page**
   (`@page sheet`, claimed with `page: sheet`) for the print view, so its page box can differ from
   every other page's. `body.print-sheet` — set in `beforeprint`, cleared in `afterprint` and
-  `ngOnDestroy` — is what pairs the named page with `.app-main { padding: 0 }`, so the two rules can
-  never disagree and give page 1 a double margin.
+  `ngOnDestroy` — is what claims that named page for the sheet and nothing else.
+- **No print rule adds a margin outside a page box, `.app-main` included.** An earlier revision had
+  `.app-main { padding: 14mm 16mm }` under print, from when `@page` was `margin: 0`; once the page
+  box grew real margins the two stacked on every page but the sheet's, so a printed `/courses` came
+  out deep on page 1 and shallow on page 2 — the same defect, one page over. If you find yourself
+  cancelling a print padding somewhere to stop a double margin, delete the padding instead.
 - **Put the page's margins in the page box, not in the content.** This is the mistake worth
   inheriting: the sheet originally used `@page sheet { margin: 0 }` (the only lever that stops the
   browser stamping the internal CMS URL into the margin) and supplied its own margins as host padding

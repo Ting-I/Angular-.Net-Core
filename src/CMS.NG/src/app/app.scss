@@ -233,7 +233,7 @@
    produced one clipped screen. Unwinding both under print media makes every page print its full
    content — intended for all of them, not just the sheet (spec/conventions/frontend.md).
 
-   The page box itself, and the sheet's zero-margin named page, are in src/styles.scss: an @page rule
+   The page box itself, and the sheet's own named page, are in src/styles.scss: an @page rule
    cannot live in a component stylesheet. */
 @media print {
   .app-shell {
@@ -249,9 +249,9 @@
 
   .app-main {
     overflow: visible;
-    /* Paper margins for an ordinary page. Under the sheet's named page this drops to 0 instead
-       (styles.scss), because the sheet supplies its own margins: stacking the two would give page 1
-       a double margin and page 2 none, which is the exact bug the margin work exists to remove. */
-    padding: 14mm 16mm;
+    /* No paper margins here. Every page box in styles.scss carries 14mm 16mm of its own, and block
+       padding would stack on top of it on page 1 and clone onto no page after that — page 1 deep,
+       page 2 shallow, which is the exact bug the margin work exists to remove. Margins belong to
+       the page box. */
   }
 }

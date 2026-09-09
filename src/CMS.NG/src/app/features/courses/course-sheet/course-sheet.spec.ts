@@ -396,6 +396,27 @@ describe('CourseSheet', () => {
       expect(sectionTitles()).toEqual(['課程大綱']);
     });
 
+    /**
+     * The one shape that strips to no text and is still content. Dropping it would take the heading
+     * with it, on a customer document, silently — the only failure mode of this sheet that nobody
+     * would see. The `<p>&nbsp;</p>` case above is what keeps the two apart.
+     */
+    it('keeps a section whose HTML is only an image', async () => {
+      await render({
+        objective: '<p><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" /></p>',
+        target: '<p>&nbsp;</p>',
+        prerequisites: null,
+        outline: null,
+        towardCertOrExam: null,
+        material: null,
+      });
+
+      expect(sectionTitles()).toEqual(['課程目標']);
+      expect(
+        fixture.nativeElement.querySelector('.sheet-section-html img'),
+      ).not.toBeNull();
+    });
+
     it('still prints no internal field when the copy is HTML', async () => {
       await render({ outline: outlineHtml });
 

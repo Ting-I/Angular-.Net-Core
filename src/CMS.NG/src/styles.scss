@@ -55,14 +55,11 @@ body {
   }
 
   /* CourseDetail sets .print-sheet on <body> for the length of one print and clears it again on
-     afterprint and on destroy. It is what pairs the two rules that must always agree: the sheet asks
-     for the zero-margin page, and .app-main stops adding a margin of its own. */
+     afterprint and on destroy. It is what claims the named page above for the sheet and nothing
+     else, so the sheet's page box can diverge from the ordinary one without the two ever meeting.
+     No margin rule is paired with it: margins live in the page boxes alone, never in the content. */
   body.print-sheet app-course-sheet {
     page: sheet;
-  }
-
-  body.print-sheet .app-main {
-    padding: 0;
   }
 
   /* PrimeNG overlays: the confirm dialog belongs to a page's component tree but its mask is moved to
