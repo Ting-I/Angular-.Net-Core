@@ -61,3 +61,27 @@ export function startOfWeek(value: Date): Date {
   const daysSinceMonday = (value.getDay() + 6) % 7;
   return addDays(value, -daysSinceMonday);
 }
+
+/**
+ * Formats an API timestamp as `yyyy-MM-dd HH:mm` for display.
+ *
+ * The API sends 異動時間 with no timezone offset, which `new Date()` parses as local — so the
+ * components come back out exactly as the server wrote them. Reading them with `getFullYear()`
+ * rather than slicing the string keeps that true for any other shape the wire might carry.
+ * Anything unparseable yields null, so a caller renders its own placeholder rather than
+ * `Invalid Date`.
+ */
+export function formatDateTime(value: string | Date | null | undefined): string | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const time =
+    `${date.getHours()}`.padStart(2, '0') + ':' + `${date.getMinutes()}`.padStart(2, '0');
+  return `${toIso(date)} ${time}`;
+}

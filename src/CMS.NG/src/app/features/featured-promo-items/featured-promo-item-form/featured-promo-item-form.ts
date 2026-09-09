@@ -39,9 +39,11 @@ export interface FeaturedPromoItemDraft {
  * item is created at the `draft` position. The operator types a PromoCode, which is resolved to
  * Promotion_pkid before the save — either on selection, on 查詢, or as the first step of 儲存.
  */
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-featured-promo-item-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, AutoCompleteModule],
+  imports: [RowAuditBadge, ReactiveFormsModule, ButtonModule, InputTextModule, AutoCompleteModule],
   templateUrl: './featured-promo-item-form.html',
   styleUrl: './featured-promo-item-form.scss',
 })

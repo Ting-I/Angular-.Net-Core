@@ -1,0 +1,64 @@
+/*
+ * The badge sits in a `.page-header`, which is `display: flex; justify-content: space-between`
+ * with the title at the start and `.page-actions` at the end. Dropping a third child in would park
+ * it in the middle of the bar, so the host claims the free space instead: the badge stays beside
+ * the title on the leading side — the toolbar's start — and the action buttons stay on the end.
+ * Doing it here rather than in each page's stylesheet is what keeps this component drop-in.
+ */
+:host {
+  display: inline-flex;
+  margin-right: auto;
+}
+
+:host ::ng-deep .row-audit-button {
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  white-space: nowrap;
+}
+
+.row-audit-label {
+  font-weight: 600;
+}
+
+/* The latest change is secondary to the label — present at a glance, not competing with it. */
+.row-audit-latest {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.row-audit-empty {
+  color: #94a3b8;
+  margin: 0;
+}
+
+.row-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+
+  th {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+  }
+}
+
+.row-audit-when {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A changed-column list can be long; it wraps rather than stretching the dialog. */
+.row-audit-desc {
+  word-break: break-word;
+}

@@ -314,3 +314,25 @@ Dapper's async methods reject a bare `IDbConnection`) that records every stateme
 parameters and the transaction it ran on. `PartnerRepositoryAuditTests` is the worked example, and
 it hands the writer a `ThrowingDbConnectionFactory` so an audit row that stops riding the caller's
 transaction fails the test instead of quietly opening a second connection.
+
+**Reading the trail back is a separate repository.** `GET /api/rowaudit?tableName=Course&pkid=123`
+answers one record's history, newest first, through `IRowAuditRepository` /
+`RowAuditRepository` — an ordinary read-only repository a controller injects, not the writer. The
+two stay apart on purpose: the writer runs inside somebody else's transaction and is write-only,
+and nothing that writes should acquire a way to read. `RowAuditSql` holds both statements and
+nothing else — there is no update and no delete, because an audit row that can be edited is not an
+audit row, and for the same reason `RowAuditController` exposes no write.
+
+Three things about that endpoint are load-bearing:
+
+- **Both halves of the filter.** `PrimaryKeyValues` is only unique within a `TableName`, so pkid 7
+  alone mixes 原廠 7 with 課程 7.
+- **`pkid` is nullable on the action, and a missing one is a `400`.** A plain `int` would default a
+  malformed request to pkid 0 and answer it with a straight face — and 0 is a real key for a table
+  whose pkid is not IDENTITY.
+- **An unknown table or key is an empty array, not a `404`.** "This record has no history yet" is
+  what the badge renders, and it is not an error.
+
+The ordering is `[DateTime] DESC, pkid DESC`. The tie-break is not decoration: a change that writes
+more than one audit row — `MoveToSlotAsync` writes one per row the swap moved — stamps them from
+the same clock reading, and IDENTITY is the only thing that still increases inside one transaction.

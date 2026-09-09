@@ -529,6 +529,7 @@ Fakes, not a mocking library (house rule).
   `RowAudit` table and there was no authentication to source a `UserName` from. Both arrived later:
   `PublishStatusRepository` now writes an audit row on every insert, update and delete, on the same
   transaction as the change. See the 異動紀錄 section of `spec/conventions/backend.md`. The
-  `RowAuditBadgeComponent` the skill asks for still does not exist — nothing reads the trail back.
+  `RowAuditBadgeComponent` arrived with it: `RowAuditBadge` in `core/components/`, rendered in this
+  page's `.page-header`. See the 異動紀錄 section of `spec/conventions/frontend.md`.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature matches
   `AppRole` rather than introducing a second header pattern.

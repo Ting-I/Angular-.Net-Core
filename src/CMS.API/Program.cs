@@ -105,6 +105,10 @@ builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 // pipeline and required here too.
 builder.Services.AddScoped<IRowAuditWriter, RowAuditWriter>();
 
+// The read side is an ordinary repository: a controller injects it, it never sees a transaction,
+// and keeping it apart from the writer means nothing that writes can also read.
+builder.Services.AddScoped<IRowAuditRepository, RowAuditRepository>();
+
 var app = builder.Build();
 
 app.UseSwagger();

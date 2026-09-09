@@ -123,7 +123,12 @@ describe('CourseForm', () => {
     });
   }
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    // The 異動紀錄 badge this page renders fetches its own trail. That is the badge's own spec's
+    // business, not this one's, so the request is answered here instead of in every case.
+    httpMock.match((req) => req.url.endsWith('/rowaudit')).forEach((req) => req.flush([]));
+    httpMock.verify();
+  });
 
   /**
    * The Save / Cancel bar is pinned with position: sticky on .sticky-toolbar rather than by any

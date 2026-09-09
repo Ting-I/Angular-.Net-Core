@@ -91,6 +91,8 @@ describe('FeaturedPromoItemList', () => {
   });
 
   afterEach(() => {
+    // The 異動紀錄 badge on the inline editor fetches its own trail; see the badge's own spec.
+    httpMock.match((req) => req.url.endsWith('/rowaudit')).forEach((req) => req.flush([]));
     httpMock.verify();
     sessionStorage.clear();
   });

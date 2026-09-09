@@ -750,8 +750,9 @@ Recorded per `CLAUDE.md`, which wins where the skill conflicts with it.
   `AppUserRepository` writes an audit row on every insert, update and delete, plus one for the
   profile rename and one for a password reset — that last reads `PasswordUpdatedTime`, because the
   snapshot projection may not select `PasswordHash`. See the 異動紀錄 section of
-  `spec/conventions/backend.md`. The `RowAuditBadgeComponent` the skill asks for still does not
-  exist — nothing reads the trail back.
+  `spec/conventions/backend.md`. The `RowAuditBadgeComponent` arrived with it:
+  `RowAuditBadge` in `core/components/`, rendered in this feature's `.page-header`. See the
+  異動紀錄 section of `spec/conventions/frontend.md`.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature
   matches them rather than introducing a second header pattern.
 - **Extra endpoint beyond the standard six.** `POST /{id}/reset-password`, required by the

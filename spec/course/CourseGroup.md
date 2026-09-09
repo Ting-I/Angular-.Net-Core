@@ -574,8 +574,9 @@ Fakes, not a mocking library (house rule).
   table and there was no authentication to source a `UserName` from. Both arrived later:
   `CourseGroupRepository` writes an audit row on every insert, update and delete, on the same
   transaction as the change — which is why a single-statement write here opens one at all. See the
-  異動紀錄 section of `spec/conventions/backend.md`. The `RowAuditBadgeComponent` the skill asks
-  for still does not exist — nothing reads the trail back.
+  異動紀錄 section of `spec/conventions/backend.md`. The `RowAuditBadgeComponent` arrived with
+  it: `RowAuditBadge` in `core/components/`, rendered in this feature's `.page-header`. See the
+  異動紀錄 section of `spec/conventions/frontend.md`.
 - **No mocking library for the backend tests.** CLAUDE.md mandates hand-written fakes in
   `src/CMS.API.Tests/Fakes/`; the skill's suggestion of Moq is not followed.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature matches

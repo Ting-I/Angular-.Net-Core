@@ -1244,8 +1244,9 @@ Hand-written fakes, not a mocking library (house rule).
   `CopyAsync` — audited as an Insert on the new pkid, with nothing recorded against the source.
   Both n-n lists are part of the update snapshot, so a save that only re-picked certifications or
   job categories is still in the trail. See the 異動紀錄 section of
-  `spec/conventions/backend.md`. The `RowAuditBadgeComponent` the skill asks for still does not
-  exist — nothing reads the trail back.
+  `spec/conventions/backend.md`. The `RowAuditBadgeComponent` arrived with it:
+  `RowAuditBadge` in `core/components/`, rendered in this feature's `.page-header`. See the
+  異動紀錄 section of `spec/conventions/frontend.md`.
 - **No mocking library.** CLAUDE.md mandates hand-written fakes in `src/CMS.API.Tests/Fakes/`; the
   skill's suggestion of Moq is not followed.
 - **A pinned action bar, but not a `p-toolbar`.** The Save / Cancel bar on the form is sticky as

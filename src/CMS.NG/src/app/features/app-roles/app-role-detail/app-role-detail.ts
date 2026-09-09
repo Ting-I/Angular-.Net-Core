@@ -10,9 +10,11 @@ import { LookupService } from '@core/services/lookup.service';
 import { AppRole } from '@core/models/app-role.model';
 import { AppUserLookup } from '@core/models/app-user-lookup.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-app-role-detail',
-  imports: [ButtonModule, TagModule],
+  imports: [RowAuditBadge, ButtonModule, TagModule],
   templateUrl: './app-role-detail.html',
   styleUrl: './app-role-detail.scss',
 })

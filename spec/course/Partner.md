@@ -610,7 +610,8 @@ Fakes, not a mocking library (house rule).
   `PartnerRepository` writes an audit row on every insert, update and delete, on the same
   transaction as the change, and `PartnerRepositoryAuditTests` is the worked example the other
   entities' retrofits follow. See the 異動紀錄 section of `spec/conventions/backend.md`. The
-  `RowAuditBadgeComponent` the skill asks for still does not exist — nothing reads the trail back.
+  `RowAuditBadgeComponent` arrived with it: `RowAuditBadge` in `core/components/`, rendered in this
+  page's `.page-header`. See the 異動紀錄 section of `spec/conventions/frontend.md`.
 - **No mocking library for the backend tests.** CLAUDE.md mandates hand-written fakes in
   `src/CMS.API.Tests/Fakes/`; the skill's suggestion of Moq is not followed.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature matches

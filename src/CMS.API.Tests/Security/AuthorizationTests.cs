@@ -38,6 +38,7 @@ public class AuthorizationTests : IClassFixture<TestApiFactory>
         "/api/courses",
         "/api/publish-statuses",
         "/api/lookups/app-roles",
+        "/api/rowaudit?tableName=Course&pkid=1",
     ];
 
     private readonly TestApiFactory _factory;

@@ -56,7 +56,11 @@ The ones that cost data or a rewrite when missed. The reference files carry the 
   changed-column list is a guess. A rolled-back change must leave no trail entry claiming it
   happened. **Who** did it is the token's `userId`; **what they are called** is read from `AppUser`
   on that transaction — the `userName` claim is only as fresh as the login that issued it, and a
-  rename re-issues nothing.
+  rename re-issues nothing. Reading it back is a different object: `IRowAuditRepository` behind
+  `GET /api/rowaudit?tableName=&pkid=`, never the writer, and there is no endpoint that edits a
+  row. **Every detail and form page renders `RowAuditBadge`** (`core/components/`), so a new page
+  needs one — it takes the database table name and the record's **pkid**, which is the surrogate
+  key even where the operator's key is a string.
 - **Credentials leave the server in exactly one shape: none.** `AuthSql.SelectCredential` is the
   only query selecting `PasswordHash`; keep it out of every other projection, response model and
   JWT payload. The client never hashes.
@@ -93,5 +97,7 @@ The `/crud` skill scaffolds an entity: schema → spec → stop for confirmation
 tests. **Where it conflicts with this file, this file wins** — it asks for Moq and a sticky
 `p-toolbar`, neither of which exists here. `RowAuditWriter` does
 (`src/CMS.API/Repositories/`), and every CRUD repository now calls it, so a scaffolded entity must
-too — see the 異動紀錄 section of `spec/conventions/backend.md`. Record the remaining deviations
-in the generated spec.
+too — see the 異動紀錄 section of `spec/conventions/backend.md`. The `RowAuditBadgeComponent` it
+asks for exists too, as `RowAuditBadge`; it goes at the start of the `.page-header`, which is where
+a `#start` toolbar slot lands in a codebase with no `p-toolbar`. Record the remaining deviations in
+the generated spec.

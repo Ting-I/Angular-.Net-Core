@@ -8,6 +8,7 @@
         <span class="page-key">主代碼 {{ pkid() }}</span>
       }
     </h1>
+    <app-row-audit-badge tableName="CourseGroup" [pkid]="pkid()" />
     <div class="page-actions">
       <p-button
         label="取消"

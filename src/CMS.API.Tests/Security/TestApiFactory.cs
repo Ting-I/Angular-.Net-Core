@@ -59,6 +59,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
             Replace<ICourseRepository>(services, new FakeCourseRepository());
             Replace<IFeaturedPromoItemRepository>(services, new FakeFeaturedPromoItemRepository());
             Replace<ILookupRepository>(services, new FakeLookupRepository());
+            Replace<IRowAuditRepository>(services, new FakeRowAuditRepository());
         });
     }
 

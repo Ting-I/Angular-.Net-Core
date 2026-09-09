@@ -221,3 +221,34 @@ sign in as a user holding `Admin`, or that group is not rendered at all and noth
 
 A group carrying `requiresRole` is dropped for a user whose token does not hold that role. Only
 `系統管理 Admin` uses it today.
+
+## 異動紀錄 — the history badge
+
+`RowAuditBadge` (`core/components/row-audit-badge/`) renders one record's audit trail: a small
+button labelled 異動紀錄 History with the most recent change beside it, opening a `p-dialog` that
+lists the whole trail. **Every detail page and every form page carries one**, so add it when you
+add a page — a record whose history is invisible is a record nobody can answer a question about.
+
+- **It is the one component outside `features/`.** Every page renders it and it belongs to no
+  entity, so it lives in `core/` beside the other cross-cutting pieces rather than under whichever
+  feature happened to need it first. There is no `shared/` directory and this did not earn one.
+- **It takes `tableName` and `pkid`, not the route.** `tableName` is the **database** table name —
+  `Course`, `FeaturedPromoItem` — because that is what the writer stored. `pkid` is the surrogate
+  key **even for a record the operator knows by a string**: 角色 AppRole and 使用者 AppUser are keyed
+  on RoleId and UserId, but the trail is written against the pkid every table also carries. Passing
+  the string key shows an empty history and looks like a record that has never been touched.
+- **It goes at the start of the `.page-header`**, right after the `<h1>` — the house equivalent of
+  the skill's `p-toolbar` `#start` slot, since there is no `p-toolbar` here. The header is
+  `justify-content: space-between`, so the component's own `:host { margin-right: auto }` is what
+  keeps it beside the title with the action buttons still at the end. That rule lives in the badge,
+  not in each page, which is what makes it drop-in.
+- **The fetch is an `effect` over the inputs, not `ngOnInit`.** A detail page knows its pkid only
+  once the record has loaded and a form in 新增 mode never has one, so a key that arrives late still
+  fetches and a key that never arrives never does. A null pkid makes no request at all.
+- **Three states, and they are not the same state.** A trail, 尚無異動紀錄 No history for a record
+  with none, and 異動紀錄無法載入 Unavailable when the fetch failed — the last must not read as the
+  second, because "no history" is a claim about the record rather than about the request.
+- **A page spec now has a second request to answer.** The badge fetches on every detail and form
+  page, so those specs flush it in `afterEach` before `httpMock.verify()`:
+  `httpMock.match((req) => req.url.endsWith('/rowaudit')).forEach((req) => req.flush([]))`. The
+  badge's own behaviour is pinned in `row-audit-badge.spec.ts` and nowhere else.

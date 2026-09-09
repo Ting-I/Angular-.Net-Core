@@ -14,9 +14,12 @@ import { catchError } from 'rxjs/operators';
 import { PublishStatusService } from '@core/services/publish-status.service';
 import { PublishStatus, PublishStatusRequest } from '@core/models/publish-status.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-publish-status-form',
   imports: [
+    RowAuditBadge,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,
@@ -36,6 +39,9 @@ export class PublishStatusForm implements OnInit {
   private readonly messageService = inject(MessageService);
 
   protected readonly isEdit = signal(false);
+
+  /** 主代碼 for the 異動紀錄 badge — the same key as {@link pkid}, in a form the template can read. */
+  protected readonly auditPkid = signal<number | null>(null);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
 
@@ -52,6 +58,7 @@ export class PublishStatusForm implements OnInit {
   ngOnInit(): void {
     const rawId = this.route.snapshot.paramMap.get('id');
     this.pkid = rawId === null ? null : Number(rawId);
+    this.auditPkid.set(this.pkid);
     this.isEdit.set(this.pkid !== null);
 
     // No lookups to fetch, so there is nothing to forkJoin with the record load.
