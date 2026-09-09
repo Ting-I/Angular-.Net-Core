@@ -1,4 +1,5 @@
 using CMS.API.Data;
+using CMS.API.Middleware;
 using CMS.API.Repositories;
 using CMS.API.Security;
 using Dapper;
@@ -110,6 +111,12 @@ builder.Services.AddScoped<IRowAuditWriter, RowAuditWriter>();
 builder.Services.AddScoped<IRowAuditRepository, RowAuditRepository>();
 
 var app = builder.Build();
+
+// Outermost, so it wraps every later middleware as well as the controllers: an exception that
+// escapes anything becomes one logged entry and one fixed 500 body rather than a bare empty 500.
+// It only ever catches — a 401, 403, 400 or 409 is returned rather than thrown, so it passes
+// through untouched. See ExceptionHandlingMiddleware for why it does not Response.Clear().
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>

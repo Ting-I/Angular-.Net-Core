@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgClass } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
+import { ToastModule } from 'primeng/toast';
 
 import { ADMIN_ROLE, AuthService } from '@core/services/auth.service';
 import { LOGIN_ROUTE } from '@core/guards/auth.guard';
@@ -23,7 +24,7 @@ export interface NavItem {
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass, ButtonModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass, ButtonModule, ToastModule],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
