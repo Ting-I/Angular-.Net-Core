@@ -252,3 +252,38 @@ add a page — a record whose history is invisible is a record nobody can answer
   page, so those specs flush it in `afterEach` before `httpMock.verify()`:
   `httpMock.match((req) => req.url.endsWith('/rowaudit')).forEach((req) => req.flush([]))`. The
   badge's own behaviour is pinned in `row-audit-badge.spec.ts` and nowhere else.
+
+### Wiring it into a new page
+
+Three edits, and the second is the one that gets forgotten:
+
+```ts
+// 1. the component's own imports
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
+@Component({
+  imports: [RowAuditBadge, /* … */],
+```
+
+```html
+<!-- 2. first child of .page-header, right after the </h1> -->
+<div class="page-header">
+  <h1>檢視原廠</h1>
+  <app-row-audit-badge tableName="Partner" [pkid]="partner()?.pkid ?? null" />
+  <div class="page-actions">…</div>
+</div>
+```
+
+```ts
+// 3. the page spec's afterEach, before httpMock.verify()
+httpMock.match((req) => req.url.endsWith('/rowaudit')).forEach((req) => req.flush([]));
+```
+
+`tableName` is a plain attribute — it is a `string` input, so it needs no binding brackets.
+
+**A form keyed on a string needs a pkid signal of its own.** `app-role-form` and `app-user-form`
+never held one (the route carries RoleId / UserId), so they set `auditPkid` from the loaded record
+in `patchFrom…`; `publish-status-form` had its key in a `private` field, which a template cannot
+read. A form whose route key *is* the pkid already exposes `pkid()` and needs nothing new.
+
+`spec/admin/RowAudit.md` is the full specification, including the endpoint the badge calls.

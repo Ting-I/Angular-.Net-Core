@@ -336,3 +336,16 @@ Three things about that endpoint are load-bearing:
 The ordering is `[DateTime] DESC, pkid DESC`. The tie-break is not decoration: a change that writes
 more than one audit row — `MoveToSlotAsync` writes one per row the swap moved — stamps them from
 the same clock reading, and IDENTITY is the only thing that still increases inside one transaction.
+
+**Scaffolding a new entity.** The `/crud` skill's file list says only "Inject `RowAuditWriter`; log
+on INSERT / UPDATE / DELETE", which is not enough to get this right — this section is the contract,
+and CLAUDE.md says so where the two disagree. Three things the skill's list leaves out:
+
+- **`{Table}Sql.SelectRow` is a file the skill never mentions.** It is not optional: the repository
+  has nothing to snapshot without it, and it is a projection of its own — see above.
+- **Inject the interface, `IRowAuditWriter`**, not the concrete `RowAuditWriter` the skill names.
+- **A single-statement write still opens a transaction**, purely so the change and its trail entry
+  commit together.
+
+`spec/admin/RowAudit.md` is the full specification of the trail — the read endpoint, the badge, and
+the reasoning behind both.
