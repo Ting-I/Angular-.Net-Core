@@ -384,3 +384,27 @@ and CLAUDE.md says so where the two disagree. Three things the skill's list leav
 
 `spec/admin/RowAudit.md` is the full specification of the trail — the read endpoint, the badge, and
 the reasoning behind both.
+
+**One endpoint records something and writes nothing: `POST /api/courses/{id}/sheet`.** It is the
+課程簡介 PDF's export record (`spec/course/Course.md`). The rule above binds Insert / Update /
+Delete, and this is none of them — no table is touched — so there is no `RowAudit` row and no
+`IRowAuditWriter` call, which is the whole reason it is worth naming here rather than leaving to be
+discovered. `RowAudit`'s shape would misdescribe it anyway: `TableName` + `PrimaryKeyValues` +
+`ActionType` assert that a row changed. RowAudit answers *who changed this row*; this answers *is
+this button used at all*.
+
+What it does instead is emit one `Information` line from `CoursesController` — the operator's
+`userId`, their 使用者名稱 (read from `AppUser` for the same freshness reason as above, through
+`IAppUserRepository` since there is no transaction here to read on, falling back to the claim and
+then to `"system"`), the course `pkid` and `CourseId`, and the local time from an injected
+`TimeProvider` so it lines up with the local timestamps RowAudit writes. `CourseId` and 使用者名稱
+are both operator-editable, so both are flattened of control characters and truncated before they
+are logged: a CR/LF in either would otherwise forge whole lines inside the one record meant as
+evidence.
+
+Two limits, stated so nobody reads more into the line than it says. It records a **print request**,
+not a document: the operator picks Save or Cancel inside the browser's own print dialog and a page
+cannot observe which. And **nothing retains it** — this application configures log *levels* only,
+with no file, EventLog or Serilog sink, and the IIS module's stdout log is off by default — so today
+it reaches whatever console the host has. It names a person, so a durable sink is also a retention
+decision; `TODOS.md` carries it.

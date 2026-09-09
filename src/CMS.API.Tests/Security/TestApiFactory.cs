@@ -29,6 +29,13 @@ public class TestApiFactory : WebApplicationFactory<Program>
     /// <summary>Supplies the signing key both the issuer and the validator read.</summary>
     public FakeSysConfigRepository SysConfig { get; } = new();
 
+    /// <summary>
+    /// Backs the 課程 Course endpoints. Exposed because POST /api/courses/{id}/sheet answers 404 for a
+    /// course that does not exist, so proving it is *not* the authorization middleware answering takes
+    /// a seeded record.
+    /// </summary>
+    public FakeCourseRepository Courses { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Not Development: that turns on service-graph validation, which the swapped registrations
@@ -56,7 +63,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
             Replace<IPublishStatusRepository>(services, new FakePublishStatusRepository());
             Replace<IPartnerRepository>(services, new FakePartnerRepository());
             Replace<ICourseGroupRepository>(services, new FakeCourseGroupRepository());
-            Replace<ICourseRepository>(services, new FakeCourseRepository());
+            Replace<ICourseRepository>(services, Courses);
             Replace<IFeaturedPromoItemRepository>(services, new FakeFeaturedPromoItemRepository());
             Replace<ILookupRepository>(services, new FakeLookupRepository());
             Replace<IRowAuditRepository>(services, new FakeRowAuditRepository());

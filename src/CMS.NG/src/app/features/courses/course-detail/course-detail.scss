@@ -132,3 +132,16 @@
     text-decoration: underline;
   }
 }
+
+/* ---------- print ---------- */
+
+/* Under print this page is replaced by the 課程簡介 sheet it hosts — but only when there is a record
+   to print. `has-sheet` is set on the host exactly when `course()` is non-null, so a Ctrl+P on 載入中
+   or 查無此課程 still prints the state message instead of a blank page. `display: none` rather than
+   `visibility: hidden` so the admin cards leave the PDF's tag tree entirely. */
+@media print {
+  :host.has-sheet .page-header,
+  :host.has-sheet .page-card {
+    display: none;
+  }
+}

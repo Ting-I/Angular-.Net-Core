@@ -88,11 +88,21 @@ public class CoursesControllerTests
             JobCategoryPkids = jobCategoryPkids ?? [],
         };
 
+    /// <summary>
+    /// A controller over seeded courses, for the CRUD arms. The logger and the AppUser store are the
+    /// 課程簡介 export record's business only (see <c>CoursesControllerSheetTests</c>), so this
+    /// overload hands them throwaways and keeps the two-value shape every CRUD test destructures.
+    /// </summary>
     internal static (CoursesController Controller, FakeCourseRepository Repository) CreateController(
         params Course[] seed)
     {
         var repository = new FakeCourseRepository().Seed(seed);
-        return (new CoursesController(repository), repository);
+        return (
+            new CoursesController(
+                repository,
+                new FakeAppUserRepository(),
+                new CapturingLogger<CoursesController>()),
+            repository);
     }
 
     private static T AssertOk<T>(ActionResult<T> result)

@@ -4,6 +4,18 @@
   <div class="page-actions">
     <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
     @if (course()) {
+      <!-- 另存為 PDF, not 列印: it matches the destination the operator then picks in Chrome's own
+           dialog. Outlined so it does not read as a second 返回, and inside this @if so it never
+           shows on the 載入中 or 查無此課程 states. There is no on-screen preview by design; the
+           print preview is the preview. -->
+      <p-button
+        label="另存為 PDF"
+        icon="pi pi-file-pdf"
+        severity="secondary"
+        [outlined]="true"
+        pTooltip="產生給客戶的課程簡介（不含內部欄位）。列印對話框請選擇「另存為 PDF」，並取消勾選「頁首及頁尾」"
+        (onClick)="saveAsPdf()"
+      />
       <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
     }
   </div>
@@ -224,4 +236,18 @@
       <p class="state-message">此課程仍被引用，無法刪除。</p>
     }
   </section>
+
+  <!-- The customer-facing sheet. Hidden on screen and revealed by @media print, rather than built
+       when the button is clicked: the QR <img> decodes its data URL regardless of `display`, so it is
+       ready before any print — including a Ctrl+P nobody warned us about. -->
+  <app-course-sheet
+    [course]="data"
+    [certificationNames]="sheetCertificationNames(data)"
+    [qrImage]="sheetQrImage()"
+    [qrUrl]="qrUrl() ?? ''"
+    [generatedOn]="generatedOn()"
+  />
 }
+
+<p-confirmdialog />
+

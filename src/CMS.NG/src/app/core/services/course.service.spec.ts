@@ -177,6 +177,18 @@ describe('CourseService', () => {
     req.flush(null);
   });
 
+  it('logSheetExport() POSTs an empty body to the sheet route and expects no content', () => {
+    let completed = false;
+    service.logSheetExport(1).subscribe({ complete: () => (completed = true) });
+
+    const req = httpMock.expectOne(`${baseUrl}/1/sheet`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+    req.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(completed).toBeTrue();
+  });
+
   it('copy() POSTs the new courseId to the copy route', () => {
     let result: Course | undefined;
     service.copy(1, { newCourseId: 'AZ-104-COPY' }).subscribe((course) => (result = course));
