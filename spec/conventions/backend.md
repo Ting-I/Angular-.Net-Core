@@ -65,6 +65,41 @@ Chinese wording the UI shows — it travels as the `ProblemDetails` `Title`, wit
 sentence as `Detail`. The Angular form applies the same rule for the operator's sake; the API
 re-checks regardless.
 
+## Unhandled exceptions — one 500, and it says nothing
+
+`ExceptionHandlingMiddleware` (`src/CMS.API/Middleware/`) is registered first in `Program.cs`, so
+it wraps every later middleware as well as the controllers. Anything that escapes a controller or a
+repository is logged in full on the server and answered with one fixed `ProblemDetails`:
+`GenericTitle` (系統發生錯誤，請稍後再試。), `GenericDetail` (`An unexpected error occurred.`), a
+`traceId`, and nothing else. The constants are what the tests assert against; do not re-word them
+in one place only.
+
+- **It catches, it never converts.** A 401 from the bearer middleware, a 403 from authorization, a
+  400 from model validation and a controller's own 404 / 409 are all produced by *returning* a
+  status, so they never reach the `catch` and travel out exactly as they were. This is why the
+  guards elsewhere in this file still matter: the middleware is the net under a bug, not a
+  substitute for reading a child count before a DELETE. Error 547 surfacing as a generic 500 is
+  still a defect.
+- **Nothing from the exception reaches the caller.** No stack trace, no statement, no object or
+  server name — a `SqlException` message quotes all three. The server log is where it goes, and
+  `traceId` is what ties a report of "it said 系統發生錯誤 at 14:32" back to it.
+- **It must not `Response.Clear()`.** That would take the CORS headers with it, and a 500 the
+  browser refuses to read cross-origin reaches the Angular interceptor as a status-0 network error
+  rather than as the 500 whose body carries the message. Only the status code and the body are
+  written. `ExceptionHandlingMiddlewareTests` pins this, and the pipeline test asserts the header
+  survives on a real request.
+- **A request the client abandoned is not a failure.** An `OperationCanceledException` raised while
+  `RequestAborted` is cancelled logs at Information and answers 499; one raised without it is an
+  ordinary bug and still a 500.
+- **A response already on the wire is rethrown**, because its status line is gone.
+
+Two test files cover it. `ExceptionHandlingMiddlewareTests` drives the middleware over a
+`DefaultHttpContext` — the only way to pin the 403 pass-through, since no endpoint here issues one,
+and the started-response case. `ExceptionHandlingPipelineTests` runs the real host through
+`ThrowingApiFactory`, a `TestApiFactory` with 角色 AppRole backed by `ThrowingAppRoleRepository`
+(the read-side counterpart of `ThrowingDbConnectionFactory`: its message reads like a
+`SqlException` so a test can prove none of it leaks).
+
 ## Authorization
 
 Every endpoint requires an authenticated user. That is a `FallbackPolicy` in `Program.cs`, not an

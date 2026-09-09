@@ -115,6 +115,34 @@ Go through `core/utils/qr-code.util.ts` — `qrPngDataUrl` / `downloadDataUrl` w
 `qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so
 the `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
 
+## Errors the page does not own
+
+`authInterceptor` handles two failures for everybody, because neither is about the record the
+caller was working on. The 401 is the older one; the 5xx is the second.
+
+- **A 5xx toasts once, from the interceptor.** `severity: 'error'`, `SERVER_ERROR_SUMMARY`
+  (系統錯誤) as the summary, and the message out of the response body as the detail — `title`
+  first, since that is the Chinese wording the operator reads, then `detail`, then
+  `SERVER_ERROR_FALLBACK`. The body is all there is: the API's `ExceptionHandlingMiddleware` keeps
+  the stack trace, the statement and the connection details on the server by design, so a page
+  cannot say anything truer about the failure than the API already did.
+- **`status` 0 is not a 5xx.** The request never got an answer, so there is no server message to
+  show and nothing about the previous behaviour changes.
+- **Everything else is passed on untouched.** A 400 still surfaces under the form's fields, a 404
+  and a 409 are still the page's to explain, and the 401 still clears the session and returns to
+  `/login` — without a toast, which would only follow the operator to Login.
+
+That message needs somewhere to render. `MessageService` is provided at the **root** in
+`app.config.ts` and `App` renders a `<p-toast />` **outside** the signed-in branch, so a server
+error on the Login page is visible too. It does not replace the per-page toasts: every page still
+provides its own `MessageService` and its own `<p-toast />` for 已儲存 and the rest, and those are a
+different injector. A spec that renders `App`, or one that exercises the interceptor, has to
+provide `MessageService` (and `provideNoopAnimations()` for `App`).
+
+A page whose own error handler already toasts on a failed write will show its message alongside the
+interceptor's on a 500 — the page saying 儲存失敗, the interceptor saying what went wrong. Narrowing
+a page's handler to the statuses it can actually explain is the way to drop the second one.
+
 ## Auth
 
 - The session lives in **session storage**, never local storage, under `auth-profile`: the whole

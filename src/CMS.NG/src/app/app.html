@@ -1,3 +1,11 @@
+<!--
+  The shell toast: the one place authInterceptor's 5xx message is rendered. It sits outside the
+  signed-in branch below, because a server error on the Login page has to be visible too — signed
+  out, there is no shell.
+  Every page still carries its own <p-toast /> for the messages about its own record.
+-->
+<p-toast />
+
 @if (signedIn()) {
   <div class="app-shell" [ngClass]="{ collapsed: sidebarCollapsed() }">
     <aside class="app-sidebar">

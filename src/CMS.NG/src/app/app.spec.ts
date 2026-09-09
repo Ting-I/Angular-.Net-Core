@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { MessageService } from 'primeng/api';
 
 import { environment } from '@env';
 import { App } from './app';
@@ -23,7 +25,14 @@ describe('App', () => {
   function createApp() {
     TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideNoopAnimations(),
+        // The shell renders the root <p-toast /> authInterceptor's 5xx message goes to.
+        MessageService,
+      ],
     });
 
     const fixture = TestBed.createComponent(App);

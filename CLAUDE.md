@@ -64,6 +64,13 @@ The ones that cost data or a rewrite when missed. The reference files carry the 
 - **Credentials leave the server in exactly one shape: none.** `AuthSql.SelectCredential` is the
   only query selecting `PasswordHash`; keep it out of every other projection, response model and
   JWT payload. The client never hashes.
+- **An unhandled exception is answered once, and it says nothing.** `ExceptionHandlingMiddleware`
+  is registered first in `Program.cs`: it logs the exception in full server-side and returns one
+  fixed `ProblemDetails` 500 — never a stack trace, SQL text or connection details. It only ever
+  catches, so 401 / 403 / 400 / 404 / 409, all of which are *returned*, pass through untouched —
+  it is the net under a bug, not a substitute for the delete guard above. The Angular
+  `authInterceptor` toasts the safe message out of that body; every other status stays the page's
+  to handle.
 - **Every endpoint needs a token; `AuthController` is the only exception.** Authorization is a
   global `FallbackPolicy` — a new controller is protected by omission, so never add
   `[AllowAnonymous]` to reach one. A valid signature is not the whole of a valid token:
