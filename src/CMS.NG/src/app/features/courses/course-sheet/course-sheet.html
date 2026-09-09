@@ -1,0 +1,101 @@
+<!-- Print-only. The host is display: none on screen; @media print in course-sheet.scss reveals it,
+     and course-detail.scss hides the admin page's cards at the same time. -->
+@if (course(); as data) {
+  <article class="sheet" lang="zh-Hant">
+    <!-- Plain block flow. An earlier revision wrapped this in a table whose repeated <thead> was
+         meant to give every printed page a top margin; QA on a real two-page course showed Chrome
+         does not repeat an empty header row, so the margins moved to the page box itself
+         (@page sheet in styles.scss) and the table went away with the problem it was solving. -->
+    <div class="sheet-body">
+            <header class="sheet-header">
+              <p class="sheet-label">課程簡介 <span lang="en">Course Information</span></p>
+              <p class="sheet-company">
+                {{ contact.companyName }}
+                @if (hasContact()) {
+                  <span class="sheet-contact">
+                    · 業務洽詢 <span lang="en">{{ contact.phone }}</span> ·
+                    <span lang="en">{{ contact.email }}</span>
+                  </span>
+                }
+              </p>
+
+              <div class="sheet-title-row">
+                <div class="sheet-title-block">
+                  <h1 class="sheet-title">{{ data.title }}</h1>
+                  @if (officialTitle(); as official) {
+                    <p class="sheet-official-title" lang="en">{{ official }}</p>
+                  }
+                </div>
+                <!-- Always reserved so the title column keeps its width; empty when there is no QR,
+                     never a broken <img>. No border and 3 mm of clear space: a frame would sit on the
+                     quiet zone and cost a scan after a photocopy (D31). -->
+                <div class="sheet-qr">
+                  @if (qrImage(); as image) {
+                    <img class="sheet-qr-image" [src]="image" alt="QR Code：掃描前往課程網頁" />
+                  }
+                </div>
+              </div>
+            </header>
+
+            <!-- Row 1 is the PO row: what the buyer types onto the purchase order. Declared grid
+                 areas, not auto-fit — the column count must not drift with content (D18). -->
+            <dl class="sheet-facts">
+              @if (courseId(); as code) {
+                <div class="fact fact-code">
+                  <dt>課程代碼</dt>
+                  <dd lang="en">{{ code }}</dd>
+                </div>
+              }
+              <div class="fact fact-partner">
+                <dt>原廠</dt>
+                <dd>{{ data.partner?.name || empty }}</dd>
+              </div>
+              <div class="fact fact-hour">
+                <dt>時數</dt>
+                <dd>{{ data.hour ? data.hour + ' 小時' : empty }}</dd>
+              </div>
+              <div class="fact fact-credit">
+                <dt>點數</dt>
+                <dd>{{ data.learningCredit ? (data.learningCredit | number: '1.1-1') : empty }}</dd>
+              </div>
+              <div class="fact fact-prod-code">
+                <dt>原廠課程代碼</dt>
+                <dd lang="en">{{ prodCourseId() || empty }}</dd>
+              </div>
+              <div class="fact fact-repeat">
+                <dt>可重聽</dt>
+                <dd>{{ data.canRepeat ? '是' : '否' }}</dd>
+              </div>
+              <div class="fact fact-certs">
+                <dt>對應認證</dt>
+                <dd>{{ certifications() || empty }}</dd>
+              </div>
+            </dl>
+
+            @for (section of sections(); track section.label) {
+              <h2 class="sheet-section-title">{{ section.label }}</h2>
+              @if (section.html) {
+                <!-- The CMS's long-text columns hold operator-pasted HTML for most courses. Bound
+                     through [innerHTML], which Angular sanitizes by default — no bypassSecurityTrust
+                     anywhere — so the buyer gets the real headings and bullets and the page gets no
+                     script, no event handler and no inline style. -->
+                <div class="sheet-section-text sheet-section-html" [innerHTML]="section.text"></div>
+              } @else {
+                <p class="sheet-section-text">{{ section.text }}</p>
+              }
+            }
+    </div>
+
+    <!-- Static, so it lands once at the end of the document: a repeated <tfoot> sits directly after
+         the content on the final page and would ride halfway up a one-page sheet. -->
+    <footer class="sheet-footer">
+      <div class="sheet-footer-row">
+        <span class="sheet-footer-cost">費用請洽業務</span>
+        <span class="sheet-footer-date">產生日期 {{ generatedOn() | date: 'yyyy/MM/dd' }}</span>
+      </div>
+      <!-- A real <a href> so Chrome emits a PDF link annotation and the buyer clicks instead of
+           retyping 50 characters. Deliberately not .detail-link — that class is the admin page's. -->
+      <a class="sheet-footer-url" [href]="qrUrl()" lang="en">{{ qrUrl() }}</a>
+    </footer>
+  </article>
+}

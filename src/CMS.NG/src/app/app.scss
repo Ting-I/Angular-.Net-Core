@@ -225,3 +225,33 @@
   padding: var(--app-main-padding);
   overflow: auto;
 }
+
+/* ---------- print ---------- */
+
+/* Nothing in this CMS printed usefully before the 課程簡介 sheet, and the shell above is why: it owns
+   the viewport height and .app-main is the thing that scrolls inside it, so a Ctrl+P on any page
+   produced one clipped screen. Unwinding both under print media makes every page print its full
+   content — intended for all of them, not just the sheet (spec/conventions/frontend.md).
+
+   The page box itself, and the sheet's own named page, are in src/styles.scss: an @page rule
+   cannot live in a component stylesheet. */
+@media print {
+  .app-shell {
+    display: block;
+    height: auto;
+  }
+
+  .app-sidebar,
+  .app-topbar,
+  p-toast {
+    display: none;
+  }
+
+  .app-main {
+    overflow: visible;
+    /* No paper margins here. Every page box in styles.scss carries 14mm 16mm of its own, and block
+       padding would stack on top of it on page 1 and clone onto no page after that — page 1 deep,
+       page 2 shallow, which is the exact bug the margin work exists to remove. Margins belong to
+       the page box. */
+  }
+}

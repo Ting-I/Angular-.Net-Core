@@ -1,20 +1,42 @@
+using System.Security.Claims;
 using CMS.API.Models;
 using CMS.API.Repositories;
+using CMS.API.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
-/// <summary>課程 Course CRUD.</summary>
+/// <summary>課程 Course CRUD, plus the write-free 課程簡介 export record.</summary>
 [ApiController]
 [Route("api/courses")]
 [Produces("application/json")]
 public class CoursesController : ControllerBase
 {
-    private readonly ICourseRepository _repository;
+    /// <summary>
+    /// One constant template with named placeholders, never an interpolated string: interpolation
+    /// would flatten the values into the message and throw away the structure this line exists for.
+    /// </summary>
+    private const string SheetExportMessage =
+        "Course sheet print requested: operator {UserId}/{UserName}, course {Pkid}/{CourseId} at {At}";
 
-    public CoursesController(ICourseRepository repository)
+    /// <summary>`CourseId` is `varchar(50)` in the schema; UserName matches the audit column.</summary>
+    private const int CourseIdLength = 50;
+
+    private readonly ICourseRepository _repository;
+    private readonly IAppUserRepository _appUsers;
+    private readonly ILogger<CoursesController> _logger;
+    private readonly TimeProvider _timeProvider;
+
+    public CoursesController(
+        ICourseRepository repository,
+        IAppUserRepository appUsers,
+        ILogger<CoursesController> logger,
+        TimeProvider? timeProvider = null)
     {
         _repository = repository;
+        _appUsers = appUsers;
+        _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>All courses.</summary>
@@ -154,5 +176,89 @@ public class CoursesController : ControllerBase
 
         var created = await _repository.GetByIdAsync(createdPkid, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = createdPkid }, created);
+    }
+
+    /// <summary>
+    /// Records that an operator asked their browser for this course's 課程簡介 PDF.
+    ///
+    /// **It writes nothing.** No table is touched, so there is no 異動紀錄 row and no
+    /// <see cref="IRowAuditWriter"/> call: the house rule binds Insert / Update / Delete, and
+    /// RowAudit's own shape — TableName, PrimaryKeyValues, ActionType — would assert a change that
+    /// did not happen. RowAudit answers "who changed this row"; this answers "is this button used".
+    ///
+    /// **What it is, precisely.** One structured log line, and a *print requested* one at that:
+    /// the browser's print dialog is where the operator chooses Save or Cancel, and that choice is
+    /// not observable from a page, so this cannot claim a document was produced, let alone sent.
+    /// There is no durable log sink configured in this application either, so today the line lands
+    /// wherever the host's console logger points and nothing retains it — see the 異動紀錄 section
+    /// of `spec/conventions/backend.md`, and TODOS.md for the sink.
+    ///
+    /// The operator's 使用者名稱 is read from AppUser rather than taken from the token, for the same
+    /// reason the audit writer reads it: the userName claim is only as fresh as the login that issued
+    /// it, and a rename re-issues nothing. There is no transaction here to read it on, so this is a
+    /// plain repository call, and it falls back to the claim and then to "system".
+    /// </summary>
+    [HttpPost("{id:int}/sheet")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> LogSheetExport(int id, CancellationToken cancellationToken)
+    {
+        var course = await _repository.GetByIdAsync(id, cancellationToken);
+        if (course is null)
+        {
+            return NotFound();
+        }
+
+        var userId = User.FindFirstValue(JwtTokenService.UserIdClaimType);
+        var operatorId = Loggable(userId, RowAuditEntry.UserNameLength);
+
+        _logger.LogInformation(
+            SheetExportMessage,
+            operatorId.Length > 0 ? operatorId : RowAuditWriterDefaults.SystemUserName,
+            Loggable(await ResolveUserNameAsync(userId, cancellationToken), RowAuditEntry.UserNameLength),
+            course.Pkid,
+            Loggable(course.CourseId, CourseIdLength),
+            _timeProvider.GetLocalNow().ToString("O"));
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// 使用者名稱 as AppUser holds it now, falling back to the token's claim and then to
+    /// <see cref="RowAuditWriterDefaults.SystemUserName"/> — a request with no userId claim cannot
+    /// have reached here through the normal pipeline, but the log line still has to say something.
+    /// </summary>
+    private async Task<string> ResolveUserNameAsync(string? userId, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var user = await _appUsers.GetByIdAsync(userId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(user?.UserName))
+            {
+                return user.UserName;
+            }
+        }
+
+        var claimed = User.FindFirstValue(JwtTokenService.UserNameClaimType);
+        return string.IsNullOrWhiteSpace(claimed) ? RowAuditWriterDefaults.SystemUserName : claimed;
+    }
+
+    /// <summary>
+    /// Makes one value safe to log. `CourseId` is operator-entered and UserName is operator-editable
+    /// through PUT /api/auth/profile, so either can carry a newline — and a formatter renders the
+    /// value verbatim even when the placeholder kept it out of the message template, which is how a
+    /// CR/LF forges whole log lines inside the one record meant as evidence. Control characters
+    /// become spaces and the value is truncated to its column width, the same stance
+    /// <see cref="AuditHelper.Truncate"/> takes: a record never breaks its own consumer.
+    /// </summary>
+    private static string Loggable(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var flattened = string.Concat(value.Select(c => char.IsControl(c) ? ' ' : c)).Trim();
+        return AuditHelper.Truncate(flattened, maxLength) ?? string.Empty;
     }
 }

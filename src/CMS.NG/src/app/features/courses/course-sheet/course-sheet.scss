@@ -1,0 +1,268 @@
+/* 課程簡介 sheet — print only.
+   Sizes are in pt and mm because the output is paper, not a screen, and nothing here is a rem of a
+   viewport that does not exist. Every colour is #000: the admin page's grey labels and blue links
+   would port straight over and die on a photocopy, so hierarchy comes from size and weight alone
+   (D23). Page-level rules — the @page sheet box this component's host asks for — cannot live in a
+   component stylesheet; they are in src/styles.scss, which carries a comment pointing back here. */
+
+/* On screen the sheet is in the DOM but invisible: the QR <img> loads regardless of display, so its
+   data URL is decoded before any print, and Chrome lays the sheet out fresh under print media. */
+:host {
+  display: none;
+}
+
+@media print {
+  :host {
+    display: block;
+    /* No padding: every margin comes from the page box (@page sheet in styles.scss), which is the
+       only thing that applies to page 2 as reliably as to page 1. */
+    padding: 0;
+    color: #000;
+    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.7;
+    /* Mixed CJK/Latin must never be justified, and CJK breaks by character without help. */
+    text-align: left;
+    line-break: strict;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .sheet-body {
+    padding: 0;
+  }
+
+  /* ---------- header: what this document is, then who sent it, then which course ---------- */
+
+  .sheet-header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-bottom: 0.6mm solid #000;
+    padding-bottom: 3mm;
+    margin-bottom: 4mm;
+  }
+
+  .sheet-label {
+    margin: 0;
+    font-size: 9.5pt;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+  }
+
+  .sheet-company {
+    margin: 0.5mm 0 0;
+    font-size: 10pt;
+  }
+
+  .sheet-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6mm;
+    margin-top: 4mm;
+  }
+
+  .sheet-title {
+    margin: 0;
+    font-size: 18pt;
+    font-weight: 700;
+    line-height: 1.3;
+    /* A long title grows the header rather than clamping: a truncated course name on a customer
+       document is worse than a taller header (D16). */
+  }
+
+  .sheet-official-title {
+    margin: 1mm 0 0;
+    font-size: 11pt;
+  }
+
+  /* The slot is reserved whether or not a QR was supplied, so the title column keeps its width.
+     3 mm of clear space and no border protects the QR's quiet zone (D31). */
+  .sheet-qr {
+    flex: 0 0 25mm;
+    width: 25mm;
+    height: 25mm;
+    margin-left: 3mm;
+  }
+
+  .sheet-qr-image {
+    display: block;
+    width: 25mm;
+    height: 25mm;
+    border: 0;
+  }
+
+  /* ---------- facts: row 1 is the PO row ---------- */
+
+  .sheet-facts {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-areas:
+      'code partner hour credit'
+      'prodcode repeat repeat repeat'
+      'certs certs certs certs';
+    column-gap: 6mm;
+    row-gap: 3mm;
+    margin: 0 0 5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .fact-code {
+    grid-area: code;
+  }
+  .fact-partner {
+    grid-area: partner;
+  }
+  .fact-hour {
+    grid-area: hour;
+  }
+  .fact-credit {
+    grid-area: credit;
+  }
+  .fact-prod-code {
+    grid-area: prodcode;
+  }
+  .fact-repeat {
+    grid-area: repeat;
+  }
+  .fact-certs {
+    grid-area: certs;
+  }
+
+  .fact {
+    dt {
+      font-size: 9pt;
+      font-weight: 600;
+    }
+
+    dd {
+      margin: 0;
+      font-size: 11pt;
+      font-weight: 400;
+    }
+  }
+
+  /* ---------- long text ---------- */
+
+  /* Chrome honours the legacy page-break-* properties more reliably than the modern break-*, so
+     both are set: a heading stranded at the foot of a page is the one break that always looks broken. */
+  .sheet-section-title {
+    margin: 5mm 0 2mm;
+    padding-bottom: 0.8mm;
+    border-bottom: 0.3mm solid #000;
+    font-size: 12pt;
+    font-weight: 700;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .sheet-section-text {
+    margin: 0;
+    /* The operator's own line breaks are the outline's structure. */
+    white-space: pre-wrap;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* A section whose column held HTML: real paragraphs and lists, so no pre-wrap (the markup carries
+     the structure) and no colour of its own. `::ng-deep` is required rather than preferred — nodes
+     inserted by [innerHTML] never receive this component's scoping attribute, so an unprefixed
+     descendant selector cannot match them. The subtree is sanitized markup from the DB, and these
+     rules only ever set typography, so the reach is bounded by the .sheet-section-html wrapper. */
+  .sheet-section-html {
+    white-space: normal;
+
+    /* Vendor copy pastes `<font color="#BD0000">` for its own emphasis. Print is black on white —
+       a red that survives to paper photocopies as grey mud. */
+    ::ng-deep * {
+      color: #000;
+    }
+
+    ::ng-deep p {
+      margin: 0 0 1.5mm;
+    }
+
+    ::ng-deep ul,
+    ::ng-deep ol {
+      margin: 0 0 1.5mm;
+      padding-left: 6mm;
+    }
+
+    ::ng-deep ul {
+      list-style: disc;
+    }
+
+    ::ng-deep li {
+      margin: 0;
+      /* One bullet split across a page break reads as two half-bullets. */
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    /* Operators paste headings at whatever level was in their source, so all six land at one size
+       rather than competing with the sheet's own 12 pt section titles. */
+    ::ng-deep h1,
+    ::ng-deep h2,
+    ::ng-deep h3,
+    ::ng-deep h4,
+    ::ng-deep h5,
+    ::ng-deep h6 {
+      margin: 2.5mm 0 1mm;
+      font-size: 10.5pt;
+      font-weight: 700;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+
+    ::ng-deep table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    ::ng-deep td,
+    ::ng-deep th {
+      padding: 0.5mm 2mm 0.5mm 0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    /* A link inside vendor copy still prints its text; it is not the sheet's own footer URL. */
+    ::ng-deep a {
+      color: #000;
+      text-decoration: underline;
+    }
+
+    ::ng-deep img {
+      max-width: 100%;
+      border: 0;
+    }
+  }
+
+  /* ---------- footer ---------- */
+
+  .sheet-footer {
+    margin-top: 6mm;
+    padding-top: 2mm;
+    /* No bottom padding: the page box already ends the page 14 mm above the paper edge, and the
+       extra height was enough to push the whole footer onto a page of its own. */
+    border-top: 0.3mm solid #000;
+    font-size: 8.5pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sheet-footer-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 6mm;
+  }
+
+  .sheet-footer-url {
+    display: block;
+    margin-top: 1mm;
+    color: #000;
+    text-decoration: underline;
+    overflow-wrap: anywhere;
+  }
+}

@@ -45,4 +45,13 @@ export class CourseService {
   copy(pkid: number, request: CourseCopyRequest): Observable<Course> {
     return this.http.post<Course>(`${this.baseUrl}/${pkid}/copy`, request);
   }
+
+  /**
+   * Records that a 課程簡介 PDF was asked for. Changes no row and writes no 異動紀錄 — it exists so
+   * that "is this button used at all" has an answer the client cannot give. Fire-and-forget: the
+   * caller ignores the failure, because the export is worth more than the record of it.
+   */
+  logSheetExport(pkid: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${pkid}/sheet`, null);
+  }
 }

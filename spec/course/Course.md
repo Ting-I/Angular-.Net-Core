@@ -337,11 +337,14 @@ feature. `Course`'s lookup belongs to whichever child feature first needs it.
 | `PUT` | `/api/courses` | Update — **pkid from the body**, not the route; `404` when missing; rewrites both junctions |
 | `DELETE` | `/api/courses/{id:int}` | `204`; `404` when missing; `409` when any child count is non-zero |
 | `POST` | `/api/courses/{id:int}/copy` | Duplicate a course under a new `CourseId` — see below |
+| `POST` | `/api/courses/{id:int}/sheet` | 課程簡介 export record. `204`; `404` when missing. Writes **nothing** — see below |
 
 Route constraint is `{id:int}` and the action parameter is `int`, so the Angular service needs **no**
 `encodeURIComponent` — that is the `AppRole` string-PK case only.
 
-No auth attributes: the API has no authentication wired yet, matching all four existing controllers.
+No auth attributes — but that reads the other way round now. Authentication arrived after this spec
+was written and authorization is a global `FallbackPolicy`, so every action here is protected **by
+omission**; an attribute would only ever weaken it. `TokenFreshness` applies unchanged.
 
 ### Copy action
 
@@ -362,6 +365,75 @@ The whole copy runs in one transaction: the `EXISTS` check, the INSERT, and both
 back-fills. Sample1 specified this endpoint returning `{ pkid }`; it returns the full created
 `Course` instead, so the frontend can navigate and toast without a second fetch, and so the shape
 matches `POST /api/courses`.
+
+### 課程簡介 PDF — 另存為 PDF on the detail page
+
+Design: `docs/designs/course-sheet-pdf.md`. The buyer-facing sheet an operator attaches to an email
+or a purchase order, produced by the operator's **own browser** through `window.print()` — there is
+no PDF library on either side and no Chromium on the API host. The house print conventions are in the
+Print / PDF section of `spec/conventions/frontend.md`; what is specific to Course is here.
+
+**The field allow-list is the feature.** Printed: 課程名稱, 官方課程名稱, 課程代碼 (`CourseId`),
+原廠課程代碼 (`ProdCourseId`), 原廠, 時數, 點數, 可重聽, 對應認證 (resolved names only), 課程目標,
+適合對象, 先備知識, 課程大綱, 考試／認證說明, 教材, a QR code and the public URL, 產生日期, and
+費用請洽業務.
+
+Never printed, and asserted absent by `course-sheet.spec.ts`: **`ListPrice` — no price in any form**,
+no 牌價 cell and no 以報價單為準 disclaimer (a `DEFAULT 0` column cannot tell "free" from "not
+filled", and a frozen dated price beside a purchase order reads as a quote nobody agreed to give);
+`pkid` other than as a path segment inside the footer URL; 顯示順序, 上架狀態, 課程群組, 上架日期,
+下架日期 (the CMS publish window, which a buyer would read as class dates), 友善網址, 對應職務類別,
+備註, 其他資訊, and the four 使用狀況 counts. An unresolved certification is dropped rather than
+printed as `認證 #{pkid}`; the operator is warned with the count first.
+
+- **Filename** — `document.title` is set to `課程簡介_{CourseId}_{yyyyMMdd}` on `beforeprint`, which
+  Chrome and Edge propose in the Save dialog. `CourseId` is operator-entered `varchar(50)` under no
+  format rule, so `\ / : * ? " < > |` become `-`, and a blank code falls back to the `pkid` (the sheet
+  body stays pkid-free either way).
+- **Click-time gate** — `另存為 PDF` re-reads the course and its `PublishStatus` *at the click*, then
+  raises **one** `p-confirmdialog` listing every reason to hesitate: certifications that did not
+  resolve, a course that is not published, today outside `ScheduleOn`–`ScheduleOff` (compared as
+  `yyyy-MM-dd` strings, `ScheduleOff` inclusive — a `Date` comparison reads a day early west of UTC).
+  It **fails open**: a failed re-read prints the record on screen and says so. The publish gate is at
+  click time and not in `ngOnInit` because `PublishStatus_pkid` is only known after the course
+  response, and `PublishStatusSql.SelectBase` runs two `COUNT(*)` subqueries no course view should pay
+  for a button most views never touch.
+- **The long-text columns hold HTML, not plain text** — for most courses. Real 課程大綱 data is
+  operator-pasted markup: `<p>【網路基礎】</p>`, `<ul style="list-style:disc">` outlines,
+  `<font color="#BD0000">` vendor notes, and frequently malformed nesting (a stray `</ul>`, an unclosed
+  `<li>`). Interpolating that prints the tags as characters on a customer document, so the sheet's six
+  long-text sections detect markup and bind it through **`[innerHTML]` with Angular's default
+  sanitizer** — no `bypassSecurityTrust` anywhere, so script, event handlers and inline styles are
+  dropped and the parser repairs the broken nesting. A column that really is plain text keeps the
+  `white-space: pre-wrap` path, because there its line breaks *are* the structure. A section whose
+  markup carries no readable text (`<p>&nbsp;</p>`) is omitted like any other blank. Print styling for
+  the rendered subtree needs `::ng-deep` — `[innerHTML]` nodes never get the component's scoping
+  attribute — and forces `#000`, so the red vendor notes print black with everything else.
+- **Margins come from the page box** — `@page sheet { size: A4; margin: 14mm 16mm }`, claimed by
+  `body.print-sheet app-course-sheet { page: sheet }`. The plan's original `margin: 0` (with host
+  padding and a repeated `<thead>` supplying the margins, so that the browser could not stamp the
+  internal CMS URL into the margin) **failed QA on a real two-page course**: Chrome does not repeat an
+  empty header row, and page 2 opened flush against the paper edge with its first line clipped. In
+  exchange the stamp is reachable again when the operator leaves the print dialog's 「頁首及頁尾」
+  ticked, so the button's tooltip says to untick it and Chrome remembers that per user.
+- **Print CSS lives in three files** — `course-sheet.scss` (the sheet), `course-detail.scss`
+  (`:host.has-sheet` hides this page's cards), and `src/styles.scss` (`@page` and `@page sheet`, which
+  cannot live in a component stylesheet).
+- **`POST /api/courses/{id}/sheet`** is the export record: `204`, `404` for a missing course, no body,
+  protected by the global `FallbackPolicy` with no attribute of its own. It **writes nothing** — no
+  row, therefore no `RowAudit` entry — and emits one structured log line instead (operator `userId`
+  and 使用者名稱, `pkid`, `CourseId`, local time). It records a *print request*, not a delivery: the
+  Save/Cancel choice happens inside the browser's dialog where no page can see it. The client fires it
+  after the operator accepts, never before, and ignores its failure — one exception worth knowing is a
+  401, where `authInterceptor` ends the session as it does for any request. See the 異動紀錄 section
+  of `spec/conventions/backend.md` for why this endpoint is the carve-out that proves the rule.
+- **Not built** (design doc, NOT in scope): a `/courses/:id/sheet` preview route, bulk export from the
+  list, a vector SVG QR, a letterhead asset. Anything that generates this PDF outside an operator's
+  browser needs a server renderer such as Playwright on IIS.
+- **Open with the operator** (design doc, Open Questions 1 and 3, due 2026-09-13): the field list
+  itself, the 點數 unit, the company wording, and the contact block — `COMPANY_PHONE` /
+  `COMPANY_EMAIL` ship empty, so the 業務洽詢 line does not render, and the 承辦 operator-name line is
+  omitted from v1 rather than printing a name from `sessionStorage` onto filed documents.
 
 ---
 
@@ -1274,9 +1346,12 @@ exists. Where it and this spec differ:
 - **Primary-Foreign navigation is counts, not link buttons**, for all four child tables, because
   none of those features is built. sample1 specified 查看 buttons to routes that would 404.
 - **No inline sub-panels** (課程相關連結, 推薦課程) — the specs they reference don't exist.
-- **No 列印PDF.** sample1 defers it to "`spec/course/Course.md` for details" — i.e. to this file —
-  but no print stylesheet exists and it is not CRUD. The QR code sample1 defers the same way **is**
-  built — see **Detail page → QR Code**; it added `qrcode-generator` to `package.json`.
+- **~~No 列印PDF~~ — closed.** Recorded when no print stylesheet existed anywhere in the app. It is
+  built now, as 另存為 PDF on the detail page: a print-only `CourseSheet` component the browser
+  renders to A4, with a buyer-facing field allow-list rather than the admin page's columns. See
+  **API Endpoints → 課程簡介 PDF** above and `docs/designs/course-sheet-pdf.md`. The QR code sample1
+  defers the same way is built too — see **Detail page → QR Code**; it added `qrcode-generator` to
+  `package.json`, and the sheet reuses it at a larger module size.
 - **Copy returns the full created `Course`**, not `{ pkid }`, matching `POST /api/courses`.
 - **`date.util.ts` is created here**, not assumed to exist; sample1 refers to it as if it did.
 - **`spec/dapper.md` does not exist** either; the type handlers are in

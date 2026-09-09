@@ -115,6 +115,64 @@ Go through `core/utils/qr-code.util.ts` — `qrPngDataUrl` / `downloadDataUrl` w
 `qrcode-generator`, which only yields a module matrix and a GIF. The util draws the canvas, so
 the `<img>` and the saved file are the same PNG bytes. `course-detail` is the worked example.
 
+## Print / PDF
+
+**The browser is the PDF engine.** `features/courses/course-sheet/` is the worked example: a
+print-only component the operator's own Chrome renders to A4 through `window.print()`. That is what
+gets real, selectable, searchable Traditional Chinese into a PDF without a font or a Chromium
+anywhere — jsPDF cannot render CJK from `.html()` and html2canvas rasterises. Anything that has to
+produce this file **outside** an operator's browser (emailing it, a buyer-facing URL, a bulk export)
+is a different feature needing a server renderer such as Playwright on IIS: do not read "we already
+have PDF" off this one.
+
+- **A print-only component is `:host { display: none }` on screen and `display: block` under
+  `@media print`, and it lives in the DOM the whole time** — never built on click. An `<img>` decodes
+  its `src` regardless of `display`, so the QR is ready before any print, including a Ctrl+P nobody
+  clicked a button for. Inputs only, no services, so the same component can be lifted onto a route.
+- **The lifecycle is the browser's, not the click's.** `@HostListener('window:beforeprint')` stamps
+  the date, swaps `document.title` (Chrome and Edge propose it as the Save-as-PDF filename) and calls
+  `ChangeDetectorRef.detectChanges()` **synchronously** — with `provideZoneChangeDetection({
+  eventCoalescing: true })` in `app.config.ts` the tick is otherwise deferred to the next animation
+  frame, and the preview is snapshotted before it. `afterprint` **and** `ngOnDestroy` undo it, so a
+  tab restore that fires no `afterprint` cannot leak print state into every later page.
+- **A page hides its own chrome behind a host class, not unconditionally**: `course-detail` sets
+  `has-sheet` only when a record is loaded, so Ctrl+P on 載入中 or 查無此課程 prints the state message
+  instead of blank paper.
+- **`@page` cannot live in a component stylesheet and cannot be scoped by a selector.** Page boxes
+  are in `src/styles.scss`: `@page { margin: 14mm 16mm }` for ordinary pages, and a **named page**
+  (`@page sheet`, claimed with `page: sheet`) for the print view, so its page box can differ from
+  every other page's. `body.print-sheet` — set in `beforeprint`, cleared in `afterprint` and
+  `ngOnDestroy` — is what claims that named page for the sheet and nothing else.
+- **No print rule adds a margin outside a page box, `.app-main` included.** An earlier revision had
+  `.app-main { padding: 14mm 16mm }` under print, from when `@page` was `margin: 0`; once the page
+  box grew real margins the two stacked on every page but the sheet's, so a printed `/courses` came
+  out deep on page 1 and shallow on page 2 — the same defect, one page over. If you find yourself
+  cancelling a print padding somewhere to stop a double margin, delete the padding instead.
+- **Put the page's margins in the page box, not in the content.** This is the mistake worth
+  inheriting: the sheet originally used `@page sheet { margin: 0 }` (the only lever that stops the
+  browser stamping the internal CMS URL into the margin) and supplied its own margins as host padding
+  plus a repeated `<thead>` in a wrapper table. Padding does not clone onto page 2
+  (`box-decoration-break` is unimplemented for blocks in Chrome) and **Chrome does not repeat an
+  empty `<thead>` row** — QA on a real two-page course found page 2 starting flush against the paper
+  edge with its first line clipped. `@page sheet { margin: 14mm 16mm }` applies to every page by
+  definition. The cost is that the browser stamp returns when the operator leaves "Headers and
+  footers" ticked, which the button's tooltip tells them to untick; Chrome remembers it per user.
+  A `<tfoot>` is not a fix either: its repetition is unreliable, so a footer stays static and lands
+  once at the end.
+- **Operator-pasted HTML in a long-text column prints as tags unless you render it as markup.** The
+  CMS's long-text columns (`Course.Outline`, `Material`, …) hold HTML for most rows, so a print view
+  detects markup and binds it with **`[innerHTML]`, relying on Angular's default sanitizer** — never
+  `bypassSecurityTrust`, which would put unreviewed operator copy straight into the DOM. Keep the
+  `white-space: pre-wrap` path for columns that really are plain text, judge emptiness on the text
+  inside the markup, and style the rendered subtree with `::ng-deep` (nodes from `[innerHTML]` never
+  carry the component's scoping attribute). `course-sheet.scss` is the worked example.
+- **Print styling is black on white**, sized in pt and mm, with both `break-*` and the legacy
+  `page-break-*` properties on headings (Chrome honours the older ones more reliably). Screen greys
+  and blue links die on a photocopy.
+- **Karma cannot see print media.** Unit tests cover the lifecycle, the filename, the warnings and
+  what the sheet is handed; margins, page 2, font selection and the browser stamp are manual QA, and
+  they are worth re-checking after a Chrome or Angular upgrade.
+
 ## Errors the page does not own
 
 `authInterceptor` handles two failures for everybody, because neither is about the record the

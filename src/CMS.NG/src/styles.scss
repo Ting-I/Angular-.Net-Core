@@ -16,3 +16,56 @@ body {
   background: var(--p-surface-50);
   color: var(--p-text-color);
 }
+
+/* ---------- print ---------- */
+
+/* Page-level rules live here because @page cannot live in a component stylesheet and cannot be
+   scoped by a selector — there is no descendant selector in a page context. The rest of the sheet's
+   print styling is in features/courses/course-sheet/course-sheet.scss; the shell's is in app.scss. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 16mm;
+  }
+
+  /* The 課程簡介 sheet's own page box. Named pages shipped in Chrome/Edge 110, which the operators
+     have; the sheet claims this one with `page: sheet` below.
+
+     It carries real margins, and that is a correction, not the original design. The plan wanted
+     `margin: 0` because a zero margin is the only lever that stops Chrome stamping its default
+     header/footer — the internal CMS URL — onto a customer document, with the margins supplied by the
+     sheet itself: horizontal padding, and a repeated <thead> for the top of every page. QA on a real
+     two-page course (2026-09-09) showed the second half of that does not hold: Chrome did not repeat
+     the empty header row, so page 2 began flush against the paper edge with its first line clipped.
+     A page box, unlike padding or a table header, applies to every page by definition. So this is
+     rung 3 of the eng review's E3 fallback ladder, taken because rung 1 failed in the browser it was
+     written for.
+
+     What it costs: the stamp is back in reach. It prints only when the operator leaves the print
+     dialog's "Headers and footers" box ticked, so the button's tooltip tells them to untick it, and
+     Chrome remembers the setting per user afterwards. A clipped page 2 happens on every multi-page
+     print and cannot be turned off; the stamp is one checkbox. */
+  @page sheet {
+    size: A4;
+    margin: 14mm 16mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* CourseDetail sets .print-sheet on <body> for the length of one print and clears it again on
+     afterprint and on destroy. It is what claims the named page above for the sheet and nothing
+     else, so the sheet's page box can diverge from the ordinary one without the two ever meeting.
+     No margin rule is paired with it: margins live in the page boxes alone, never in the content. */
+  body.print-sheet app-course-sheet {
+    page: sheet;
+  }
+
+  /* PrimeNG overlays: the confirm dialog belongs to a page's component tree but its mask is moved to
+     the body, so hiding it has to be global, and the mask carries inline styles of its own. */
+  p-confirmdialog,
+  .p-dialog-mask {
+    display: none !important;
+  }
+}
