@@ -13,6 +13,8 @@ the house patterns rather than inventing one per feature.
 ```
 database/          # schema reference (read-only)
 spec/              # conventions + feature specs + UI mockups
+docs/designs/      # approved feature designs — the plan a branch implements
+TODOS.md           # deferred work, one entry each, with why it was deferred
 src/CMS.API/       # .NET 9 Web API, Dapper (NO Entity Framework), port 5000
 src/CMS.API.Tests/ # xUnit
 src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
@@ -76,6 +78,17 @@ The ones that cost data or a rewrite when missed. The reference files carry the 
   `[AllowAnonymous]` to reach one. A valid signature is not the whole of a valid token:
   `TokenFreshness` refuses any whose `iat` predates the account's `PasswordUpdatedTime`. Hiding a
   menu by role is presentation; the API is what refuses.
+- **The PDF engine is the operator's browser.** 課程簡介 (`features/courses/course-sheet/`) is a
+  print-only component plus `@media print` CSS driven by `window.print()` — no jsPDF, no
+  html2canvas, no headless Chromium on the API host, no new dependency. Two consequences worth
+  knowing before you touch print: `@page` cannot live in a component stylesheet and cannot be scoped
+  by a selector, so every page box sits in `src/CMS.NG/src/styles.scss` (named pages + the `page`
+  property) and the shell's unwinding in `app.scss`; and **print margins belong in the page box**,
+  never in the content — Chrome does not repeat an empty `<thead>` and block padding does not clone
+  onto the next page fragment, so a content-supplied margin exists on page 1 and nowhere else.
+  Anything that renders this PDF *outside* an operator's browser (email, a buyer-facing URL, bulk
+  export) needs a server renderer such as Playwright on IIS; none of this carries over.
+  `spec/conventions/frontend.md` has the worked example.
 - **Language split:** UI labels and validation messages are Traditional Chinese, usually paired
   with the English entity name (`角色 AppRole`). Code, identifiers, comments and commit messages
   are English.
@@ -94,6 +107,7 @@ The ones that cost data or a rewrite when missed. The reference files carry the 
 | `spec/feature-spec.template.md` | write a new feature spec |
 | `spec/{sub-system}/{Table}.md` | change a built entity (e.g. `spec/admin/PublishStatus.md`) |
 | `spec/custom/{Feature}/` | build a feature that ships its own spec and mockups |
+| `docs/designs/{feature}.md` | pick up a branch that carries one — it is the approved plan, gate decisions included |
 | `spec/ui-sample-*.png` | build a list / view / edit / add page — **style only**, the data is illustrative |
 
 A feature under `spec/custom/` overrides the house page layout where the two disagree — that is
