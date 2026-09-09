@@ -20,6 +20,9 @@ public class FakeAppUserRepository : IAppUserRepository
     public List<string> UpdatedUserIds { get; } = [];
     public List<string> ResetUserIds { get; } = [];
 
+    /// <summary>Every (UserId, UserName) pair the profile endpoint wrote, in order.</summary>
+    public List<(string UserId, string UserName)> UpdatedUserNames { get; } = [];
+
     /// <summary>Clock stand-in for PasswordUpdatedTime, so assertions are not time-dependent.</summary>
     public DateTime UtcNow { get; set; } = new(2026, 9, 8, 3, 0, 0, DateTimeKind.Utc);
 
@@ -33,6 +36,9 @@ public class FakeAppUserRepository : IAppUserRepository
 
         return this;
     }
+
+    /// <summary>PasswordUpdatedTime for a user, or null when it was never set.</summary>
+    public DateTime? PasswordUpdatedTimeOf(string userId) => _users.GetValueOrDefault(userId)?.PasswordUpdatedTime;
 
     /// <summary>The stored hash, or null when the user does not exist.</summary>
     public string? PasswordHashOf(string userId) => _passwordHashes.GetValueOrDefault(userId);
@@ -105,6 +111,25 @@ public class FakeAppUserRepository : IAppUserRepository
         UpdatedUserIds.Add(request.UserId);
         // PasswordHash and PasswordUpdatedTime carry over untouched — that is the rule under test.
         _users[request.UserId] = ToUser(request, existing.Pkid, existing.PasswordUpdatedTime);
+        return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Writes UserName alone. Roles, IsActive, the key and the password hash all carry over
+    /// untouched — the promise ProfileController leans on.
+    /// </summary>
+    public Task<bool> UpdateUserNameAsync(
+        string userId,
+        string userName,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_users.TryGetValue(userId, out var existing))
+        {
+            return Task.FromResult(false);
+        }
+
+        UpdatedUserNames.Add((userId, userName));
+        existing.UserName = userName;
         return Task.FromResult(true);
     }
 

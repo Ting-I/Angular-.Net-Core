@@ -23,9 +23,11 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-app-user-detail',
-  imports: [DatePipe, ButtonModule, TagModule, ToastModule, ConfirmDialogModule],
+  imports: [RowAuditBadge, DatePipe, ButtonModule, TagModule, ToastModule, ConfirmDialogModule],
   providers: [MessageService, ConfirmationService],
   templateUrl: './app-user-detail.html',
   styleUrl: './app-user-detail.scss',

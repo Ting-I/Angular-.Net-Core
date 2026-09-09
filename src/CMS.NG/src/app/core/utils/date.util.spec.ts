@@ -1,4 +1,4 @@
-import { addDays, addYears, fromIso, startOfWeek, toIso } from './date.util';
+import { addDays, addYears, formatDateTime, fromIso, startOfWeek, toIso } from './date.util';
 
 describe('date.util', () => {
   describe('toIso', () => {
@@ -120,6 +120,29 @@ describe('date.util', () => {
 
       expect(monday.getHours()).toBe(0);
       expect(monday.getMinutes()).toBe(0);
+    });
+  });
+
+  describe('formatDateTime', () => {
+    it('formats an offsetless API timestamp in local components', () => {
+      // 異動時間 comes back without a timezone, which is parsed as local — so what the server
+      // wrote is what is shown, with no UTC round trip to shift the hour.
+      expect(formatDateTime('2026-06-04T14:30:00')).toBe('2026-06-04 14:30');
+    });
+
+    it('pads the hour and the minute', () => {
+      expect(formatDateTime('2026-01-02T03:04:05')).toBe('2026-01-02 03:04');
+    });
+
+    it('accepts a Date as readily as a string', () => {
+      expect(formatDateTime(new Date(2026, 5, 4, 14, 30))).toBe('2026-06-04 14:30');
+    });
+
+    it('returns null for anything it cannot read, rather than Invalid Date', () => {
+      expect(formatDateTime(null)).toBeNull();
+      expect(formatDateTime(undefined)).toBeNull();
+      expect(formatDateTime('')).toBeNull();
+      expect(formatDateTime('not-a-date')).toBeNull();
     });
   });
 });

@@ -7,9 +7,11 @@ import { catchError } from 'rxjs/operators';
 import { PartnerService } from '@core/services/partner.service';
 import { Partner } from '@core/models/partner.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-partner-detail',
-  imports: [ButtonModule],
+  imports: [RowAuditBadge, ButtonModule],
   templateUrl: './partner-detail.html',
   styleUrl: './partner-detail.scss',
 })

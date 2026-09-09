@@ -44,6 +44,25 @@ public class FakeAuthRepository : IAuthRepository
         return this;
     }
 
+    /// <summary>
+    /// Where PasswordUpdatedTime is read from. In the API both this query and the AppUser CRUD
+    /// repository read the one AppUser row, so a password change is visible to both; the fakes
+    /// keep separate stores, and TestApiFactory points this at FakeAppUserRepository to put that
+    /// link back. Left unset, every user reads as "never changed".
+    /// </summary>
+    public Func<string, DateTime?>? PasswordUpdatedTimeSource { get; set; }
+
+    /// <summary>Every UserId the token-freshness check asked about, in order.</summary>
+    public List<string> FreshnessChecks { get; } = [];
+
+    public Task<DateTime?> GetPasswordUpdatedTimeAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        FreshnessChecks.Add(userId);
+        return Task.FromResult(PasswordUpdatedTimeSource?.Invoke(userId));
+    }
+
     public Task<AppUserCredential?> GetCredentialAsync(
         string userId,
         CancellationToken cancellationToken = default)

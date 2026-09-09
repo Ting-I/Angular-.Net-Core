@@ -745,11 +745,14 @@ Recorded per `CLAUDE.md`, which wins where the skill conflicts with it.
 
 - **No mocking library.** The skill asks for Moq; the house rule is hand-written fakes in
   `src/CMS.API.Tests/Fakes/`. Fakes it is.
-- **No `RowAuditWriter` and no `RowAuditBadgeComponent`.** The `RowAudit` table exists in
-  `database/admin.sql`, but nothing in the codebase writes it, there is no audit badge component,
-  and there is no authentication to source a `UserName` from. Same call as `PublishStatus`.
-  A password reset is exactly the sort of event that will want an audit row once that subsystem
-  exists — noted as follow-up.
+- **~~No `RowAuditWriter`~~ — closed.** Recorded when nothing in the codebase wrote the `RowAudit`
+  table and there was no authentication to source a `UserName` from. Both arrived later:
+  `AppUserRepository` writes an audit row on every insert, update and delete, plus one for the
+  profile rename and one for a password reset — that last reads `PasswordUpdatedTime`, because the
+  snapshot projection may not select `PasswordHash`. See the 異動紀錄 section of
+  `spec/conventions/backend.md`. The `RowAuditBadgeComponent` arrived with it:
+  `RowAuditBadge` in `core/components/`, rendered in this feature's `.page-header`. See the
+  異動紀錄 section of `spec/conventions/frontend.md`.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature
   matches them rather than introducing a second header pattern.
 - **Extra endpoint beyond the standard six.** `POST /{id}/reset-password`, required by the

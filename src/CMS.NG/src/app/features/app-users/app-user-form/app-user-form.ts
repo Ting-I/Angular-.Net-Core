@@ -12,13 +12,17 @@ import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { AppUserService } from '@core/services/app-user.service';
+import { AuthService } from '@core/services/auth.service';
 import { LookupService } from '@core/services/lookup.service';
 import { AppUser, AppUserRequest } from '@core/models/app-user.model';
 import { AppRoleLookup } from '@core/models/app-role-lookup.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-app-user-form',
   imports: [
+    RowAuditBadge,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,
@@ -37,8 +41,15 @@ export class AppUserForm implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
+  private readonly auth = inject(AuthService);
 
   protected readonly isEdit = signal(false);
+
+  /**
+   * 主代碼 for the 異動紀錄 badge. UserId is the key, but the trail is written against the pkid
+   * every table also carries, so it is read off the loaded record rather than the route.
+   */
+  protected readonly auditPkid = signal<number | null>(null);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly roles = signal<AppRoleLookup[]>([]);
@@ -126,6 +137,12 @@ export class AppUserForm implements OnInit {
     save$.subscribe({
       next: (user) => {
         this.saving.set(false);
+
+        // An administrator editing their own account renames the signed-in operator. The session
+        // holds the name from login, so without this the app shell keeps showing the old one until
+        // the next sign-in. A no-op for every other account.
+        this.auth.syncUserName(user.userId, user.userName);
+
         this.messageService.add({ severity: 'success', summary: '已儲存', detail: user.userName });
         void this.router.navigate(['/app-users', user.userId]);
       },
@@ -152,6 +169,7 @@ export class AppUserForm implements OnInit {
   }
 
   private patchFromUser(user: AppUser): void {
+    this.auditPkid.set(user.pkid);
     this.form.patchValue({
       userId: user.userId,
       userName: user.userName,

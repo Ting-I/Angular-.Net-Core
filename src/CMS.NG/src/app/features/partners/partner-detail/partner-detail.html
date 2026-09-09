@@ -1,5 +1,6 @@
 <div class="page-header">
   <h1>檢視原廠</h1>
+  <app-row-audit-badge tableName="Partner" [pkid]="partner()?.pkid ?? null" />
   <div class="page-actions">
     <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
     @if (partner()) {

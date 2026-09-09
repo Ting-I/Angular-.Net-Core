@@ -16,9 +16,11 @@ import { downloadDataUrl, qrPngDataUrl } from '@core/utils/qr-code.util';
 /** Public site the QR code points at. */
 const PUBLIC_COURSE_URL = 'https://www.uuu.com.tw/Course/Show';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-course-detail',
-  imports: [RouterLink, DatePipe, DecimalPipe, ButtonModule, TagModule],
+  imports: [RowAuditBadge, RouterLink, DatePipe, DecimalPipe, ButtonModule, TagModule],
   templateUrl: './course-detail.html',
   styleUrl: './course-detail.scss',
 })

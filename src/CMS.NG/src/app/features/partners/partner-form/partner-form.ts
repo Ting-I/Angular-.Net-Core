@@ -13,9 +13,12 @@ import { catchError } from 'rxjs/operators';
 import { PartnerService } from '@core/services/partner.service';
 import { Partner, PartnerRequest } from '@core/models/partner.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-partner-form',
   imports: [
+    RowAuditBadge,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,

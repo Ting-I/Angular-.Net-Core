@@ -1,56 +1,80 @@
-<div class="app-shell" [ngClass]="{ collapsed: sidebarCollapsed() }">
-  <aside class="app-sidebar">
-    <div class="sidebar-brand">
-      <span class="brand-text">{{ title() }}</span>
-      <button
-        type="button"
-        class="brand-toggle"
-        [attr.aria-label]="sidebarCollapsed() ? '展開選單' : '收合選單'"
-        (click)="toggleSidebar()"
+@if (signedIn()) {
+  <div class="app-shell" [ngClass]="{ collapsed: sidebarCollapsed() }">
+    <aside class="app-sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-text">{{ title() }}</span>
+        <button
+          type="button"
+          class="brand-toggle"
+          [attr.aria-label]="sidebarCollapsed() ? '展開選單' : '收合選單'"
+          (click)="toggleSidebar()"
+        >
+          <i class="pi" [ngClass]="sidebarCollapsed() ? 'pi-angle-right' : 'pi-angle-left'"></i>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        @for (group of navGroups(); track group.label) {
+          <div class="nav-group">
+            <button
+              type="button"
+              class="nav-group-header"
+              [attr.aria-expanded]="isExpanded(group.label)"
+              (click)="toggleGroup(group.label)"
+            >
+              <i class="nav-icon" [ngClass]="group.icon"></i>
+              <span class="nav-label">{{ group.label }}</span>
+              <i
+                class="nav-chevron pi"
+                [ngClass]="isExpanded(group.label) ? 'pi-chevron-down' : 'pi-chevron-right'"
+              ></i>
+            </button>
+
+            @if (isExpanded(group.label) && group.items.length) {
+              <ul class="nav-items">
+                @for (item of group.items; track item.route) {
+                  <li>
+                    <a [routerLink]="item.route" routerLinkActive="active" class="nav-item">
+                      <i class="nav-icon" [ngClass]="item.icon"></i>
+                      <span class="nav-label">{{ item.label }}</span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </nav>
+    </aside>
+
+    <header class="app-topbar">
+      <span class="topbar-user">
+        <i class="pi pi-user"></i>
+        <span class="topbar-user-name">{{ userName() }}</span>
+      </span>
+      <a
+        class="topbar-link"
+        routerLink="/profile"
+        routerLinkActive="active"
+        data-testid="profile-link"
       >
-        <i class="pi" [ngClass]="sidebarCollapsed() ? 'pi-angle-right' : 'pi-angle-left'"></i>
-      </button>
-    </div>
+        <i class="pi pi-id-card"></i>
+        <span>個人資料 My Profile</span>
+      </a>
+      <p-button
+        label="登出"
+        icon="pi pi-sign-out"
+        severity="secondary"
+        [text]="true"
+        (onClick)="logout()"
+      />
+    </header>
 
-    <nav class="sidebar-nav">
-      @for (group of navGroups(); track group.label) {
-        <div class="nav-group">
-          <button
-            type="button"
-            class="nav-group-header"
-            [attr.aria-expanded]="isExpanded(group.label)"
-            (click)="toggleGroup(group.label)"
-          >
-            <i class="nav-icon" [ngClass]="group.icon"></i>
-            <span class="nav-label">{{ group.label }}</span>
-            <i
-              class="nav-chevron pi"
-              [ngClass]="isExpanded(group.label) ? 'pi-chevron-down' : 'pi-chevron-right'"
-            ></i>
-          </button>
-
-          @if (isExpanded(group.label) && group.items.length) {
-            <ul class="nav-items">
-              @for (item of group.items; track item.route) {
-                <li>
-                  <a
-                    [routerLink]="item.route"
-                    routerLinkActive="active"
-                    class="nav-item"
-                  >
-                    <i class="nav-icon" [ngClass]="item.icon"></i>
-                    <span class="nav-label">{{ item.label }}</span>
-                  </a>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      }
-    </nav>
-  </aside>
-
-  <main class="app-main">
-    <router-outlet />
-  </main>
-</div>
+    <main class="app-main">
+      <router-outlet />
+    </main>
+  </div>
+} @else {
+  <!-- Signed out there is nothing to navigate, so the Login page gets the whole viewport. -->
+  <router-outlet />
+}

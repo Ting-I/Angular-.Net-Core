@@ -9,7 +9,11 @@
    actually scrolls, and keeps the sidebar out of the pinned toolbar's way. */
 .app-shell {
   display: grid;
+  /* A fixed top bar row and a scrolling content row. The bar is a grid item rather than a child
+     of .app-main so it cannot scroll away — and so it cannot get in the way of a page that pins
+     its own toolbar inside .app-main. */
   grid-template-columns: 16rem 1fr;
+  grid-template-rows: 3.5rem 1fr;
   height: 100vh;
   height: 100dvh;
   background: var(--p-surface-50);
@@ -37,6 +41,8 @@
 }
 
 .app-sidebar {
+  grid-column: 1;
+  grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
   background: var(--p-surface-0);
@@ -159,7 +165,59 @@
   }
 }
 
+/* ---------- top bar ---------- */
+
+.app-topbar {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0 1.25rem;
+  background: var(--p-surface-0);
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--p-text-color);
+  font-size: 0.9rem;
+}
+
+.topbar-user-name {
+  font-weight: 600;
+}
+
+/* 個人資料 — a link rather than a p-button, so it carries a real href the router can mark
+   active, and so a middle click opens it like any other route. */
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  color: var(--p-text-muted-color);
+  font-size: 0.9rem;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--p-surface-100);
+    color: var(--p-text-color);
+  }
+
+  &.active {
+    color: var(--p-primary-color);
+    font-weight: 600;
+  }
+}
+
 .app-main {
+  grid-column: 2;
+  grid-row: 2;
+
   /* Published so a sticky child can bleed back out over it — the padding area is inside the
      clip edge, so content scrolls visibly through it unless something covers it. */
   --app-main-padding: 1.25rem;

@@ -525,10 +525,11 @@ Fakes, not a mocking library (house rule).
 
 ## Deviations from the /crud skill template
 
-- **No `RowAuditWriter` injection and no `RowAuditBadgeComponent`.** The `RowAudit` table exists in
-  `database/admin.sql`, but the repository has no `RowAuditWriter`, no audit badge component, and no
-  authentication to source a `UserName` from. `AppRoleRepository` — the only existing precedent —
-  writes no audit rows. Building an audit subsystem here would invent a cross-cutting pattern for
-  one entity; it is called out as follow-up work instead.
+- **~~No `RowAuditWriter` injection~~ — closed.** Recorded when nothing in the codebase wrote the
+  `RowAudit` table and there was no authentication to source a `UserName` from. Both arrived later:
+  `PublishStatusRepository` now writes an audit row on every insert, update and delete, on the same
+  transaction as the change. See the 異動紀錄 section of `spec/conventions/backend.md`. The
+  `RowAuditBadgeComponent` arrived with it: `RowAuditBadge` in `core/components/`, rendered in this
+  page's `.page-header`. See the 異動紀錄 section of `spec/conventions/frontend.md`.
 - **No sticky `p-toolbar`.** The existing pages use a `.page-header` action bar; this feature matches
   `AppRole` rather than introducing a second header pattern.

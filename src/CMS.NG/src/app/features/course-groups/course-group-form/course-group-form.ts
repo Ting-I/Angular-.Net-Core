@@ -12,9 +12,11 @@ import { catchError } from 'rxjs/operators';
 import { CourseGroupService } from '@core/services/course-group.service';
 import { CourseGroup, CourseGroupRequest } from '@core/models/course-group.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-course-group-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, ToastModule],
+  imports: [RowAuditBadge, ReactiveFormsModule, ButtonModule, InputTextModule, ToastModule],
   providers: [MessageService],
   templateUrl: './course-group-form.html',
   styleUrl: './course-group-form.scss',

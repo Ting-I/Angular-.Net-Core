@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-What you always need. The detail lives in the reference files at the bottom — read the one that
-matches what you are about to touch, rather than working from memory.
+What you always need. Everything else lives in the reference files at the bottom — read the one
+matching what you are about to touch rather than working from memory.
 
 ## What this repo is
 
@@ -21,54 +21,57 @@ src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
 ## Commands
 
 ```powershell
-dotnet run --project src\CMS.API   # API -> http://localhost:5000/swagger
+dotnet run --project src\CMS.API   # -> http://localhost:5000/swagger
 dotnet test
 
 cd src\CMS.NG
-npm start                          # UI  -> http://localhost:4200
-npm test -- --watch=false --browsers=ChromeHeadless
+npm start                          # -> http://localhost:4200
+npm test -- --watch=false --browsers=ChromeHeadless   # bare `npm test` never returns
 ```
 
-`npm test` without those flags enters watch mode and opens a browser — always pass them when
-running it non-interactively.
+Toolchain traps — the fix here, the reasoning in `spec/conventions/environment.md`:
 
-## Environment gotchas
-
-- **`global.json` pins the .NET 9 SDK.** SDK 10 is also installed on this machine and would be
-  picked by default, targeting `net10.0`. Leave the pin in place.
-- **`node` may be missing from an agent shell's PATH.** It *is* in the machine PATH
-  (`C:\Program Files\nodejs\`); a shell that can't see it inherited a stale environment snapshot.
-  Prefix with `$env:Path = "C:\Program Files\nodejs;$env:Path"` rather than editing any environment
-  variable — the system one is already correct.
-- Connection string lives in `src/CMS.API/appsettings.json` only (`Server=.\SQLEXPRESS;Database=CMS`).
-  `appsettings.Development.json` deliberately does not repeat it.
-- A running `dotnet run` holds a lock on `CMS.API.exe` and fails the next build with MSB3027. Stop
-  it, or send the test build elsewhere with `-p:OutDir=`.
+- Build fails **MSB3027** → a running `dotnet run` holds the exe. Stop it, or `-p:OutDir=<scratch>\`.
+- `node` not found → prefix `$env:Path = "C:\Program Files\nodejs;$env:Path"`. Never edit the
+  system variable; it is already correct.
+- Leave the `global.json` SDK pin alone — SDK 10 is installed and would retarget to `net10.0`.
+- The connection string lives in `src/CMS.API/appsettings.json` and nowhere else.
 
 ## Rules that hold everywhere
 
-The ones that cost data or a rewrite when missed; the reference files carry the detail behind each.
+The ones that cost data or a rewrite when missed. The reference files carry the reasoning.
 
 - **Dapper only. No EF, ever.**
 - **Read the `CREATE TABLE` before assuming the key shape.** `pkid int IDENTITY` is common but not
-  universal — `AppRole` has a string PK and `PublishStatus` a non-IDENTITY `tinyint` the operator
-  supplies. Keys are always immutable on edit.
+  universal — `AppRole` has a string PK, `PublishStatus` a non-IDENTITY `tinyint`. Keys are always
+  immutable on edit.
 - **Never let the database be the thing that refuses a destructive write.** Project child counts in
-  `{Table}Sql.SelectBase`, read the record in the controller, return `409` when one is non-zero.
-  `FK_Course_CourseGroup` is `ON DELETE CASCADE`, so an unguarded delete silently destroys courses;
-  elsewhere a reference has no FK behind it at all and the delete just orphans rows.
-- **Never PUT a list row straight back.** List and `query` responses carry the n-n key arrays empty,
-  and the repositories rewrite their junction tables from whatever the request holds — so a write
-  built from a list row silently clears the relations. Re-read with `GET /{table}/{key}` first.
+  `{Table}Sql.SelectBase`, read the record in the controller, `409` when one is non-zero. Error 547
+  is not the only outcome: one FK cascades, and one has no constraint behind it at all.
+- **Never PUT a list row straight back.** List and `query` responses carry the n-n key arrays empty
+  and the repositories rewrite junction tables from the request, so the write silently clears the
+  relations. Re-read with `GET /{table}/{key}` first.
+- **Every Insert / Update / Delete writes a `RowAudit` row, on the same transaction.** Repositories
+  call `IRowAuditWriter`; an update reads the "before" first and the "after" after, or the
+  changed-column list is a guess. A rolled-back change must leave no trail entry claiming it
+  happened. **Who** did it is the token's `userId`; **what they are called** is read from `AppUser`
+  on that transaction — the `userName` claim is only as fresh as the login that issued it, and a
+  rename re-issues nothing. Reading it back is a different object: `IRowAuditRepository` behind
+  `GET /api/rowaudit?tableName=&pkid=`, never the writer, and there is no endpoint that edits a
+  row. **Every detail and form page renders `RowAuditBadge`** (`core/components/`), so a new page
+  needs one — it takes the database table name and the record's **pkid**, which is the surrogate
+  key even where the operator's key is a string.
 - **Credentials leave the server in exactly one shape: none.** `AuthSql.SelectCredential` is the
-  only query in the API that selects `PasswordHash` — keep it out of `AppUserSql.SelectBase`, out of
-  every response model, and out of the JWT payload. `POST /api/auth/login` answers one identical
-  `401` for an unknown UserId, an `IsActive = 0` account and a wrong password, so the endpoint
-  cannot be used to enumerate accounts; the JWT signing secret is the `symmetricSecurityKey` of the
-  `SysConfig` `appConfig` JSON, read per login and never hard-coded or cached.
-- **Language split:** UI labels and validation messages are Traditional Chinese, usually paired with
-  the English entity name (`角色 AppRole`, `權限等級`). Code, identifiers, comments and commit
-  messages are English.
+  only query selecting `PasswordHash`; keep it out of every other projection, response model and
+  JWT payload. The client never hashes.
+- **Every endpoint needs a token; `AuthController` is the only exception.** Authorization is a
+  global `FallbackPolicy` — a new controller is protected by omission, so never add
+  `[AllowAnonymous]` to reach one. A valid signature is not the whole of a valid token:
+  `TokenFreshness` refuses any whose `iat` predates the account's `PasswordUpdatedTime`. Hiding a
+  menu by role is presentation; the API is what refuses.
+- **Language split:** UI labels and validation messages are Traditional Chinese, usually paired
+  with the English entity name (`角色 AppRole`). Code, identifiers, comments and commit messages
+  are English.
 
 ## Reference
 
@@ -77,20 +80,24 @@ The ones that cost data or a rewrite when missed; the reference files carry the 
 | `spec/conventions/backend.md` | touch anything under `src/CMS.API/` |
 | `spec/conventions/frontend.md` | touch anything under `src/CMS.NG/` |
 | `spec/conventions/testing.md` | write or change a test |
+| `spec/conventions/environment.md` | fight the toolchain |
 | `spec/code-gen.convention.md` | scaffold an entity — file layout, endpoint shapes, column types |
 | `spec/sample1.spec.md` (Course) | need a worked example — FKs, n-n, date ranges, copy action |
 | `spec/sample2.spec.md` (SkillTrain) | need a simpler one — n-n with `DisplayOrder` |
 | `spec/feature-spec.template.md` | write a new feature spec |
 | `spec/{sub-system}/{Table}.md` | change a built entity (e.g. `spec/admin/PublishStatus.md`) |
 | `spec/custom/{Feature}/` | build a feature that ships its own spec and mockups |
-| `spec/ui-sample-*.png` | build a list / view / edit / add page. **Style only** — the data in them is illustrative |
+| `spec/ui-sample-*.png` | build a list / view / edit / add page — **style only**, the data is illustrative |
 
-A feature under `spec/custom/` overrides the house page layout where the two disagree — that is what
-the custom spec is for. `spec/promotion/FeaturedPromoItem.md` is the worked example and lists every
-deviation it took; do the same in any generated spec.
+A feature under `spec/custom/` overrides the house page layout where the two disagree — that is
+what a custom spec is for. `spec/promotion/FeaturedPromoItem.md` is the worked example; list your
+deviations the way it does.
 
-The `/crud` skill (`.claude/skills/crud`) scaffolds an entity: it reads the schema, writes
-`spec/{sub-system}/{Table}.md`, stops for confirmation, then builds both sides plus tests. Where it
-conflicts with this file, **this file wins** — it asks for Moq and a `RowAuditWriter`, neither of
-which exists here, and for a sticky `p-toolbar` where the pinned bar is a `.sticky-toolbar` wrapped
-around the house `.page-header`. Record any such deviation in the generated spec.
+The `/crud` skill scaffolds an entity: schema → spec → stop for confirmation → both sides plus
+tests. **Where it conflicts with this file, this file wins** — it asks for Moq and a sticky
+`p-toolbar`, neither of which exists here. `RowAuditWriter` does
+(`src/CMS.API/Repositories/`), and every CRUD repository now calls it, so a scaffolded entity must
+too — see the 異動紀錄 section of `spec/conventions/backend.md`. The `RowAuditBadgeComponent` it
+asks for exists too, as `RowAuditBadge`; it goes at the start of the `.page-header`, which is where
+a `#start` toolbar slot lands in a codebase with no `p-toolbar`. Record the remaining deviations in
+the generated spec.

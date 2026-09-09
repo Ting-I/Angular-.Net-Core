@@ -21,6 +21,17 @@ public static class CourseGroupSql
         """;
 
     /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns and nothing else. The counts belong to other
+    /// tables and would report as changed on every save, which is not what the trail is for.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT cg.pkid AS Pkid,
+               cg.Description
+        FROM CourseGroup cg
+        WHERE cg.pkid = @Pkid
+        """;
+
+    /// <summary>
     /// There is no DisplayOrder column and no date to fall back on, so pkid keeps the order the
     /// rows were added in — the same call PublishStatusSql makes for its code table.
     /// </summary>

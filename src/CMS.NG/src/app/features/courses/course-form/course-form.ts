@@ -28,9 +28,12 @@ import { addYears, fromIso, toIso } from '@core/utils/date.util';
 /** Years added to ScheduleOn when defaulting ScheduleOff on a fresh pick. */
 const SCHEDULE_OFF_YEARS = 10;
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-course-form',
   imports: [
+    RowAuditBadge,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,

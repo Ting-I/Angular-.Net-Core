@@ -53,6 +53,7 @@
   </div>
 
   <div class="form-actions">
+    <app-row-audit-badge tableName="FeaturedPromoItem" [pkid]="item()?.pkid ?? null" />
     <p-button
       label="儲存"
       icon="pi pi-check"

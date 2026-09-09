@@ -14,4 +14,11 @@ public interface IAuthRepository
     /// and a wrong password produce the same answer.
     /// </summary>
     Task<AppUserCredential?> GetCredentialAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 密碼更新時間 for a UserId, or null when the password has never been changed or the user is
+    /// gone. Read on every authenticated request to decide whether the caller's token predates
+    /// the password it was signed against — see <see cref="Security.TokenFreshness"/>.
+    /// </summary>
+    Task<DateTime?> GetPasswordUpdatedTimeAsync(string userId, CancellationToken cancellationToken = default);
 }

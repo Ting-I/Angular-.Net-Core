@@ -51,6 +51,41 @@ public static class CourseSql
         INNER JOIN PublishStatus ps ON ps.pkid = c.PublishStatus_pkid
         """;
 
+    /// <summary>
+    /// 異動紀錄 snapshot — the row's own columns and nothing else. The four child counts and the
+    /// three nav objects are deliberately absent: the counts move when another table changes, and
+    /// the nav objects compare by reference, so a projection carrying either would report every
+    /// save as a change to all of them. The two n-n lists are read separately by the repository.
+    /// </summary>
+    public const string SelectRow = """
+        SELECT c.pkid AS Pkid,
+               c.Title,
+               c.OfficialTitle,
+               c.CourseId,
+               c.ProdCourseId,
+               c.FriendlyUrl,
+               c.DisplayOrder,
+               c.Partner_pkid AS PartnerPkid,
+               c.CourseGroup_pkid AS CourseGroupPkid,
+               c.PublishStatus_pkid AS PublishStatusPkid,
+               c.ScheduleOn,
+               c.ScheduleOff,
+               c.Hour,
+               c.ListPrice,
+               c.LearningCredit,
+               c.Material,
+               c.Objective,
+               c.Target,
+               c.Prerequisites,
+               c.Outline,
+               c.TowardCertOrExam,
+               c.Note,
+               c.OtherInfo,
+               c.CanRepeat
+        FROM Course c
+        WHERE c.pkid = @Pkid
+        """;
+
     /// <summary>Split points for the three nav objects appended to the projection.</summary>
     public const string SplitOn = "Pkid,Pkid,Pkid";
 

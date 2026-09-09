@@ -21,6 +21,13 @@ public interface IAppUserRepository
     /// <summary>Updates the row and its role assignments. PasswordHash is never in the SET list.</summary>
     Task<bool> UpdateAsync(AppUserRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Writes UserName for one user and nothing else — not the key, and not the role assignments.
+    /// What ProfileController calls for the signed-in operator's own account, where
+    /// <see cref="UpdateAsync"/> would rewrite AppUserRole from a request that carries no roles.
+    /// </summary>
+    Task<bool> UpdateUserNameAsync(string userId, string userName, CancellationToken cancellationToken = default);
+
     /// <summary>Writes PasswordHash and PasswordUpdatedTime, and nothing else.</summary>
     Task<bool> ResetPasswordAsync(string userId, string passwordHash, CancellationToken cancellationToken = default);
 

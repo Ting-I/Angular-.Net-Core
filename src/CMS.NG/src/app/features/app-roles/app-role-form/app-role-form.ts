@@ -16,9 +16,12 @@ import { LookupService } from '@core/services/lookup.service';
 import { AppRole, AppRoleRequest } from '@core/models/app-role.model';
 import { AppUserLookup } from '@core/models/app-user-lookup.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-app-role-form',
   imports: [
+    RowAuditBadge,
     ReactiveFormsModule,
     ButtonModule,
     InputTextModule,
@@ -39,6 +42,12 @@ export class AppRoleForm implements OnInit {
   private readonly messageService = inject(MessageService);
 
   protected readonly isEdit = signal(false);
+
+  /**
+   * 主代碼 for the 異動紀錄 badge. RoleId is the key, but the trail is written against the pkid
+   * every table also carries, so it is read off the loaded record rather than the route.
+   */
+  protected readonly auditPkid = signal<number | null>(null);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly users = signal<AppUserLookup[]>([]);
@@ -139,6 +148,7 @@ export class AppRoleForm implements OnInit {
   }
 
   private patchFromRole(role: AppRole): void {
+    this.auditPkid.set(role.pkid);
     this.form.patchValue({
       roleId: role.roleId,
       roleName: role.roleName,

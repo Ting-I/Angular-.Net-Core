@@ -8,9 +8,11 @@ import { catchError } from 'rxjs/operators';
 import { PublishStatusService } from '@core/services/publish-status.service';
 import { PublishStatus } from '@core/models/publish-status.model';
 
+import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+
 @Component({
   selector: 'app-publish-status-detail',
-  imports: [ButtonModule, TagModule],
+  imports: [RowAuditBadge, ButtonModule, TagModule],
   templateUrl: './publish-status-detail.html',
   styleUrl: './publish-status-detail.scss',
 })

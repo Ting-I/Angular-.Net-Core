@@ -1,0 +1,49 @@
+<p-button
+  type="button"
+  severity="secondary"
+  size="small"
+  [outlined]="true"
+  styleClass="row-audit-button"
+  (onClick)="open()"
+>
+  <i class="pi pi-history" aria-hidden="true"></i>
+  <span class="row-audit-label">異動紀錄 History</span>
+  <span class="row-audit-latest">{{ latestText() }}</span>
+</p-button>
+
+<p-dialog
+  [(visible)]="dialogVisible"
+  header="異動紀錄 History"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '48rem' }"
+>
+  @if (loading()) {
+    <p class="row-audit-empty">載入中…</p>
+  } @else if (failed()) {
+    <p class="row-audit-empty">{{ unavailableText }}</p>
+  } @else if (entries().length === 0) {
+    <p class="row-audit-empty">{{ noHistoryText }}</p>
+  } @else {
+    <table class="row-audit-table">
+      <thead>
+        <tr>
+          <th scope="col">異動時間</th>
+          <th scope="col">使用者</th>
+          <th scope="col">異動類型</th>
+          <th scope="col">異動說明</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of entries(); track $index) {
+          <tr class="row-audit-row">
+            <td class="row-audit-when">{{ when(entry) }}</td>
+            <td>{{ entry.userName }}</td>
+            <td>{{ entry.actionType }}</td>
+            <td class="row-audit-desc">{{ entry.actionDesc || '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</p-dialog>
