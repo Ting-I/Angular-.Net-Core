@@ -174,6 +174,40 @@ all; the rewrite rule is kept as a fallback for a box where `setup-iis.ps1` has 
 ASP.NET Core adds nothing of its own here — there is no `X-AspNet-Version` or
 `X-Powered-By: ASP.NET` to strip. The `Server` header on `:5001` comes from IIS, not Kestrel.
 
+## Security headers
+
+The SPA site sends `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy` and `Permissions-Policy`. The API site sends only `Cache-Control: no-store`,
+because the SPA site adds its set to proxied `/api` responses too and duplicating them there just
+emits each header twice. The division: the SPA site owns what the browser sees, the API site owns
+what is true about the response itself.
+
+`Strict-Transport-Security` is deliberately absent. Browsers ignore it over plain HTTP, and a long
+`max-age` set before TLS exists strands clients that later need to fall back. It belongs in the
+same change as the HTTPS binding.
+
+### The CSP is coupled to an Angular build setting
+
+`script-src 'self'` refuses inline event handlers. With `optimization.styles.inlineCritical` on,
+Angular emits exactly one:
+
+```html
+<link rel="stylesheet" href="styles-*.css" media="print" onload="this.media='all'">
+```
+
+CSP blocks the `onload`, so the stylesheet stays `media="print"` and **never applies**. The page
+still renders — the critical CSS was inlined into `index.html` — which is what makes this so easy
+to ship. What breaks is everything outside that subset: PrimeIcons first, so every icon-only
+button renders blank. `getComputedStyle($0).fontFamily` on a `.pi` element reads `Arial` instead
+of `primeicons`.
+
+`angular.json` therefore sets `inlineCritical: false` for the production configuration. The cost is
+one render-blocking stylesheet; the alternative is `'unsafe-hashes'` plus a hash that Angular is
+free to change between versions.
+
+**Verify a CSP change in a browser, not with `curl`.** The headers were byte-identical in the
+working and the broken build.
+
 ## Troubleshooting
 
 | Symptom | Fix |

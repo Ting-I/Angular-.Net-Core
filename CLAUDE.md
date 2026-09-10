@@ -119,6 +119,14 @@ reasoning, the worked example and the cases these lines flatten.
   (`@page` cannot live in a component stylesheet), never in the content, where they exist on page 1
   and nowhere else. Producing the same file *outside* a browser needs a server renderer and is a
   different feature. → frontend §Print / PDF
+- **The CSP and `inlineCritical` are one setting in two files.** The deployed SPA is served under
+  `script-src 'self'` (`deploy/CMS.NG/web.config.template`), which refuses inline event handlers —
+  and `optimization.styles.inlineCritical` in `angular.json` makes Angular emit exactly one:
+  `<link ... media="print" onload="this.media='all'">`. Turn it back on and the global stylesheet
+  stays `media="print"` forever. **Nothing errors and the page still renders**, because the
+  critical CSS was inlined; what silently dies is everything outside that subset — PrimeIcons
+  first, so every icon-only button goes blank. Verify a CSP change in a browser, never with
+  `curl`: the headers were right in both the working and the broken build.
 - **Language split:** UI labels and validation messages are Traditional Chinese, usually paired
   with the English entity name (`角色 AppRole`). Code, identifiers, comments and commit messages
   are English.

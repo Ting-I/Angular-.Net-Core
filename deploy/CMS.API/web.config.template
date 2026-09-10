@@ -22,6 +22,22 @@
         <requestFiltering removeServerHeader="true" />
       </security>
 
+      <!-- The login response carries a 24-hour bearer token, and the API sets no cache
+           directives of its own — which leaves an intermediary free to apply heuristic caching
+           to an authenticated response. Nothing this API returns is safe to keep.
+
+           This is the ONLY header added here. The browser-facing set (CSP, nosniff, framing,
+           referrer) lives on the SPA site, which adds it to proxied /api responses too — adding
+           the same headers on both sites just emits each one twice. The division is deliberate:
+           the SPA site owns what the browser sees, this site owns what is true about the
+           response itself. The cost is that a browser pointed straight at :5001 gets no nosniff,
+           which is acceptable while :5001 is the proxy's internal hop and not a public URL. -->
+      <httpProtocol>
+        <customHeaders>
+          <add name="Cache-Control" value="no-store" />
+        </customHeaders>
+      </httpProtocol>
+
       <aspNetCore processPath="dotnet"
                   arguments=".\CMS.API.dll"
                   stdoutLogEnabled="true"
