@@ -215,7 +215,7 @@ narrowed to match: `UpdateUserNameAsync` writes one column, where `UpdateAsync` 
 `AppUserRole` from a request that carries no roles.
 
 `POST /api/auth/change-password` is the second endpoint on that controller and follows the same
-rule: `ChangePasswordRequest` carries three plaintext passwords and no key. Three things about it
+rule: `ChangePasswordRequest` carries three plaintext passwords and no key. Four things about it
 are deliberate.
 
 - **The credential read stays inside the action.** `IAuthRepository.GetCredentialAsync` is still
@@ -226,11 +226,21 @@ are deliberate.
   password typed into a field is what was wrong. A `401` would trip the UI's interceptor into
   clearing the session and bouncing to `/login`, throwing the operator out over a typo. Reserve the
   `401` for the token itself.
+- **The new password must differ from the current one**, `400` when it does not. The endpoint
+  otherwise answers `204` to a request that re-submits the same password, and the value an operator
+  is most likely to re-submit is the SysConfig `defaultPassword` their account was created with —
+  shared by every account, and the one password worth moving off. It also keeps
+  `PasswordUpdatedTime` meaning what it says: a stamp that moved without the credential changing is
+  a trail entry claiming something that did not happen. The comparison is `Ordinal` against the
+  plaintext `CurrentPassword` the caller sent, which is equivalent to comparing against the stored
+  row because the first gate has already proven that plaintext hashes to it.
 - **Order matters, and it is the spec's order.** Current password, then complexity, then the
-  confirmation, then the write. Answering the current-password failure first means a caller holding
-  a stolen token learns nothing about the policy without also knowing the password, and every arm
-  returns before `ResetPasswordAsync`, so a rejected request leaves `PasswordHash` and
-  `PasswordUpdatedTime` untouched.
+  differ-from-current check, then the confirmation, then the write. Answering the current-password
+  failure first means a caller holding a stolen token learns nothing about the policy without also
+  knowing the password; putting differ-from-current *after* complexity means an operator retyping
+  something that fails both is told the rule first, which is the half they have to satisfy either
+  way. Every arm returns before `ResetPasswordAsync`, so a rejected request leaves `PasswordHash`
+  and `PasswordUpdatedTime` untouched.
 
 The complexity rule itself lives in `PasswordPolicy` — 8 characters and 3 of the 4 classes
 (uppercase / lowercase / digit / symbol), where "symbol" is everything that is not one of the other

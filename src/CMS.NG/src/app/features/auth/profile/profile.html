@@ -98,6 +98,10 @@
       />
       @if (isPasswordInvalid('newPassword') && passwordForm.controls.newPassword.hasError('required')) {
         <small class="field-error" data-testid="new-password-error">新密碼為必填。</small>
+      } @else if (showsUnchanged) {
+        <small class="field-error" data-testid="new-password-unchanged-error">
+          新密碼不可與目前密碼相同。<br />New password must differ from the current one.
+        </small>
       } @else {
         <!--
           The same sentence either way — the rule as a hint before it is broken, and as the error

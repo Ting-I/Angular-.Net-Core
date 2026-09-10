@@ -82,6 +82,24 @@ export function passwordsMatch(group: AbstractControl): ValidationErrors | null 
 }
 
 /**
+ * 新密碼 must not be 目前密碼 over again. A group validator for the same reason `passwordsMatch`
+ * is one — neither field is wrong on its own — and quiet until both are filled in.
+ *
+ * The password an operator is most likely to retype is the system default their account was
+ * created with, which is the one this exists to stop. Convenience only: the API refuses it too.
+ */
+export function newPasswordDiffers(group: AbstractControl): ValidationErrors | null {
+  const currentPassword = String(group.get('currentPassword')?.value ?? '');
+  const newPassword = String(group.get('newPassword')?.value ?? '');
+
+  if (!currentPassword || !newPassword) {
+    return null;
+  }
+
+  return currentPassword === newPassword ? { unchanged: true } : null;
+}
+
+/**
  * 個人資料 My Profile — the one page an operator may edit about their own account.
  *
  * Two independent forms, and two separate writes. 帳號資料 renames the operator: only 使用者名稱
@@ -144,7 +162,7 @@ export class Profile {
       newPassword: ['', [Validators.required, passwordComplexity]],
       confirmNewPassword: ['', [Validators.required]],
     },
-    { validators: passwordsMatch },
+    { validators: [passwordsMatch, newPasswordDiffers] },
   );
 
   constructor() {
@@ -171,6 +189,12 @@ export class Profile {
   protected get showsMismatch(): boolean {
     const confirm = this.passwordForm.controls.confirmNewPassword;
     return this.passwordForm.hasError('mismatch') && (confirm.dirty || confirm.touched);
+  }
+
+  /** True once 新密碼 has been touched and is still 目前密碼 over again. */
+  protected get showsUnchanged(): boolean {
+    const newPassword = this.passwordForm.controls.newPassword;
+    return this.passwordForm.hasError('unchanged') && (newPassword.dirty || newPassword.touched);
   }
 
   /** Puts the form back to what the session holds, discarding an unsaved edit. */

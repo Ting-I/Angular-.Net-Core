@@ -97,10 +97,11 @@ public class ProfileController : ControllerBase
     /// <summary>
     /// 變更密碼 — replaces the signed-in operator's own password.
     ///
-    /// Four gates, in the order the spec sets them out: the current password must hash to the
-    /// stored value, the new password must clear <see cref="PasswordPolicy"/>, the confirmation
-    /// must match it, and only then is anything written. Every failure returns before the write,
-    /// so a rejected request leaves PasswordHash and PasswordUpdatedTime exactly as they were.
+    /// Five gates, in the order the spec sets them out: the current password must hash to the
+    /// stored value, the new password must clear <see cref="PasswordPolicy"/>, it must differ from
+    /// the current one, the confirmation must match it, and only then is anything written. Every
+    /// failure returns before the write, so a rejected request leaves PasswordHash and
+    /// PasswordUpdatedTime exactly as they were.
     ///
     /// Answers 204, because there is nothing to return. No hash — neither the stored one nor the
     /// new one — reaches the response, the same rule that keeps PasswordHash out of
@@ -155,7 +156,26 @@ public class ProfileController : ControllerBase
             });
         }
 
-        // 3. Confirmation. Ordinal, so a password differing only in case or in a combining mark is
+        // 3. The new password has to actually be a different one. Without this the endpoint
+        // answers 204 to a request that re-submits the current password, and the value an operator
+        // is most likely to re-submit is the SysConfig defaultPassword their account was created
+        // with — shared by every account, and the one password worth moving off. The comparison is
+        // against the plaintext the caller sent rather than the stored hash, which is equivalent
+        // here: gate 1 has already proven CurrentPassword hashes to that row.
+        //
+        // It sits after the complexity check, not before it, so an operator retyping something
+        // that fails both is told the rule first — the half they have to satisfy either way.
+        if (string.Equals(request.NewPassword, request.CurrentPassword, StringComparison.Ordinal))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "新密碼不可與目前密碼相同",
+                Detail = "NewPassword must differ from CurrentPassword.",
+            });
+        }
+
+        // 4. Confirmation. Ordinal, so a password differing only in case or in a combining mark is
         // a mismatch — what gets hashed is the byte sequence, and the login compare is exact too.
         if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal))
         {
@@ -167,7 +187,7 @@ public class ProfileController : ControllerBase
             });
         }
 
-        // 4. Write. ResetPasswordAsync sets PasswordHash and PasswordUpdatedTime and nothing else —
+        // 5. Write. ResetPasswordAsync sets PasswordHash and PasswordUpdatedTime and nothing else —
         // not the name, and not the role assignments UpdateAsync would rewrite from a request that
         // carries none.
         if (!await _repository.ResetPasswordAsync(
