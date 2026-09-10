@@ -112,7 +112,8 @@
           [class.cell-editing]="isEditing(course, 'displayOrder')"
           [class.cell-saved]="isSaved(course, 'displayOrder')"
           (dblclick)="startEdit(course, 'displayOrder')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'displayOrder')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'displayOrder')) {
@@ -134,7 +135,8 @@
           [class.cell-editing]="isEditing(course, 'courseId')"
           [class.cell-saved]="isSaved(course, 'courseId')"
           (dblclick)="startEdit(course, 'courseId')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'courseId')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'courseId')) {
@@ -158,7 +160,8 @@
           [class.cell-editing]="isEditing(course, 'prodCourseId')"
           [class.cell-saved]="isSaved(course, 'prodCourseId')"
           (dblclick)="startEdit(course, 'prodCourseId')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'prodCourseId')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'prodCourseId')) {
@@ -182,7 +185,8 @@
           [class.cell-editing]="isEditing(course, 'title')"
           [class.cell-saved]="isSaved(course, 'title')"
           (dblclick)="startEdit(course, 'title')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'title')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'title')) {
@@ -208,7 +212,9 @@
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'publishStatusPkid')"
           [class.cell-saved]="isSaved(course, 'publishStatusPkid')"
+          tabindex="0"
           (dblclick)="startEdit(course, 'publishStatusPkid')"
+          (keydown.enter)="startEdit(course, 'publishStatusPkid')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'publishStatusPkid')) {
@@ -234,7 +240,9 @@
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'scheduleOn')"
           [class.cell-saved]="isSaved(course, 'scheduleOn')"
+          tabindex="0"
           (dblclick)="startEdit(course, 'scheduleOn')"
+          (keydown.enter)="startEdit(course, 'scheduleOn')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'scheduleOn')) {
@@ -258,7 +266,9 @@
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'scheduleOff')"
           [class.cell-saved]="isSaved(course, 'scheduleOff')"
+          tabindex="0"
           (dblclick)="startEdit(course, 'scheduleOff')"
+          (keydown.enter)="startEdit(course, 'scheduleOff')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'scheduleOff')) {
@@ -283,7 +293,8 @@
           [class.cell-editing]="isEditing(course, 'hour')"
           [class.cell-saved]="isSaved(course, 'hour')"
           (dblclick)="startEdit(course, 'hour')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'hour')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'hour')) {
@@ -305,7 +316,8 @@
           [class.cell-editing]="isEditing(course, 'listPrice')"
           [class.cell-saved]="isSaved(course, 'listPrice')"
           (dblclick)="startEdit(course, 'listPrice')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'listPrice')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'listPrice')) {
@@ -327,7 +339,8 @@
           [class.cell-editing]="isEditing(course, 'learningCredit')"
           [class.cell-saved]="isSaved(course, 'learningCredit')"
           (dblclick)="startEdit(course, 'learningCredit')"
-          (keydown.enter)="commit()"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'learningCredit')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'learningCredit')) {
@@ -349,7 +362,9 @@
           class="editable-cell"
           [class.cell-editing]="isEditing(course, 'canRepeat')"
           [class.cell-saved]="isSaved(course, 'canRepeat')"
+          tabindex="0"
           (dblclick)="startEdit(course, 'canRepeat')"
+          (keydown.enter)="startEdit(course, 'canRepeat')"
           (keydown.escape)="cancelEdit()"
         >
           @if (isEditing(course, 'canRepeat')) {

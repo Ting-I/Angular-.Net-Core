@@ -429,6 +429,36 @@ export class CourseList implements OnInit, OnDestroy {
     this.focusEditor();
   }
 
+  /**
+   * Enter on a focused cell.
+   *
+   * The cells carry `tabindex` so they can be reached at all: before this, the only way into an
+   * editor was `dblclick`, and a `<td>` is not focusable, so the `keydown.enter` and
+   * `keydown.escape` handlers beside it could only ever fire by bubbling up from an editor that
+   * was already open. All eleven editable columns were mouse-only.
+   *
+   * One handler for both jobs, because both arrive as Enter on the same element: open the editor
+   * when the cell is closed, and commit when it is open and the keystroke has bubbled out of the
+   * editor inside it.
+   *
+   * `startEdit` is safe to call from here — it refuses a read-only field, a cell already open, a
+   * save in flight and a cell holding a validation error, and it focuses the editor itself.
+   *
+   * The tradeoff: a focusable cell is a tab stop, so a full page of rows is a long sequence to tab
+   * through. That is inherent to inline editing reached by Tab, and it is what PrimeNG's own
+   * `pEditableColumn` does. The better long-term answer is a roving tabindex with arrow-key
+   * movement, one tab stop for the whole grid; that is a keyboard model rather than a fix, so it
+   * is not built here.
+   */
+  protected onCellEnter(course: Course, field: string): void {
+    if (this.isEditing(course, field)) {
+      this.commit();
+      return;
+    }
+
+    this.startEdit(course, field);
+  }
+
   /** Escape — drops the draft and leaves the stored value on screen. */
   protected cancelEdit(): void {
     // A save already on the wire cannot be called back, and closing here would let it land — and

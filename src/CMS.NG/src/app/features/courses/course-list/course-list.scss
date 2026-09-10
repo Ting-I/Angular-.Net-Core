@@ -36,9 +36,27 @@
    the double-click hint only appear where an editor will actually open. */
 .editable-cell {
   cursor: cell;
+  /* The hover tint used to snap on while the sidebar beside it eased. Same 0.15s the shell uses
+     for its own hover states. */
+  transition: background-color 0.15s;
 
   &:hover {
     background: var(--app-ground);
+  }
+
+  /* The cells carry tabindex so an editor can be opened from the keyboard, which makes a visible
+     focus indicator load-bearing: without one, Tab moves an invisible caret across the table.
+     Inset so the ring is not clipped by the neighbouring cell border. */
+  &:focus-visible {
+    outline: 2px solid var(--app-accent-text);
+    outline-offset: -2px;
+    background: var(--app-ground);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editable-cell {
+    transition: none;
   }
 }
 
