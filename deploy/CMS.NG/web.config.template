@@ -35,7 +35,39 @@
           <action type="Rewrite" url="/index.html" />
         </rule>
       </rules>
+
+      <!-- Strip ARR's "X-Powered-By: ARR/3.0" off proxied responses. It has to happen here
+           rather than in <customHeaders> below, because ARR adds the header on the way out,
+           after that module has already run. -->
+      <outboundRules>
+        <rule name="Remove X-Powered-By" preCondition="">
+          <match serverVariable="RESPONSE_X-Powered-By" pattern=".+" />
+          <action type="Rewrite" value="" />
+        </rule>
+      </outboundRules>
     </rewrite>
+
+    <!-- Stop the server volunteering what it is. Neither header does anything for the
+         browser; both hand a scanner a product and version to look up CVEs against.
+         removeServerHeader drops "Server: Microsoft-IIS/10.0" and needs IIS 10 or later,
+         which setup-iis.ps1 assumes anyway.
+
+         The <remove> below only covers a header IIS itself would add. ARR stamps
+         "X-Powered-By: ARR/3.0" on proxied responses AFTER the customHeaders module has
+         run, so it survives that and needs the outbound rule above — measured, not
+         assumed. The alternative is ARR's own server-level switch
+         (system.webServer/proxy/@arrResponseHeader = false in applicationHost.config),
+         which would belong in setup-iis.ps1; it is kept here so that one deploy carries
+         the whole fix. -->
+    <httpProtocol>
+      <customHeaders>
+        <remove name="X-Powered-By" />
+      </customHeaders>
+    </httpProtocol>
+
+    <security>
+      <requestFiltering removeServerHeader="true" />
+    </security>
 
     <!-- Angular emits content-hashed filenames (outputHashing: all), so the bundles are
          safe to cache forever. -->

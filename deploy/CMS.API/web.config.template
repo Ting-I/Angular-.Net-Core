@@ -15,6 +15,13 @@
         <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
       </handlers>
 
+      <!-- "Server: Microsoft-IIS/10.0" is added by IIS, not by Kestrel, so it is dropped here.
+           The SPA site strips its own copy; this one covers anything that reaches :5001
+           directly rather than through the proxy. Needs IIS 10 or later. -->
+      <security>
+        <requestFiltering removeServerHeader="true" />
+      </security>
+
       <aspNetCore processPath="dotnet"
                   arguments=".\CMS.API.dll"
                   stdoutLogEnabled="true"

@@ -175,6 +175,14 @@ $serverSetup = {
         -Filter 'system.webServer/proxy' -Name 'enabled' -Value 'True'
     Good "ARR reverse proxy enabled at server level"
 
+    # ARR announces itself with "X-Powered-By: ARR/3.0" on every proxied response, which tells a
+    # scanner the product and version and tells the browser nothing. This is the only switch that
+    # stops it being added; the outbound rule in CMS.NG\web.config.template can blank the value
+    # but cannot remove the header, so without this you get an empty X-Powered-By instead of none.
+    Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' `
+        -Filter 'system.webServer/proxy' -Name 'arrResponseHeader' -Value 'False'
+    Good "ARR response header suppressed"
+
     # ---- 4. Folders ----------------------------------------------------------
     foreach ($p in @($cfg.SitePathApi, $cfg.SitePathNg, (Join-Path $cfg.SitePathApi 'logs'))) {
         if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }

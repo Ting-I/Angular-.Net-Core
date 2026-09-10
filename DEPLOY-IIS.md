@@ -153,6 +153,27 @@ server that needs SQL auth and the credential belongs somewhere else — not in 
 > every call to `https://` and the SPA dies — so add the HTTPS binding in the same change, or use
 > **`Staging`**, which is neither Development nor Production.
 
+## Response headers the server should not send
+
+IIS and ARR both announce themselves by default. Neither header does anything for the browser;
+both hand a scanner a product and version to look up CVEs against. Three settings remove them, and
+they are not interchangeable:
+
+| Header | Removed by | Where |
+|---|---|---|
+| `Server: Microsoft-IIS/10.0` | `<security><requestFiltering removeServerHeader="true" />` | **both** `web.config.template`s (IIS 10+) |
+| `X-Powered-By: ARR/3.0` | `system.webServer/proxy/@arrResponseHeader = False` | `setup-iis.ps1` step 3, server level |
+| ↑ fallback | outbound rewrite rule | `CMS.NG\web.config.template` |
+
+The order matters. `<customHeaders><remove name="X-Powered-By" />` does **not** work for the ARR
+header — ARR stamps it on the way out, after that module has run. An outbound rewrite rule catches
+it, but a rule can only rewrite a value, not delete a header, so on its own it leaves an **empty**
+`X-Powered-By:` rather than none. Only `arrResponseHeader = False` stops the header being added at
+all; the rewrite rule is kept as a fallback for a box where `setup-iis.ps1` has not been re-run.
+
+ASP.NET Core adds nothing of its own here — there is no `X-AspNet-Version` or
+`X-Powered-By: ASP.NET` to strip. The `Server` header on `:5001` comes from IIS, not Kestrel.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -163,6 +184,7 @@ server that needs SQL auth and the credential belongs somewhere else — not in 
 | API returns **500.30 / 502.5** | ASP.NET Core Hosting Bundle missing, or `arguments=".\CMS.API.dll"` doesn't match the published DLL name. |
 | Every API call **307-redirects to https** | Someone added `UseHttpsRedirection()` / `UseHsts()` to `Program.cs` under `IsProduction()`, on an HTTP-only site. Give IIS an HTTPS binding, or set `$aspnetEnv` to `Staging` — **not** `Development`, which reopens Swagger. |
 | **`/swagger` returns 404** on the deployed box | Working as intended — it is Development-only. Run `dotnet run --project src\CMS.API` locally for Swagger. |
+| Responses carry an **empty `X-Powered-By:`** | `setup-iis.ps1` has not been re-run since `arrResponseHeader` was added. The outbound rule blanked the value; only the server-level switch removes the header. Re-run `.\setup-iis.ps1` elevated — it is idempotent. |
 | Login returns **500** | The database has no `SysConfig.appConfig` row — the JWT signing key is read from it at runtime. |
 | API **500** on any data call | The app pool identity has no SQL access. The site runs as `IIS APPPOOL\CMS.API.Pool`, not as you — `setup-iis.ps1 -GrantSqlAccess` creates that login. |
 | **F5 on a deep link → 404** | The SPA fallback rewrite is missing. Confirm `web.config` reached `C:\VHome\CMS\NG\` and URL Rewrite is installed. |
