@@ -212,3 +212,90 @@ Forcing the change needs somewhere to record it; `PasswordUpdatedTime` is alread
 **Effort:** M
 **Priority:** P2
 **Depends on:** A decision on where "must change password" lives, given the read-only schema.
+
+## Design review, 2026-09-10 (deferred findings)
+
+Full report and screenshots: `~/.gstack/projects/Ting-I-Angular-.Net-Core/designs/design-audit-20260910/`.
+Design Score C -> B, AI Slop A. Both F categories (Color & Contrast, Interaction
+States) cleared in commits `e518273`..`7c55fab`. These are what was left.
+
+### Noto Sans TC is declared but never shipped
+
+**What:** Either self-host the webfont or align the screen and print stacks on what
+Windows actually has.
+
+**Why:** `styles.scss` names `Noto Sans TC` first and the repo ships no `@font-face`,
+no `<link>` and no font package — `document.fonts` on the running app contains only
+`primeicons`. It renders correctly on this dev box solely because
+`C:\Windows\Fonts` happens to contain `NotoSansTC-VF.ttf`, confirmed with a canvas
+width probe. On a clean Windows install the stack falls to Segoe UI, which has no
+Traditional Chinese coverage, so CJK is handed to the OS fallback while Latin stays
+Segoe — two unrelated faces in every bilingual label like `角色 AppRole`. The font
+is unpinned, not missing, which is worse: the developer cannot see it locally.
+
+**Context:** `course-sheet.scss:21` declares a *different* priority order for print
+(`'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC'`), so the PDF an operator
+hands a customer is set in a different typeface than the screen it was proofed on.
+A font file is unaffected by the deployed `script-src` CSP, but per CLAUDE.md verify
+the result in a browser, never with curl.
+
+**Effort:** S
+**Priority:** P2
+**Depends on:** Nothing.
+
+### 18 of 20 pages scroll their action bar off screen
+
+**What:** Include the `sticky-toolbar` mixin on the pages that declare a
+`.page-header` with actions in it.
+
+**Why:** Only `course-list` and `course-form` pin their bar. The other 18 declare the
+same header and let the Save button scroll away. `src/styles/_sticky-toolbar.scss` is
+drop-in and already documents the scrollport geometry it depends on.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** Nothing.
+
+### Detail pages stack 3 to 5 cards, one of them holding only a loading string
+
+**What:** Reserve the elevated card for the surface that is actually the interaction
+and use a section heading plus a hairline rule for the rest.
+
+**Why:** `.page-card` appears 46 times across 20 templates and `.page-header` is
+styled as a card too, so a two-section record renders three shadow planes deep.
+`app-user-detail.html:24` is a full white shadowed card whose entire content is
+`載入中…`, and another for `查無此使用者。`, in all six detail pages. None of these
+cards is clickable or selectable. App UI rules exist to prevent exactly this mosaic.
+
+**Effort:** M
+**Priority:** P3
+**Depends on:** Nothing. The token layer is in place, so this is template work.
+
+### No responsive layer at all
+
+**What:** Decide whether the CMS is desktop-only, and make the answer explicit.
+
+**Why:** Five media queries exist repo-wide — four `print`, one
+`prefers-reduced-motion`. Not one `min-width` or `max-width`. `app.scss:15` fixes
+`grid-template-columns: 16rem 1fr`, and below ~1100px `course-list.html` (16 columns,
+~130rem of inline widths) has nowhere to go. That may well be the right scope call
+for an internal tool, but `index.html:7` ships a viewport meta that promises
+otherwise, so today the app claims something it does not do.
+
+**Effort:** L if responsive, XS if the answer is a documented "desktop only".
+**Priority:** P3
+**Depends on:** A product decision.
+
+### Smaller items
+
+- `主代碼` holds integers but aligns `start`, and leads every list row with the
+  surrogate `pkid` ahead of `角色代碼`, the key the operator actually uses.
+- Pagination sits centered above each table and renders all five controls plus a
+  page-size select even for two records.
+- 23 feature stylesheets still have no transitions; only `course-list` picked one up,
+  so page-level hovers snap while the sidebar eases.
+- Tables are full-bleed at 1920px with no max content width, so short values sit
+  alone in 440px columns.
+- **Owed test:** a unit regression test for the Enter-to-edit path added in
+  `7c55fab`. Browser-verified but not pinned; `course-list.spec.ts` already has the
+  helpers (`cellAt`, `CELL`, `doubleClick`) beside the double-click test.
