@@ -66,9 +66,14 @@
   --app-accent-text: var(--p-primary-700);
   --app-link-color: var(--p-primary-700);
 
-  /* red-500 stays the required-field glyph, where the label carries the meaning and the asterisk
-     is decoration. Error *text* uses red-600 (#dc2626, 4.83:1); red-500 is 3.76:1 and fails. */
-  --app-required-color: var(--p-red-500);
+  /* Both take red-600 (#dc2626, 4.83:1). red-500 is 3.76:1 and fails AA.
+
+     The asterisk was briefly left at red-500 on the grounds that it is decoration and the label
+     beside it carries the meaning. That is wrong: the label carries the field's *name*, and the
+     asterisk is the only thing on screen that says the field is required. It is content, so it
+     has to be legible. Kept as its own token rather than folded into --app-danger-color because
+     the two mean different things and only happen to share a value. */
+  --app-required-color: var(--p-red-600);
   --app-danger-color: var(--p-red-600);
 
   --app-surface: var(--p-surface-0);

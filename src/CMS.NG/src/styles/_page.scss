@@ -172,7 +172,8 @@
   margin-top: var(--app-space-6);
 }
 
-/* The asterisk is decoration: the label beside it carries the meaning, so red-500 is fine here. */
+/* Required marker. Not decoration: it is the only thing conveying that the field is required, so
+   it takes the step of red that passes AA. See --app-required-color in _tokens.scss. */
 .required {
   color: var(--app-required-color);
 }
