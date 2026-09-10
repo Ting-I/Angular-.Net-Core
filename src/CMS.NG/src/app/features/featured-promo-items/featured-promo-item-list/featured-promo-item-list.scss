@@ -1,60 +1,27 @@
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  background: #fff;
-  border-radius: 8px;
-  padding: 0.9rem 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-}
+/* Page furniture (.page-header, .page-title, .page-subtitle, .page-actions, .page-card) comes
+   from src/styles/_page.scss. Only what is specific to this page lives here. */
 
-.page-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-
-  h1 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-}
-
-.page-subtitle {
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
-
-.page-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
+/* This card holds a week grid rather than a p-table, so it takes its own padding: tight at the
+   top where the week nav sits, roomy around the day blocks below. */
 .page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 0.5rem 1rem 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+  padding: var(--app-space-2) var(--app-space-4) var(--app-space-4);
 }
 
 .week-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
+  gap: var(--app-space-3);
+  padding: var(--app-space-3) 0;
 }
 
 .week-label {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: #1e293b;
+  font-weight: var(--app-weight-bold);
+  font-size: var(--app-text-base);
+  color: var(--app-heading-color);
   min-width: 8rem;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .week-grid.loading {
@@ -62,17 +29,17 @@
 }
 
 .day {
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--app-space-3);
 }
 
 .day-header {
   margin: 0;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #1e293b;
-  background: #e2e8f0;
-  border-radius: 4px;
+  padding: var(--app-space-1) var(--app-space-3);
+  font-size: var(--app-text-base);
+  font-weight: var(--app-weight-bold);
+  color: var(--app-heading-color);
+  background: var(--app-badge-bg);
+  border-radius: var(--app-radius);
 }
 
 .slot-table {
@@ -80,7 +47,7 @@
   border-collapse: collapse;
 
   td {
-    padding: 0.25rem 0.5rem;
+    padding: var(--app-space-1) var(--app-space-2);
     vertical-align: middle;
   }
 }
@@ -88,8 +55,9 @@
 .slot-no {
   width: 2rem;
   text-align: center;
-  font-weight: 600;
-  color: #475569;
+  font-weight: var(--app-weight-semibold);
+  color: var(--app-badge-color);
+  font-variant-numeric: tabular-nums;
 }
 
 .slot-actions {
@@ -100,8 +68,8 @@
 .slot-code,
 .slot-topic,
 .slot-description {
-  border-bottom: 1px solid #e2e8f0;
-  color: #1e293b;
+  border-bottom: 1px solid var(--app-border-color);
+  color: var(--app-body-color);
 }
 
 .slot-code {
@@ -112,14 +80,17 @@
   width: 25%;
 }
 
+/* An empty slot renders empty cells — the template binds promoCode/topic through `?.`, so there is
+   no placeholder text here to read. The colour only ever applies to an empty string, which is why
+   it stays at slate-300 rather than moving to the muted role: there is nothing to fail contrast. */
 .slot-row.empty {
   .slot-code,
   .slot-topic,
   .slot-description {
-    color: #cbd5e1;
+    color: var(--p-slate-300);
   }
 }
 
 .editor-row td {
-  padding: 0 0.5rem 0.5rem 2.5rem;
+  padding: 0 var(--app-space-2) var(--app-space-2) var(--app-space-8);
 }

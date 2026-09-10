@@ -7,7 +7,7 @@
 }
 
 .long-text-empty {
-  color: #94a3b8;
+  color: var(--app-muted-color);
 }
 
 /* The subtree rendered from a column that held HTML. `::ng-deep` is required rather than preferred:
@@ -34,13 +34,13 @@
   }
 
   ::ng-deep p {
-    margin: 0 0 0.5rem;
+    margin: 0 0 var(--app-space-2);
   }
 
   ::ng-deep ul,
   ::ng-deep ol {
-    margin: 0 0 0.5rem;
-    padding-left: 1.5rem;
+    margin: 0 0 var(--app-space-2);
+    padding-left: var(--app-space-6);
   }
 
   /* Operators paste `<ul style="list-style:disc">`; the sanitizer drops the inline style, so the
@@ -65,9 +65,9 @@
   ::ng-deep h4,
   ::ng-deep h5,
   ::ng-deep h6 {
-    margin: 0.75rem 0 0.35rem;
-    font-size: 0.95rem;
-    font-weight: 700;
+    margin: var(--app-space-3) 0 var(--app-space-1);
+    font-size: var(--app-text-base);
+    font-weight: var(--app-weight-bold);
   }
 
   ::ng-deep table {
@@ -76,13 +76,13 @@
 
   ::ng-deep td,
   ::ng-deep th {
-    padding: 0.15rem 0.75rem 0.15rem 0;
+    padding: var(--app-space-1) var(--app-space-3) var(--app-space-1) 0;
     text-align: left;
     vertical-align: top;
   }
 
   ::ng-deep a {
-    color: #2563eb;
+    color: var(--app-link-color);
 
     &:hover {
       text-decoration: underline;

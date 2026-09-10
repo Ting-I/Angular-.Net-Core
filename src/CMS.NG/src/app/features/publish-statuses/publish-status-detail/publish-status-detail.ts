@@ -14,7 +14,6 @@ import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge'
   selector: 'app-publish-status-detail',
   imports: [RowAuditBadge, ButtonModule, TagModule],
   templateUrl: './publish-status-detail.html',
-  styleUrl: './publish-status-detail.scss',
 })
 export class PublishStatusDetail implements OnInit {
   private readonly service = inject(PublishStatusService);

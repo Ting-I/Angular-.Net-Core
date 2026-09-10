@@ -84,8 +84,12 @@
   }
 }
 
-/* A card wrapping a table sits tight to it: the table brings its own cell padding. */
-.page-card-table {
+/* A card wrapping a table sits tight to it: the table brings its own cell padding, so the roomy
+   padding above would double it. Matched with :has() rather than a modifier class so the seven
+   list templates keep the same plain `.page-card` the other thirteen pages use. The browser floor
+   is already higher than this needs: the print sheet in styles.scss depends on named @page, which
+   shipped in Chrome/Edge 110, and :has() shipped in 105. */
+.page-card:has(> p-table) {
   padding: var(--app-space-2);
 }
 
@@ -112,14 +116,40 @@
     color: var(--app-label-color);
   }
 
+  /* Every PrimeNG control that can sit in a field row, filling the row rather than sitting at its
+     own intrinsic width. The wrappers and their inner <input> are both listed because several of
+     these render one inside the other and sizing only the outer one leaves the input short.
+     No ::ng-deep: these rules are global already, so there is no component boundary to pierce. */
   input,
+  textarea,
   .p-inputnumber,
   .p-inputnumber input,
   .p-select,
+  .p-multiselect,
+  .p-datepicker,
+  .p-datepicker input,
+  .p-autocomplete,
+  .p-autocomplete input,
   .p-password,
   .p-password input {
     width: 100%;
   }
+
+  /* A long multiselect label wraps instead of stretching the control off the card. */
+  .p-multiselect-label {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--app-space-1);
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+/* Guidance under a field: the password rule, a format note. Muted, but it is content the operator
+   has to read, so it takes the muted role that passes AA and the same size as the error beside it. */
+.field-hint {
+  color: var(--app-muted-color);
+  font-size: var(--app-text-sm);
 }
 
 .toggle-field {

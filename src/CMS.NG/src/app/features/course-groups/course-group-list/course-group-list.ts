@@ -55,7 +55,6 @@ const EMPTY_FILTERS: CourseGroupQuery = {
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './course-group-list.html',
-  styleUrl: './course-group-list.scss',
 })
 export class CourseGroupList implements OnInit {
   private readonly service = inject(CourseGroupService);

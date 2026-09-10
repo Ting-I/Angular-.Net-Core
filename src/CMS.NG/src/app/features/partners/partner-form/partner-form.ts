@@ -27,7 +27,6 @@ import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge'
   ],
   providers: [MessageService],
   templateUrl: './partner-form.html',
-  styleUrl: './partner-form.scss',
 })
 export class PartnerForm implements OnInit {
   private readonly fb = inject(FormBuilder);

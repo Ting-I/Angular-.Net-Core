@@ -19,7 +19,6 @@ import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge'
   imports: [RowAuditBadge, ReactiveFormsModule, ButtonModule, InputTextModule, ToastModule],
   providers: [MessageService],
   templateUrl: './course-group-form.html',
-  styleUrl: './course-group-form.scss',
 })
 export class CourseGroupForm implements OnInit {
   private readonly fb = inject(FormBuilder);

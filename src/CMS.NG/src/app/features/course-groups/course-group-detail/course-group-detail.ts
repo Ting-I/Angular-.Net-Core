@@ -13,7 +13,6 @@ import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge'
   selector: 'app-course-group-detail',
   imports: [RowAuditBadge, ButtonModule],
   templateUrl: './course-group-detail.html',
-  styleUrl: './course-group-detail.scss',
 })
 export class CourseGroupDetail implements OnInit {
   private readonly service = inject(CourseGroupService);

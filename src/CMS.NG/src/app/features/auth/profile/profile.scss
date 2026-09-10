@@ -1,94 +1,18 @@
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  background: #fff;
-  border-radius: 8px;
-  padding: 0.9rem 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-
-  h1 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-}
-
-.page-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-
-  h2 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0 0 1rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-}
-
-.count-badge {
-  background: #e2e8f0;
-  color: #475569;
-  border-radius: 999px;
-  padding: 0.05rem 0.55rem;
-  font-size: 0.8rem;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1.1rem;
-
-  label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #334155;
-  }
-
-  input {
-    width: 100%;
-  }
-}
-
-.required {
-  color: #ef4444;
-}
-
-.field-error {
-  color: #ef4444;
-  font-size: 0.78rem;
-}
-
-.field-hint {
-  color: #64748b;
-  font-size: 0.78rem;
-}
+/* Page furniture (.page-header, .page-card, .form-field, .required, .field-error, .field-hint,
+   .count-badge, .state-message) comes from src/styles/_page.scss. Only what is specific to this
+   page lives here. */
 
 .role-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-2);
 }
 
+/* On this page the state message sits above a card action rather than alone in a card, so it
+   carries a bottom gap the shared rule does not. */
 .state-message {
-  color: #94a3b8;
-  margin: 0 0 0.6rem;
+  margin: 0 0 var(--app-space-2);
 }
 
 .card-actions {

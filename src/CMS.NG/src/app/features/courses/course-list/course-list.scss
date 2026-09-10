@@ -1,5 +1,9 @@
 @use '../../../../styles/sticky-toolbar' as toolbar;
 
+/* Page furniture (.page-header, .page-title, .page-subtitle, .page-card, .text-center,
+   .text-right, .row-actions, .empty-row, .filter-field, .filter-actions, .form-field, .required,
+   .field-error) comes from src/styles/_page.scss. Only what is specific to this page lives here. */
+
 .sticky-toolbar {
   @include toolbar.sticky-toolbar;
 }
@@ -17,122 +21,15 @@
   --course-list-table-height: calc(100dvh - 12.5rem);
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  background: #fff;
-  border-radius: 8px;
-  padding: 0.9rem 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-}
-
-.page-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-
-  h1 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-}
-
-.page-subtitle {
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
-
-.page-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 0.5rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-}
-
-.text-center {
-  text-align: center;
-  color: #64748b;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.15rem;
-}
-
-.empty-row {
-  text-align: center;
-  color: #94a3b8;
-  padding: 2rem 0;
-}
-
-.filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1.1rem;
-
-  label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #334155;
-  }
-
-  input,
-  ::ng-deep .p-select {
-    width: 100%;
-  }
-}
-
-.filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
 .copy-source {
-  margin: 0 0 1rem;
-  color: #475569;
+  margin: 0 0 var(--app-space-4);
+  color: var(--app-badge-color);
 }
 
+/* The copy dialog holds a single field above its own footer, so it drops the row gap the shared
+   rule gives a stacked form. */
 .form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-
-  label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #334155;
-  }
-
-  input {
-    width: 100%;
-  }
-}
-
-.required {
-  color: #ef4444;
-}
-
-.field-error {
-  color: #ef4444;
-  font-size: 0.78rem;
+  margin-bottom: 0;
 }
 
 /* Inline cell editing. The three read-only columns get no .editable-cell, so the affordance and
@@ -141,15 +38,15 @@
   cursor: cell;
 
   &:hover {
-    background: #f8fafc;
+    background: var(--app-ground);
   }
 }
 
 .cell-editing {
   position: relative;
-  background: #f1f5f9;
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  background: var(--p-surface-100);
+  padding-top: var(--app-space-1);
+  padding-bottom: var(--app-space-1);
 
   input,
   ::ng-deep .p-select,
@@ -161,9 +58,9 @@
 
 .cell-error {
   display: block;
-  margin-top: 0.25rem;
-  color: #ef4444;
-  font-size: 0.75rem;
+  margin-top: var(--app-space-1);
+  color: var(--app-danger-color);
+  font-size: var(--app-text-xs);
   white-space: normal;
 }
 
@@ -172,10 +69,10 @@
 .cell-saving {
   position: absolute;
   top: 50%;
-  right: 1.1rem;
+  right: var(--app-space-4);
   transform: translateY(-50%);
-  color: #64748b;
-  font-size: 0.8rem;
+  color: var(--app-muted-color);
+  font-size: var(--app-text-xs);
 }
 
 /* A saved cell shows the same text the editor was already showing, so the fade is the only thing
@@ -187,7 +84,7 @@
 @keyframes cell-saved-fade {
   0%,
   40% {
-    background: #dcfce7;
+    background: var(--p-green-100);
   }
   100% {
     background: transparent;
@@ -198,7 +95,7 @@
 @media (prefers-reduced-motion: reduce) {
   .editable-cell.cell-saved {
     animation: none;
-    background: #dcfce7;
+    background: var(--p-green-100);
   }
 
   .cell-saving {

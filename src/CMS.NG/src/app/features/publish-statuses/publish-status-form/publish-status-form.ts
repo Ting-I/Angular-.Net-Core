@@ -29,7 +29,6 @@ import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge'
   ],
   providers: [MessageService],
   templateUrl: './publish-status-form.html',
-  styleUrl: './publish-status-form.scss',
 })
 export class PublishStatusForm implements OnInit {
   private readonly fb = inject(FormBuilder);

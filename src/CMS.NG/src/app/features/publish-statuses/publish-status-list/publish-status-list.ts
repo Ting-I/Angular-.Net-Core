@@ -57,7 +57,6 @@ const EMPTY_FILTERS: PublishStatusQuery = {
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './publish-status-list.html',
-  styleUrl: './publish-status-list.scss',
 })
 export class PublishStatusList implements OnInit {
   private readonly service = inject(PublishStatusService);

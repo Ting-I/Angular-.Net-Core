@@ -1,82 +1,8 @@
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  background: #fff;
-  border-radius: 8px;
-  padding: 0.9rem 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+/* Page furniture (.page-header, .page-card, .form-field, .required, .field-error, .field-hint)
+   comes from src/styles/_page.scss. Only what is specific to this page lives here. */
 
-  h1 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-}
-
-.page-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-
-  h2 {
-    margin: 0 0 1rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1.1rem;
-
-  label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #334155;
-  }
-
-  input,
-  ::ng-deep .p-inputnumber,
-  ::ng-deep .p-inputnumber input {
-    width: 100%;
-  }
-}
-
-.required {
-  color: #ef4444;
-}
-
-.field-error {
-  color: #ef4444;
-  font-size: 0.78rem;
-}
-
+/* styleClass puts this on the p-multiselect host, which sits outside .form-field, so the shared
+   field-row width rule does not reach it. */
 ::ng-deep .role-multiselect {
   width: 100%;
-
-  .p-multiselect-label {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    white-space: normal;
-  }
-}
-
-.field-hint {
-  color: #64748b;
-  font-size: 0.78rem;
 }

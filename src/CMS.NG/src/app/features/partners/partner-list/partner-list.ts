@@ -57,7 +57,6 @@ const EMPTY_FILTERS: PartnerQuery = {
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './partner-list.html',
-  styleUrl: './partner-list.scss',
 })
 export class PartnerList implements OnInit {
   private readonly service = inject(PartnerService);

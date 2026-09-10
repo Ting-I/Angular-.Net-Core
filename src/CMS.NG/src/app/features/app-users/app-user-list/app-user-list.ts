@@ -76,7 +76,6 @@ const EMPTY_FILTERS: AppUserQuery = {
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './app-user-list.html',
-  styleUrl: './app-user-list.scss',
 })
 export class AppUserList implements OnInit {
   private readonly service = inject(AppUserService);

@@ -13,7 +13,6 @@ import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge'
   selector: 'app-partner-detail',
   imports: [RowAuditBadge, ButtonModule],
   templateUrl: './partner-detail.html',
-  styleUrl: './partner-detail.scss',
 })
 export class PartnerDetail implements OnInit {
   private readonly service = inject(PartnerService);

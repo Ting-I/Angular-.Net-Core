@@ -67,7 +67,7 @@
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--p-primary-color);
+  color: var(--app-accent-text);
 }
 
 .brand-toggle {
@@ -160,7 +160,7 @@
   /* Avalon marks the current page with a primary-tinted pill. */
   &.active {
     background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
-    color: var(--p-primary-color);
+    color: var(--app-accent-text);
     font-weight: 600;
   }
 }
@@ -198,7 +198,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--app-radius);
   color: var(--p-text-muted-color);
   font-size: 0.9rem;
   text-decoration: none;
@@ -209,7 +209,7 @@
   }
 
   &.active {
-    color: var(--p-primary-color);
+    color: var(--app-accent-text);
     font-weight: 600;
   }
 }

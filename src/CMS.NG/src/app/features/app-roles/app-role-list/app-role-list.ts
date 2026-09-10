@@ -50,7 +50,6 @@ function escapeHtml(value: string): string {
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './app-role-list.html',
-  styleUrl: './app-role-list.scss',
 })
 export class AppRoleList implements OnInit {
   private readonly service = inject(AppRoleService);
