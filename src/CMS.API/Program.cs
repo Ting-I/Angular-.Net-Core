@@ -126,12 +126,20 @@ var app = builder.Build();
 // through untouched. See ExceptionHandlingMiddleware for why it does not Response.Clear().
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseSwagger();
-app.UseSwaggerUI(options =>
+// Development only. The Swagger document is a complete map of the API — every route, every
+// parameter shape, and the login call that mints a token — so a deployed box that serves it hands
+// that map to anyone who can reach the port. It is a developer tool, not part of the product;
+// deploy.ps1 stamps ASPNETCORE_ENVIRONMENT=Production into the API's web.config, which is what
+// closes it there.
+if (app.Environment.IsDevelopment())
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "CMS API v1");
-    options.RoutePrefix = "swagger";
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "CMS API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
 
 app.UseCors(LocalhostCors);
 

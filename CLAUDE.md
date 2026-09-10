@@ -18,6 +18,7 @@ TODOS.md           # deferred work, one entry each, with why it was deferred
 src/CMS.API/       # .NET 9 Web API, Dapper (NO Entity Framework), port 5000
 src/CMS.API.Tests/ # xUnit
 src/CMS.NG/        # Angular 20 standalone + PrimeNG 20, port 4200
+deploy/            # IIS deployment kit — setup-iis.ps1 once, deploy.ps1 per change
 ```
 
 ## Commands
@@ -37,7 +38,10 @@ Toolchain traps — the fix here, the reasoning in `spec/conventions/environment
 - `node` not found → prefix `$env:Path = "C:\Program Files\nodejs;$env:Path"`. Never edit the
   system variable; it is already correct.
 - Leave the `global.json` SDK pin alone — SDK 10 is installed and would retarget to `net10.0`.
-- The connection string lives in `src/CMS.API/appsettings.json` and nowhere else.
+- The connection string lives in **two** places that must agree: `src/CMS.API/appsettings.json`
+  for local runs, and `$connString` in `deploy/deploy.ps1`, which is stamped into the deployed
+  `web.config` as `ConnectionStrings__CMS` and **overrides** `appsettings.json` on IIS. Change one,
+  change both — a box that behaves differently from `dotnet run` is this pair drifting apart.
 
 ## Rules that hold everywhere
 
@@ -103,6 +107,13 @@ reasoning, the worked example and the cases these lines flatten.
   connection details. It only ever *catches*, so every status you *return* passes through: it is
   the net under a bug, not a substitute for the delete guard above.
   → backend §Unhandled exceptions
+- **Swagger is a developer tool, and `IsDevelopment()` is what keeps it one.** The document is a
+  complete map of the API — every route, every parameter shape, and the call that mints a token —
+  so a deployed box that serves it hands that map to anyone who can reach the port. It is gated in
+  `Program.cs`; `deploy/deploy.ps1` stamps `ASPNETCORE_ENVIRONMENT=Production` and that is what
+  closes it on IIS. Neither half works alone. `Program.cs` calls no `UseHttpsRedirection()` or
+  `UseHsts()`, which is why `Production` is safe on an HTTP-only binding — add either and the
+  deployment needs an HTTPS binding in the same change, or `Staging` instead.
 - **The PDF engine is the operator's browser** — a print-only component plus `@media print` driven
   by `window.print()`, no PDF library, no new dependency. **Print margins belong in the page box**
   (`@page` cannot live in a component stylesheet), never in the content, where they exist on page 1
@@ -128,6 +139,7 @@ reasoning, the worked example and the cases these lines flatten.
 | `spec/custom/{Feature}/` | build a feature that ships its own spec and mockups |
 | `docs/designs/{feature}.md` | pick up a branch that carries one — it is the approved plan, gate decisions included |
 | `spec/ui-sample-*.png` | build a list / view / edit / add page — **style only**, the data is illustrative |
+| `DEPLOY-IIS.md` | deploy to IIS, or change anything under `deploy/` — topology, the ARR proxy, and the traps |
 
 A feature under `spec/custom/` overrides the house page layout where the two disagree — that is
 what a custom spec is for. `spec/promotion/FeaturedPromoItem.md` is the worked example; list your
