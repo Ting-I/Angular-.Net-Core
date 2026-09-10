@@ -1,0 +1,601 @@
+<p-toast />
+<p-confirmDialog />
+
+<!--
+  Shared by every editable cell; there is only ever one open editor, so one status block suffices.
+  The spinner is what tells the operator the two save requests are still on the wire — the editor
+  already shows the new value, so nothing else on screen would change until they land.
+-->
+<ng-template #cellStatus>
+  @if (savingCell()) {
+    <i class="pi pi-spin pi-spinner cell-saving" aria-label="儲存中"></i>
+  } @else if (editError(); as error) {
+    <small class="cell-error">{{ error }}</small>
+  }
+</ng-template>
+
+<div class="sticky-toolbar">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>課程 Course</h1>
+      <span class="page-subtitle">訓練課程主資料</span>
+    </div>
+    <div class="page-actions">
+      <p-button
+        label="搜尋條件"
+        icon="pi pi-filter"
+        severity="secondary"
+        [badge]="hasActiveFilters ? activeFilterCount.toString() : undefined"
+        (onClick)="openFilterDrawer()"
+      />
+      <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+    </div>
+  </div>
+</div>
+
+<div class="page-card">
+  <p-table
+    [value]="courses()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="page.rows"
+    [first]="page.first"
+    [rowsPerPageOptions]="[10, 20, 50, 100]"
+    [sortField]="sort.field"
+    [sortOrder]="sort.order"
+    [totalRecords]="courses().length"
+    [scrollable]="true"
+    scrollHeight="var(--course-list-table-height)"
+    dataKey="pkid"
+    currentPageReportTemplate="{first}–{last} 筆，共 {totalRecords} 筆"
+    [showCurrentPageReport]="true"
+    paginatorPosition="top"
+    (onSort)="onSort($event)"
+    (onPage)="onPage($event)"
+  >
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="pkid" style="width: 6rem">主代碼 <p-sortIcon field="pkid" /></th>
+        <th pSortableColumn="displayOrder" style="width: 7rem" class="text-right">
+          顯示順序 <p-sortIcon field="displayOrder" />
+        </th>
+        <th pSortableColumn="courseId" style="width: 10rem">
+          簡介代碼 <p-sortIcon field="courseId" />
+        </th>
+        <th pSortableColumn="prodCourseId" style="width: 10rem">
+          科目代碼 <p-sortIcon field="prodCourseId" />
+        </th>
+        <th pSortableColumn="title" style="min-width: 18rem">
+          課程名稱 <p-sortIcon field="title" />
+        </th>
+        <th pSortableColumn="partner.name" style="width: 10rem">
+          原廠 <p-sortIcon field="partner.name" />
+        </th>
+        <th pSortableColumn="courseGroup.description" style="width: 10rem">
+          課程群組 <p-sortIcon field="courseGroup.description" />
+        </th>
+        <th pSortableColumn="publishStatus.description" style="width: 8rem">
+          上架狀態 <p-sortIcon field="publishStatus.description" />
+        </th>
+        <th pSortableColumn="scheduleOn" style="width: 8rem">
+          上架日期 <p-sortIcon field="scheduleOn" />
+        </th>
+        <th pSortableColumn="scheduleOff" style="width: 8rem">
+          下架日期 <p-sortIcon field="scheduleOff" />
+        </th>
+        <th pSortableColumn="hour" style="width: 6rem" class="text-right">
+          時數 <p-sortIcon field="hour" />
+        </th>
+        <th pSortableColumn="listPrice" style="width: 7rem" class="text-right">
+          定價 <p-sortIcon field="listPrice" />
+        </th>
+        <th pSortableColumn="learningCredit" style="width: 6rem" class="text-right">
+          點數 <p-sortIcon field="learningCredit" />
+        </th>
+        <th pSortableColumn="canRepeat" style="width: 7rem">
+          允許重聽 <p-sortIcon field="canRepeat" />
+        </th>
+        <th style="width: 11rem">操作</th>
+      </tr>
+    </ng-template>
+
+    <!--
+      Inline editing: double-click opens a cell, blur persists it. The three read-only columns —
+      主代碼, 原廠, 課程群組 — carry no (dblclick) and no editor.
+    -->
+    <ng-template #body let-course>
+      <tr>
+        <td>{{ course.pkid }}</td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'displayOrder')"
+          [class.cell-saved]="isSaved(course, 'displayOrder')"
+          (dblclick)="startEdit(course, 'displayOrder')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'displayOrder')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'displayOrder')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [useGrouping]="false"
+              ariaLabel="顯示順序"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.displayOrder }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'courseId')"
+          [class.cell-saved]="isSaved(course, 'courseId')"
+          (dblclick)="startEdit(course, 'courseId')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'courseId')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'courseId')) {
+            <input
+              pInputText
+              type="text"
+              maxlength="50"
+              aria-label="簡介代碼"
+              [(ngModel)]="draft.text"
+              [disabled]="savingCell()"
+              (blur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.courseId }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'prodCourseId')"
+          [class.cell-saved]="isSaved(course, 'prodCourseId')"
+          (dblclick)="startEdit(course, 'prodCourseId')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'prodCourseId')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'prodCourseId')) {
+            <input
+              pInputText
+              type="text"
+              maxlength="50"
+              aria-label="科目代碼"
+              [(ngModel)]="draft.text"
+              [disabled]="savingCell()"
+              (blur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.prodCourseId }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'title')"
+          [class.cell-saved]="isSaved(course, 'title')"
+          (dblclick)="startEdit(course, 'title')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'title')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'title')) {
+            <input
+              pInputText
+              type="text"
+              maxlength="200"
+              aria-label="課程名稱"
+              [(ngModel)]="draft.text"
+              [disabled]="savingCell()"
+              (blur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.title }}
+          }
+        </td>
+
+        <td>{{ course.partner?.name || '—' }}</td>
+        <td>{{ course.courseGroup?.description || '—' }}</td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'publishStatusPkid')"
+          [class.cell-saved]="isSaved(course, 'publishStatusPkid')"
+          tabindex="0"
+          (dblclick)="startEdit(course, 'publishStatusPkid')"
+          (keydown.enter)="startEdit(course, 'publishStatusPkid')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'publishStatusPkid')) {
+            <p-select
+              [options]="publishStatusOptions"
+              optionLabel="label"
+              optionValue="pkid"
+              appendTo="body"
+              ariaLabel="上架狀態"
+              [(ngModel)]="draft.select"
+              (onShow)="editorOverlayOpen.set(true)"
+              (onHide)="editorOverlayOpen.set(false)"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.publishStatus?.description || '—' }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'scheduleOn')"
+          [class.cell-saved]="isSaved(course, 'scheduleOn')"
+          tabindex="0"
+          (dblclick)="startEdit(course, 'scheduleOn')"
+          (keydown.enter)="startEdit(course, 'scheduleOn')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'scheduleOn')) {
+            <p-datepicker
+              dateFormat="yy/mm/dd"
+              appendTo="body"
+              ariaLabel="上架日期"
+              [(ngModel)]="draft.date"
+              (onShow)="editorOverlayOpen.set(true)"
+              (onClose)="editorOverlayOpen.set(false)"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.scheduleOn | date: 'yyyy/MM/dd' }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'scheduleOff')"
+          [class.cell-saved]="isSaved(course, 'scheduleOff')"
+          tabindex="0"
+          (dblclick)="startEdit(course, 'scheduleOff')"
+          (keydown.enter)="startEdit(course, 'scheduleOff')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'scheduleOff')) {
+            <p-datepicker
+              dateFormat="yy/mm/dd"
+              appendTo="body"
+              ariaLabel="下架日期"
+              [(ngModel)]="draft.date"
+              (onShow)="editorOverlayOpen.set(true)"
+              (onClose)="editorOverlayOpen.set(false)"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.scheduleOff | date: 'yyyy/MM/dd' }}
+          }
+        </td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'hour')"
+          [class.cell-saved]="isSaved(course, 'hour')"
+          (dblclick)="startEdit(course, 'hour')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'hour')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'hour')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [useGrouping]="false"
+              ariaLabel="時數"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.hour }}
+          }
+        </td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'listPrice')"
+          [class.cell-saved]="isSaved(course, 'listPrice')"
+          (dblclick)="startEdit(course, 'listPrice')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'listPrice')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'listPrice')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [maxFractionDigits]="0"
+              ariaLabel="定價"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.listPrice | number: '1.0-0' }}
+          }
+        </td>
+
+        <td
+          class="text-right editable-cell"
+          [class.cell-editing]="isEditing(course, 'learningCredit')"
+          [class.cell-saved]="isSaved(course, 'learningCredit')"
+          (dblclick)="startEdit(course, 'learningCredit')"
+          tabindex="0"
+          (keydown.enter)="onCellEnter(course, 'learningCredit')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'learningCredit')) {
+            <p-inputNumber
+              [(ngModel)]="draft.number"
+              [minFractionDigits]="1"
+              [maxFractionDigits]="1"
+              ariaLabel="點數"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            {{ course.learningCredit | number: '1.1-1' }}
+          }
+        </td>
+
+        <td
+          class="editable-cell"
+          [class.cell-editing]="isEditing(course, 'canRepeat')"
+          [class.cell-saved]="isSaved(course, 'canRepeat')"
+          tabindex="0"
+          (dblclick)="startEdit(course, 'canRepeat')"
+          (keydown.enter)="startEdit(course, 'canRepeat')"
+          (keydown.escape)="cancelEdit()"
+        >
+          @if (isEditing(course, 'canRepeat')) {
+            <p-checkbox
+              [binary]="true"
+              ariaLabel="允許重聽"
+              [(ngModel)]="draft.checkbox"
+              [disabled]="savingCell()"
+              (onBlur)="commit()"
+            />
+            <ng-container [ngTemplateOutlet]="cellStatus" />
+          } @else {
+            <p-tag
+              [value]="course.canRepeat ? '是' : '否'"
+              [severity]="course.canRepeat ? 'success' : 'secondary'"
+            />
+          }
+        </td>
+
+        <td>
+          <div class="row-actions">
+            <p-button
+              icon="pi pi-eye"
+              severity="info"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="檢視"
+              (onClick)="view(course)"
+            />
+            <p-button
+              icon="pi pi-pencil"
+              severity="primary"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="編輯"
+              (onClick)="edit(course)"
+            />
+            <p-button
+              icon="pi pi-copy"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="複製"
+              pTooltip="複製課程"
+              tooltipPosition="top"
+              (onClick)="openCopyDialog(course)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="刪除"
+              [pTooltip]="referenceCount(course) > 0 ? referenceBreakdown(course) : ''"
+              tooltipPosition="left"
+              (onClick)="confirmDelete(course)"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="15" class="empty-row">查無資料</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-drawer
+  [(visible)]="filterDrawerVisible"
+  header="搜尋條件"
+  position="right"
+  styleClass="filter-drawer"
+>
+  <div class="filter-field">
+    <label for="filter-keyword">關鍵字</label>
+    <input
+      pInputText
+      id="filter-keyword"
+      name="keyword"
+      placeholder="課程名稱、簡介代碼、科目代碼、友善網址"
+      [(ngModel)]="draftFilters.keyword"
+      (keyup.enter)="applyFilters()"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-partner">原廠</label>
+    <p-select
+      inputId="filter-partner"
+      name="partnerPkid"
+      [options]="partnerOptions"
+      optionLabel="label"
+      optionValue="pkid"
+      placeholder="全部"
+      appendTo="body"
+      [filter]="true"
+      [showClear]="true"
+      [(ngModel)]="draftFilters.partnerPkid"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-course-group">課程群組</label>
+    <p-select
+      inputId="filter-course-group"
+      name="courseGroupPkid"
+      [options]="courseGroupOptions"
+      optionLabel="label"
+      optionValue="pkid"
+      placeholder="全部"
+      appendTo="body"
+      [filter]="true"
+      [showClear]="true"
+      [(ngModel)]="draftFilters.courseGroupPkid"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-publish-status">上架狀態</label>
+    <p-select
+      inputId="filter-publish-status"
+      name="publishStatusPkid"
+      [options]="publishStatusOptions"
+      optionLabel="label"
+      optionValue="pkid"
+      placeholder="全部"
+      appendTo="body"
+      [showClear]="true"
+      [(ngModel)]="draftFilters.publishStatusPkid"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-schedule-on-from">上架日期（起）</label>
+    <p-datepicker
+      inputId="filter-schedule-on-from"
+      name="scheduleOnFrom"
+      dateFormat="yy/mm/dd"
+      appendTo="body"
+      [showButtonBar]="true"
+      [(ngModel)]="draftFilters.scheduleOnFrom"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-schedule-on-to">上架日期（迄）</label>
+    <p-datepicker
+      inputId="filter-schedule-on-to"
+      name="scheduleOnTo"
+      dateFormat="yy/mm/dd"
+      appendTo="body"
+      [showButtonBar]="true"
+      [(ngModel)]="draftFilters.scheduleOnTo"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-schedule-off-from">下架日期（起）</label>
+    <p-datepicker
+      inputId="filter-schedule-off-from"
+      name="scheduleOffFrom"
+      dateFormat="yy/mm/dd"
+      appendTo="body"
+      [showButtonBar]="true"
+      [(ngModel)]="draftFilters.scheduleOffFrom"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-schedule-off-to">下架日期（迄）</label>
+    <p-datepicker
+      inputId="filter-schedule-off-to"
+      name="scheduleOffTo"
+      dateFormat="yy/mm/dd"
+      appendTo="body"
+      [showButtonBar]="true"
+      [(ngModel)]="draftFilters.scheduleOffTo"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-can-repeat">允許重聽</label>
+    <p-select
+      inputId="filter-can-repeat"
+      name="canRepeat"
+      [options]="canRepeatOptions"
+      optionLabel="label"
+      optionValue="value"
+      appendTo="body"
+      [(ngModel)]="draftFilters.canRepeat"
+    />
+  </div>
+
+  <div class="filter-actions">
+    <p-button label="清除" severity="secondary" [outlined]="true" (onClick)="clearFilters()" />
+    <p-button label="搜尋" icon="pi pi-search" (onClick)="applyFilters()" />
+  </div>
+</p-drawer>
+
+<p-dialog
+  [(visible)]="copyDialogVisible"
+  header="複製課程"
+  [modal]="true"
+  [style]="{ width: '30rem' }"
+>
+  @if (copySource(); as source) {
+    <p class="copy-source">
+      來源：<b>{{ source.courseId }}</b> {{ source.title }}
+    </p>
+  }
+
+  <div class="form-field">
+    <label for="copy-course-id">新簡介代碼 <span class="required">*</span></label>
+    <input
+      pInputText
+      id="copy-course-id"
+      name="newCourseId"
+      maxlength="50"
+      [(ngModel)]="copyCourseId"
+      (keyup.enter)="confirmCopy()"
+    />
+    @if (copyError(); as error) {
+      <small class="field-error">{{ error }}</small>
+    }
+  </div>
+
+  <ng-template #footer>
+    <p-button label="取消" severity="secondary" type="button" (onClick)="cancelCopy()" />
+    <p-button label="複製" icon="pi pi-copy" [loading]="copying()" (onClick)="confirmCopy()" />
+  </ng-template>
+</p-dialog>

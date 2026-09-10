@@ -1,0 +1,96 @@
+/* Page furniture (.page-header, .page-title, .page-subtitle, .page-actions, .page-card) comes
+   from src/styles/_page.scss. Only what is specific to this page lives here. */
+
+/* This card holds a week grid rather than a p-table, so it takes its own padding: tight at the
+   top where the week nav sits, roomy around the day blocks below. */
+.page-card {
+  padding: var(--app-space-2) var(--app-space-4) var(--app-space-4);
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-3) 0;
+}
+
+.week-label {
+  font-weight: var(--app-weight-bold);
+  font-size: var(--app-text-base);
+  color: var(--app-heading-color);
+  min-width: 8rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-grid.loading {
+  opacity: 0.6;
+}
+
+.day {
+  margin-bottom: var(--app-space-3);
+}
+
+.day-header {
+  margin: 0;
+  padding: var(--app-space-1) var(--app-space-3);
+  font-size: var(--app-text-base);
+  font-weight: var(--app-weight-bold);
+  color: var(--app-heading-color);
+  background: var(--app-badge-bg);
+  border-radius: var(--app-radius);
+}
+
+.slot-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  td {
+    padding: var(--app-space-1) var(--app-space-2);
+    vertical-align: middle;
+  }
+}
+
+.slot-no {
+  width: 2rem;
+  text-align: center;
+  font-weight: var(--app-weight-semibold);
+  color: var(--app-badge-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-actions {
+  width: 12rem;
+  white-space: nowrap;
+}
+
+.slot-code,
+.slot-topic,
+.slot-description {
+  border-bottom: 1px solid var(--app-border-color);
+  color: var(--app-body-color);
+}
+
+.slot-code {
+  width: 20%;
+}
+
+.slot-topic {
+  width: 25%;
+}
+
+/* An empty slot renders empty cells — the template binds promoCode/topic through `?.`, so there is
+   no placeholder text here to read. The colour only ever applies to an empty string, which is why
+   it stays at slate-300 rather than moving to the muted role: there is nothing to fail contrast. */
+.slot-row.empty {
+  .slot-code,
+  .slot-topic,
+  .slot-description {
+    color: var(--p-slate-300);
+  }
+}
+
+.editor-row td {
+  padding: 0 var(--app-space-2) var(--app-space-2) var(--app-space-8);
+}

@@ -1,0 +1,64 @@
+/* Page furniture (.page-header, .page-card, .detail-grid, .count-badge, .state-message) comes from
+   src/styles/_page.scss. Only what is specific to this page lives here. */
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-1);
+}
+
+.detail-link {
+  color: var(--app-link-color);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.qr-code {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--app-space-2);
+  margin: var(--app-space-1) 0 0;
+}
+
+.qr-code-title {
+  font-size: var(--app-text-base);
+  font-weight: var(--app-weight-bold);
+  color: var(--app-heading-color);
+}
+
+.qr-code-image {
+  width: 180px;
+  height: 180px;
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+
+.qr-code-url {
+  font-size: var(--app-text-sm);
+  color: var(--app-muted-color);
+  text-decoration: none;
+  word-break: break-all;
+
+  &:hover {
+    color: var(--app-link-color);
+    text-decoration: underline;
+  }
+}
+
+/* ---------- print ---------- */
+
+/* Under print this page is replaced by the 課程簡介 sheet it hosts — but only when there is a record
+   to print. `has-sheet` is set on the host exactly when `course()` is non-null, so a Ctrl+P on 載入中
+   or 查無此課程 still prints the state message instead of a blank page. `display: none` rather than
+   `visibility: hidden` so the admin cards leave the PDF's tag tree entirely. */
+@media print {
+  :host.has-sheet .page-header,
+  :host.has-sheet .page-card {
+    display: none;
+  }
+}

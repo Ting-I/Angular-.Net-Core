@@ -1,0 +1,32 @@
+/* .form-field, .required, .field-error and .field-hint come from src/styles/_page.scss. Only what
+   is specific to this inline editor lives here. */
+
+/* This form opens inside a table row rather than on its own page, so it draws its own boundary
+   instead of taking the shared .page-card. */
+.inline-form {
+  border: 2px solid var(--app-heading-color);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  padding: var(--app-space-4) var(--app-space-5);
+  margin: var(--app-space-1) 0 var(--app-space-2);
+}
+
+.lookup-row {
+  display: flex;
+  gap: var(--app-space-2);
+  align-items: center;
+
+  ::ng-deep .p-autocomplete,
+  ::ng-deep .p-autocomplete input {
+    width: 100%;
+  }
+
+  ::ng-deep .p-autocomplete {
+    flex: 1;
+  }
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--app-space-2);
+}

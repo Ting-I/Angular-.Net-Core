@@ -3,6 +3,7 @@
 <form [formGroup]="form" (ngSubmit)="save()">
   <div class="page-header">
     <h1>{{ isEdit() ? '編輯角色' : '新增角色' }}</h1>
+    <app-row-audit-badge tableName="AppRole" [pkid]="auditPkid()" />
     <div class="page-actions">
       <p-button
         label="取消"

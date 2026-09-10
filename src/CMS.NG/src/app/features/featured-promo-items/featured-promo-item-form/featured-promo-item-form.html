@@ -1,0 +1,72 @@
+<form class="inline-form" [formGroup]="form" (ngSubmit)="save()">
+  <div class="form-field">
+    <label for="promo-code">活動代碼 PromoCode <span class="required">*</span></label>
+    <div class="lookup-row">
+      <p-autoComplete
+        inputId="promo-code"
+        formControlName="promoCode"
+        [suggestions]="suggestions()"
+        [minLength]="1"
+        [maxlength]="30"
+        placeholder="輸入活動代碼後查詢"
+        appendTo="body"
+        (completeMethod)="searchPromoCodes($event)"
+        (onSelect)="onPromoCodeSelected($event)"
+      />
+      <p-button
+        label="查詢"
+        icon="pi pi-search"
+        severity="secondary"
+        type="button"
+        [loading]="lookingUp()"
+        (onClick)="lookupPromoCode()"
+      />
+    </div>
+    @if (isInvalid('promoCode')) {
+      <small class="field-error">
+        @if (form.controls.promoCode.hasError('unknownPromoCode')) {
+          查無此活動代碼，請確認後再試。
+        } @else {
+          活動代碼為必填，長度不可超過 30 字。
+        }
+      </small>
+    }
+    @if (promotion(); as promotion) {
+      <small class="field-hint">已對應活動 #{{ promotion.pkid }}：{{ promotion.topic }}</small>
+    }
+  </div>
+
+  <div class="form-field">
+    <label for="topic">主題 <span class="required">*</span></label>
+    <input pInputText id="topic" formControlName="topic" maxlength="100" />
+    @if (isInvalid('topic')) {
+      <small class="field-error">主題為必填，長度不可超過 100 字。</small>
+    }
+  </div>
+
+  <div class="form-field">
+    <label for="description">說明 <span class="required">*</span></label>
+    <input pInputText id="description" formControlName="description" maxlength="300" />
+    @if (isInvalid('description')) {
+      <small class="field-error">說明為必填，長度不可超過 300 字。</small>
+    }
+  </div>
+
+  <div class="form-actions">
+    <app-row-audit-badge tableName="FeaturedPromoItem" [pkid]="item()?.pkid ?? null" />
+    <p-button
+      label="儲存"
+      icon="pi pi-check"
+      severity="success"
+      type="submit"
+      [loading]="saving()"
+    />
+    <p-button
+      label="取消"
+      icon="pi pi-times"
+      severity="secondary"
+      type="button"
+      (onClick)="cancel()"
+    />
+  </div>
+</form>

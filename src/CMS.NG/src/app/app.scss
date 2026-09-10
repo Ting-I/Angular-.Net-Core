@@ -2,10 +2,20 @@
    uppercase group labels, rounded menu items, primary-tinted active state.
    Colours come from PrimeNG theme tokens so the shell follows the active preset. */
 
+/* The shell owns the viewport and .app-main scrolls inside it, rather than the document
+   scrolling as a whole. A page that pins a toolbar with position: sticky needs that: .app-main is
+   already a scrollport (overflow-x: auto), and a sticky child of a scrollport that never scrolls
+   itself never sticks. Giving the shell the viewport height makes .app-main the region that
+   actually scrolls, and keeps the sidebar out of the pinned toolbar's way. */
 .app-shell {
   display: grid;
+  /* A fixed top bar row and a scrolling content row. The bar is a grid item rather than a child
+     of .app-main so it cannot scroll away — and so it cannot get in the way of a page that pins
+     its own toolbar inside .app-main. */
   grid-template-columns: 16rem 1fr;
-  min-height: 100vh;
+  grid-template-rows: 3.5rem 1fr;
+  height: 100vh;
+  height: 100dvh;
   background: var(--p-surface-50);
   transition: grid-template-columns 0.2s ease;
 
@@ -31,6 +41,8 @@
 }
 
 .app-sidebar {
+  grid-column: 1;
+  grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
   background: var(--p-surface-0);
@@ -45,7 +57,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  height: 4rem;
+  /* Matches the shell's top bar row above, so the two border-bottoms meet as one continuous line
+     across the window. At 4rem this box was 8px taller than the bar beside it and the seam was
+     visibly stepped at the top-left corner of every page. */
+  height: 3.5rem;
   flex: 0 0 auto;
   padding: 0 1rem;
   border-bottom: 1px solid var(--p-content-border-color);
@@ -55,7 +70,7 @@
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--p-primary-color);
+  color: var(--app-accent-text);
 }
 
 .brand-toggle {
@@ -148,12 +163,98 @@
   /* Avalon marks the current page with a primary-tinted pill. */
   &.active {
     background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
-    color: var(--p-primary-color);
+    color: var(--app-accent-text);
+    font-weight: 600;
+  }
+}
+
+/* ---------- top bar ---------- */
+
+.app-topbar {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0 1.25rem;
+  background: var(--p-surface-0);
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--p-text-color);
+  font-size: 0.9rem;
+}
+
+.topbar-user-name {
+  font-weight: 600;
+}
+
+/* 個人資料 — a link rather than a p-button, so it carries a real href the router can mark
+   active, and so a middle click opens it like any other route. */
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--app-radius);
+  color: var(--p-text-muted-color);
+  font-size: 0.9rem;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--p-surface-100);
+    color: var(--p-text-color);
+  }
+
+  &.active {
+    color: var(--app-accent-text);
     font-weight: 600;
   }
 }
 
 .app-main {
-  padding: 1.25rem;
-  overflow-x: auto;
+  grid-column: 2;
+  grid-row: 2;
+
+  /* Published so a sticky child can bleed back out over it — the padding area is inside the
+     clip edge, so content scrolls visibly through it unless something covers it. */
+  --app-main-padding: 1.25rem;
+
+  padding: var(--app-main-padding);
+  overflow: auto;
+}
+
+/* ---------- print ---------- */
+
+/* Nothing in this CMS printed usefully before the 課程簡介 sheet, and the shell above is why: it owns
+   the viewport height and .app-main is the thing that scrolls inside it, so a Ctrl+P on any page
+   produced one clipped screen. Unwinding both under print media makes every page print its full
+   content — intended for all of them, not just the sheet (spec/conventions/frontend.md).
+
+   The page box itself, and the sheet's own named page, are in src/styles.scss: an @page rule
+   cannot live in a component stylesheet. */
+@media print {
+  .app-shell {
+    display: block;
+    height: auto;
+  }
+
+  .app-sidebar,
+  .app-topbar,
+  p-toast {
+    display: none;
+  }
+
+  .app-main {
+    overflow: visible;
+    /* No paper margins here. Every page box in styles.scss carries 14mm 16mm of its own, and block
+       padding would stack on top of it on page 1 and clone onto no page after that — page 1 deep,
+       page 2 shallow, which is the exact bug the margin work exists to remove. Margins belong to
+       the page box. */
+  }
 }

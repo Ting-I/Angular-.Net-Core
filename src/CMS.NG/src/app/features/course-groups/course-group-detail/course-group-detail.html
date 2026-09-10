@@ -1,0 +1,47 @@
+<div class="page-header">
+  <h1>檢視課程群組</h1>
+  <app-row-audit-badge tableName="CourseGroup" [pkid]="courseGroup()?.pkid ?? null" />
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (courseGroup()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此課程群組。</div>
+} @else if (courseGroup(); as data) {
+  <section class="page-card">
+    <h2>課程群組資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>群組說明</dt>
+        <dd>{{ data.description }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>使用狀況</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>課程數</dt>
+        <dd>{{ data.courseCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>原廠群組數</dt>
+        <dd>{{ data.partnerCourseGroupCount }}</dd>
+      </div>
+    </dl>
+    @if (referenceCount(data) > 0) {
+      <p class="state-message">此課程群組仍被引用，無法刪除。</p>
+    }
+  </section>
+}

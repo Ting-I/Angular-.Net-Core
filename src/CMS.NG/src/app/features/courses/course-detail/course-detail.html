@@ -1,0 +1,257 @@
+<div class="page-header">
+  <h1>檢視課程</h1>
+  <app-row-audit-badge tableName="Course" [pkid]="course()?.pkid ?? null" />
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (course()) {
+      <!-- 另存為 PDF, not 列印: it matches the destination the operator then picks in Chrome's own
+           dialog. Outlined so it does not read as a second 返回, and inside this @if so it never
+           shows on the 載入中 or 查無此課程 states. There is no on-screen preview by design; the
+           print preview is the preview. -->
+      <p-button
+        label="另存為 PDF"
+        icon="pi pi-file-pdf"
+        severity="secondary"
+        [outlined]="true"
+        pTooltip="產生給客戶的課程簡介（不含內部欄位）。列印對話框請選擇「另存為 PDF」，並取消勾選「頁首及頁尾」"
+        (onClick)="saveAsPdf()"
+      />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此課程。</div>
+} @else if (course(); as data) {
+  <section class="page-card">
+    <h2>基本資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>顯示順序</dt>
+        <dd>{{ data.displayOrder }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>簡介代碼</dt>
+        <dd>{{ data.courseId }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>科目代碼</dt>
+        <dd>{{ data.prodCourseId }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>課程名稱</dt>
+        <dd>{{ data.title }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>官方課程名稱</dt>
+        <dd>{{ data.officialTitle || '—' }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>友善網址</dt>
+        <dd>{{ data.friendlyUrl }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>QR Code</dt>
+        <dd>
+          @if (qrImage(); as image) {
+            <figure class="qr-code">
+              <figcaption class="qr-code-title">{{ data.courseId }}</figcaption>
+              <img class="qr-code-image" [src]="image" [alt]="'課程 QR Code — ' + data.courseId" />
+              <a class="qr-code-url" [href]="qrUrl()" target="_blank" rel="noopener">
+                {{ qrUrl() }}
+              </a>
+              <p-button
+                label="下載 QR Code"
+                icon="pi pi-download"
+                severity="secondary"
+                size="small"
+                (onClick)="downloadQrCode()"
+              />
+            </figure>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>分類與排程</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>原廠</dt>
+        <dd>
+          <a class="detail-link" [routerLink]="['/partners', data.partnerPkid]">
+            {{ data.partner?.name || data.partnerPkid }}
+          </a>
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>課程群組</dt>
+        <dd>
+          @if (data.courseGroupPkid !== null) {
+            <a class="detail-link" [routerLink]="['/course-groups', data.courseGroupPkid]">
+              {{ data.courseGroup?.description || data.courseGroupPkid }}
+            </a>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>上架狀態</dt>
+        <dd>
+          <a class="detail-link" [routerLink]="['/publish-statuses', data.publishStatusPkid]">
+            {{ data.publishStatus?.description || data.publishStatusPkid }}
+          </a>
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>上架日期</dt>
+        <dd>{{ data.scheduleOn | date: 'yyyy/MM/dd' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>下架日期</dt>
+        <dd>{{ data.scheduleOff | date: 'yyyy/MM/dd' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>時數</dt>
+        <dd>{{ data.hour }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>定價</dt>
+        <dd>{{ data.listPrice | number: '1.0-0' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>點數</dt>
+        <dd>{{ data.learningCredit | number: '1.1-1' }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>允許重聽</dt>
+        <dd>
+          <p-tag
+            [value]="data.canRepeat ? '是' : '否'"
+            [severity]="data.canRepeat ? 'success' : 'secondary'"
+          />
+        </dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>對應認證</dt>
+        <dd>
+          @if (certificationNames(data).length) {
+            <div class="chip-list">
+              @for (name of certificationNames(data); track name) {
+                <p-tag [value]="name" severity="info" />
+              }
+            </div>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>對應職務類別</dt>
+        <dd>
+          @if (jobCategoryNames(data).length) {
+            <div class="chip-list">
+              @for (name of jobCategoryNames(data); track name) {
+                <p-tag [value]="name" severity="info" />
+              }
+            </div>
+          } @else {
+            —
+          }
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- Every field here is a long-text column, and those hold operator-pasted HTML for most
+       courses, so they render through <app-long-text> rather than {{ }}: interpolating them
+       printed <p> and <li> as visible characters on the page the operator checks the record on.
+       The component also owns the 「—」 for a blank column, which each dd used to spell itself. -->
+  <section class="page-card">
+    <h2>課程內容</h2>
+    <dl class="detail-grid">
+      <div class="detail-field detail-field-wide">
+        <dt>教材</dt>
+        <dd><app-long-text [value]="data.material" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>課程目標</dt>
+        <dd><app-long-text [value]="data.objective" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>適合對象</dt>
+        <dd><app-long-text [value]="data.target" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>先備知識</dt>
+        <dd><app-long-text [value]="data.prerequisites" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>課程大綱</dt>
+        <dd><app-long-text [value]="data.outline" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>考試／認證說明</dt>
+        <dd><app-long-text [value]="data.towardCertOrExam" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>備註</dt>
+        <dd><app-long-text [value]="data.note" /></dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>其他資訊</dt>
+        <dd><app-long-text [value]="data.otherInfo" /></dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>使用狀況</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>課程問答數</dt>
+        <dd>{{ data.courseFaqCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>相關連結數</dt>
+        <dd>{{ data.courseRelatedLinkCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>熱門課程數</dt>
+        <dd>{{ data.hotCourseCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>推薦課程數</dt>
+        <dd>{{ data.courseRecommCount }}</dd>
+      </div>
+    </dl>
+    @if (referenceCount(data) > 0) {
+      <p class="state-message">此課程仍被引用，無法刪除。</p>
+    }
+  </section>
+
+  <!-- The customer-facing sheet. Hidden on screen and revealed by @media print, rather than built
+       when the button is clicked: the QR <img> decodes its data URL regardless of `display`, so it is
+       ready before any print — including a Ctrl+P nobody warned us about. -->
+  <app-course-sheet
+    [course]="data"
+    [certificationNames]="sheetCertificationNames(data)"
+    [qrImage]="sheetQrImage()"
+    [qrUrl]="qrUrl() ?? ''"
+    [generatedOn]="generatedOn()"
+  />
+}
+
+<p-confirmdialog />
+

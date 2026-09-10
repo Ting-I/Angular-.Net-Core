@@ -1,0 +1,72 @@
+/* .form-field, .required and .field-error come from src/styles/_page.scss. Only what is specific
+   to this page lives here. */
+
+/* The Login page renders without the app shell around it, so it owns the viewport. */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--app-space-6);
+  background: var(--app-ground);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 22rem;
+  background: var(--app-surface);
+  border-radius: var(--app-radius);
+  padding: var(--app-space-7);
+  box-shadow: var(--app-shadow-card);
+}
+
+.login-brand {
+  margin-bottom: var(--app-space-6);
+  text-align: center;
+
+  /* The brand is the h1. It was a <span> with the h1 on the line below it, which meant the largest,
+     boldest thing on the page was absent from the document outline while the actual heading was
+     set smaller, lighter and greyer than the text above it. */
+  .brand-text {
+    margin: 0;
+    font-size: var(--app-text-xl);
+    font-weight: var(--app-weight-bold);
+    line-height: var(--app-line-heading);
+    letter-spacing: 0.02em;
+    color: var(--app-accent-text);
+  }
+
+  .login-subtitle {
+    margin: var(--app-space-1) 0 0;
+    font-size: var(--app-text-base);
+    font-weight: var(--app-weight-semibold);
+    color: var(--app-muted-color);
+  }
+}
+
+::ng-deep .login-error,
+::ng-deep .login-message {
+  display: block;
+  margin-bottom: var(--app-space-4);
+}
+
+/* p-password wraps its input, so both the wrapper and the input need the width. */
+::ng-deep .login-password,
+::ng-deep .login-password input {
+  width: 100%;
+}
+
+/* styleClass lands on the <button> itself — it carries `login-submit p-button` together — so these
+   rules sit flat rather than nested under a `.p-button` descendant, which matched nothing. The
+   nested block that used to be here was dead for the same reason; the full width came from the
+   outer rule alone.
+
+   The one action on a page that exists to perform it: the same 44px floor as the fields above, and
+   enough weight to read as the thing to press rather than leaning on the fill alone. */
+::ng-deep .login-submit {
+  width: 100%;
+  justify-content: center;
+  min-height: var(--app-control-min-height);
+  font-weight: var(--app-weight-semibold);
+}

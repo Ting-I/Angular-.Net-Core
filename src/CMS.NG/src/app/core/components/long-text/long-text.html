@@ -1,0 +1,13 @@
+@if (body(); as content) {
+  @if (content.html) {
+    <!-- Bound through [innerHTML] and Angular's default sanitizer — no bypassSecurityTrust anywhere —
+         so the operator sees real headings and bullets and the page gets no script, no event handler
+         and no inline style. -->
+    <div class="long-text-html" [innerHTML]="content.text"></div>
+  } @else {
+    <!-- pre-wrap, because in a plain-text column the operator's own line breaks are the structure. -->
+    <div class="long-text-plain">{{ content.text }}</div>
+  }
+} @else {
+  <span class="long-text-empty">{{ emptyText }}</span>
+}

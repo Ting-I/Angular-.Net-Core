@@ -1,0 +1,32 @@
+/* Page furniture (.page-header, .page-card, .form-field, .required, .field-error, .field-hint,
+   .count-badge, .state-message) comes from src/styles/_page.scss. Only what is specific to this
+   page lives here. */
+
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-2);
+}
+
+/* On this page the state message sits above a card action rather than alone in a card, so it
+   carries a bottom gap the shared rule does not. */
+.state-message {
+  margin: 0 0 var(--app-space-2);
+}
+
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+// p-password renders its own wrapper around the <input>, so the width has to be handed down
+// both levels or the field sits at PrimeNG's intrinsic size while the text inputs above it
+// stretch to the card.
+:host ::ng-deep .password-field {
+  width: 100%;
+
+  input {
+    width: 100%;
+  }
+}

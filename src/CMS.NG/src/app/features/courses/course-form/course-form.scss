@@ -1,0 +1,9 @@
+@use '../../../../styles/sticky-toolbar' as toolbar;
+
+/* Page furniture (.page-header, .page-card, .form-field, .toggle-field, .required, .field-error,
+   .page-key) comes from src/styles/_page.scss, including the field-row widths for p-select,
+   p-multiselect, p-datepicker and textarea. Only what is specific to this page lives here. */
+
+.sticky-toolbar {
+  @include toolbar.sticky-toolbar;
+}

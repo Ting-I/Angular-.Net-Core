@@ -27,6 +27,15 @@ interface ListPage {
   rows: number;
 }
 
+/** The confirm dialog renders its message as HTML, so record text must be escaped first. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 @Component({
   selector: 'app-app-role-list',
   imports: [
@@ -41,7 +50,6 @@ interface ListPage {
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './app-role-list.html',
-  styleUrl: './app-role-list.scss',
 })
 export class AppRoleList implements OnInit {
   private readonly service = inject(AppRoleService);
@@ -65,12 +73,17 @@ export class AppRoleList implements OnInit {
     this.load();
   }
 
-  protected get hasActiveFilters(): boolean {
+  /** Number of applied filters — shown as the 搜尋條件 button badge. */
+  protected get activeFilterCount(): number {
+    const { keyword, permissionLevel } = this.appliedFilters;
     return (
-      !!this.appliedFilters.keyword?.trim() ||
-      this.appliedFilters.permissionLevel !== null &&
-        this.appliedFilters.permissionLevel !== undefined
+      (keyword?.trim() ? 1 : 0) +
+      (permissionLevel !== null && permissionLevel !== undefined ? 1 : 0)
     );
+  }
+
+  protected get hasActiveFilters(): boolean {
+    return this.activeFilterCount > 0;
   }
 
   protected load(): void {
@@ -137,9 +150,19 @@ export class AppRoleList implements OnInit {
   }
 
   protected confirmDelete(role: AppRole): void {
+    // 使用者數 is already on the row, so the operator is told the delete will be refused before
+    // they confirm it rather than after — the same shape the 課程 and 原廠 lists use.
+    const warning =
+      role.userCount > 0
+        ? `<br>此角色仍指派給 ${role.userCount} 位使用者，將無法刪除。`
+        : '';
+
+    // p-confirmDialog renders the message with [innerHTML], so the record's own text is escaped.
     this.confirmationService.confirm({
       header: '刪除角色',
-      message: `確定要刪除角色「${role.roleName}」嗎？`,
+      message:
+        `確定要刪除角色代碼 <b>${escapeHtml(role.roleId)}</b>` +
+        `「${escapeHtml(role.roleName)}」嗎？${warning}`,
       acceptLabel: '刪除',
       rejectLabel: '取消',
       accept: () => this.delete(role),
@@ -152,11 +175,14 @@ export class AppRoleList implements OnInit {
         this.messageService.add({ severity: 'success', summary: '已刪除', detail: role.roleName });
         this.load();
       },
-      error: () =>
+      // The 409 is now a real answer rather than a guess: until the API guarded this, the delete
+      // always succeeded and quietly took every AppUserRole row with it.
+      error: (error: { status?: number }) =>
         this.messageService.add({
           severity: 'error',
           summary: '刪除失敗',
-          detail: '此角色可能仍有使用者關聯。',
+          detail:
+            error.status === 409 ? '此角色仍指派給使用者，無法刪除。' : '請稍後再試。',
         }),
     });
   }

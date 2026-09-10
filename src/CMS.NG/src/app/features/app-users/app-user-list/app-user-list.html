@@ -1,0 +1,187 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>使用者 AppUser</h1>
+    <span class="page-subtitle">系統操作者帳號</span>
+  </div>
+  <div class="page-actions">
+    <p-button
+      label="搜尋條件"
+      icon="pi pi-filter"
+      severity="secondary"
+      [badge]="hasActiveFilters ? activeFilterCount.toString() : undefined"
+      (onClick)="openFilterDrawer()"
+    />
+    <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+  </div>
+</div>
+
+<div class="page-card">
+  <p-table
+    [value]="users()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="page.rows"
+    [first]="page.first"
+    [rowsPerPageOptions]="[10, 20, 50, 100]"
+    [sortField]="sort.field"
+    [sortOrder]="sort.order"
+    [totalRecords]="users().length"
+    dataKey="userId"
+    currentPageReportTemplate="{first}–{last} 筆，共 {totalRecords} 筆"
+    [showCurrentPageReport]="true"
+    paginatorPosition="top"
+    (onSort)="onSort($event)"
+    (onPage)="onPage($event)"
+  >
+    <ng-template #header>
+      <tr>
+        <th pSortableColumn="pkid" style="width: 6rem">主代碼 <p-sortIcon field="pkid" /></th>
+        <th pSortableColumn="userId">使用者代碼 <p-sortIcon field="userId" /></th>
+        <th pSortableColumn="userName">使用者名稱 <p-sortIcon field="userName" /></th>
+        <th pSortableColumn="isActive" style="width: 6rem" class="text-center">
+          啟用 <p-sortIcon field="isActive" />
+        </th>
+        <th pSortableColumn="passwordUpdatedTime" style="width: 12rem">
+          密碼更新時間 <p-sortIcon field="passwordUpdatedTime" />
+        </th>
+        <th pSortableColumn="roleCount" style="width: 7rem" class="text-right">
+          角色數 <p-sortIcon field="roleCount" />
+        </th>
+        <th style="width: 9rem">操作</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-user>
+      <tr>
+        <td>{{ user.pkid }}</td>
+        <td>{{ user.userId }}</td>
+        <td>{{ user.userName }}</td>
+        <td class="text-center">
+          <i class="pi" [class.pi-check]="user.isActive" [class.pi-minus]="!user.isActive"></i>
+        </td>
+        <td>
+          @if (user.passwordUpdatedTime) {
+            {{ user.passwordUpdatedTime + 'Z' | date: 'yyyy/MM/dd HH:mm' }}
+          } @else {
+            —
+          }
+        </td>
+        <td class="text-right">{{ user.roleCount }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button
+              icon="pi pi-eye"
+              severity="info"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="檢視"
+              (onClick)="view(user)"
+            />
+            <p-button
+              icon="pi pi-pencil"
+              severity="primary"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="編輯"
+              (onClick)="edit(user)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="刪除"
+              (onClick)="confirmDelete(user)"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="7" class="empty-row">查無資料</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<p-drawer
+  [(visible)]="filterDrawerVisible"
+  header="搜尋條件"
+  position="right"
+  styleClass="filter-drawer"
+>
+  <div class="filter-field">
+    <label for="filter-keyword">關鍵字</label>
+    <input
+      pInputText
+      id="filter-keyword"
+      name="keyword"
+      placeholder="使用者代碼／使用者名稱"
+      [(ngModel)]="draftFilters.keyword"
+      (keyup.enter)="applyFilters()"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-is-active">啟用</label>
+    <p-select
+      inputId="filter-is-active"
+      name="isActive"
+      [options]="isActiveOptions"
+      optionLabel="label"
+      optionValue="value"
+      appendTo="body"
+      [(ngModel)]="draftFilters.isActive"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-role">角色</label>
+    <p-select
+      inputId="filter-role"
+      name="roleId"
+      [options]="roleOptions"
+      optionLabel="label"
+      optionValue="roleId"
+      placeholder="全部"
+      appendTo="body"
+      [filter]="true"
+      [showClear]="true"
+      [(ngModel)]="draftFilters.roleId"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-password-updated-from">密碼更新時間（起）</label>
+    <p-datepicker
+      inputId="filter-password-updated-from"
+      name="passwordUpdatedFrom"
+      dateFormat="yy/mm/dd"
+      appendTo="body"
+      [showButtonBar]="true"
+      [(ngModel)]="draftFilters.passwordUpdatedFrom"
+    />
+  </div>
+
+  <div class="filter-field">
+    <label for="filter-password-updated-to">密碼更新時間（迄）</label>
+    <p-datepicker
+      inputId="filter-password-updated-to"
+      name="passwordUpdatedTo"
+      dateFormat="yy/mm/dd"
+      appendTo="body"
+      [showButtonBar]="true"
+      [(ngModel)]="draftFilters.passwordUpdatedTo"
+    />
+  </div>
+
+  <div class="filter-actions">
+    <p-button label="清除" severity="secondary" [outlined]="true" (onClick)="clearFilters()" />
+    <p-button label="搜尋" icon="pi pi-search" (onClick)="applyFilters()" />
+  </div>
+</p-drawer>

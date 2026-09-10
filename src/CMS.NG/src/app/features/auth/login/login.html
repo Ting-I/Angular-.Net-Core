@@ -1,0 +1,62 @@
+<div class="login-page">
+  <form class="login-card" [formGroup]="form" (ngSubmit)="signIn()">
+    <div class="login-brand">
+      <h1 class="brand-text">UWA</h1>
+      <p class="login-subtitle">登入 Login</p>
+    </div>
+
+    @if (notice(); as message) {
+      <p-message
+        severity="success"
+        [text]="message"
+        styleClass="login-message"
+        data-testid="login-notice"
+      />
+    }
+
+    @if (error(); as message) {
+      <p-message severity="error" [text]="message" styleClass="login-error" />
+    }
+
+    <div class="form-field">
+      <label for="userId">使用者代碼 <span class="required">*</span></label>
+      <input
+        pInputText
+        id="userId"
+        formControlName="userId"
+        autocomplete="username"
+        maxlength="200"
+        placeholder="請輸入使用者代碼"
+        #userIdInput
+      />
+      @if (isInvalid('userId')) {
+        <small class="field-error">使用者代碼為必填。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="password">密碼 <span class="required">*</span></label>
+      <p-password
+        appPasswordToggleA11y
+        inputId="password"
+        formControlName="password"
+        [feedback]="false"
+        [toggleMask]="true"
+        placeholder="請輸入密碼"
+        styleClass="login-password"
+        autocomplete="current-password"
+      />
+      @if (isInvalid('password')) {
+        <small class="field-error">密碼為必填。</small>
+      }
+    </div>
+
+    <p-button
+      label="登入"
+      icon="pi pi-sign-in"
+      type="submit"
+      styleClass="login-submit"
+      [loading]="signingIn()"
+    />
+  </form>
+</div>

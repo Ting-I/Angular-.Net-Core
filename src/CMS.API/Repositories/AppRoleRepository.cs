@@ -7,11 +7,16 @@ namespace CMS.API.Repositories;
 
 public class AppRoleRepository : IAppRoleRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    /// <summary>The real table name, as it goes into RowAudit.TableName.</summary>
+    private const string TableName = "AppRole";
 
-    public AppRoleRepository(IDbConnectionFactory connectionFactory)
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IRowAuditWriter _auditWriter;
+
+    public AppRoleRepository(IDbConnectionFactory connectionFactory, IRowAuditWriter auditWriter)
     {
         _connectionFactory = connectionFactory;
+        _auditWriter = auditWriter;
     }
 
     public async Task<IEnumerable<AppRole>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -43,7 +48,7 @@ public class AppRoleRepository : IAppRoleRepository
 
         // n-n: separate query on the same connection.
         var userIds = await connection.QueryAsync<string>(new CommandDefinition(
-            "SELECT ur.UserId FROM AppUserRole ur WHERE ur.RoleId = @RoleId ORDER BY ur.UserId ASC",
+            AppRoleSql.SelectUserIds,
             new { RoleId = roleId },
             cancellationToken: cancellationToken));
 
@@ -77,6 +82,12 @@ public class AppRoleRepository : IAppRoleRepository
 
         await SyncUserRolesAsync(connection, transaction, request.RoleId, request.UserIds, cancellationToken);
 
+        var row = await ReadRowAsync(connection, transaction, request.RoleId, cancellationToken);
+        if (row is not null)
+        {
+            await _auditWriter.LogInsertAsync(TableName, row, transaction, cancellationToken);
+        }
+
         transaction.Commit();
         return request.RoleId;
     }
@@ -86,8 +97,16 @@ public class AppRoleRepository : IAppRoleRepository
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
+        // The "before" is read first and inside the transaction, or the changed-column list would
+        // be a comparison against a row somebody else may already have moved.
+        var before = await ReadRowAsync(connection, transaction, request.RoleId, cancellationToken);
+        if (before is null)
+        {
+            return false;
+        }
+
         // RoleId is the primary key and is not updatable.
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE AppRole
             SET RoleName = @RoleName,
@@ -99,13 +118,10 @@ public class AppRoleRepository : IAppRoleRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        if (affected == 0)
-        {
-            transaction.Rollback();
-            return false;
-        }
-
         await SyncUserRolesAsync(connection, transaction, request.RoleId, request.UserIds, cancellationToken);
+
+        var after = await ReadRowAsync(connection, transaction, request.RoleId, cancellationToken);
+        await _auditWriter.LogUpdateAsync(TableName, before, after!, transaction, cancellationToken);
 
         transaction.Commit();
         return true;
@@ -116,20 +132,62 @@ public class AppRoleRepository : IAppRoleRepository
         using var connection = await _connectionFactory.CreateOpenConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
+        // Read first: once the row is gone the trail is the only thing that still says what it was.
+        var row = await ReadRowAsync(connection, transaction, roleId, cancellationToken);
+        if (row is null)
+        {
+            return false;
+        }
+
         await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM AppUserRole WHERE RoleId = @RoleId",
             new { RoleId = roleId },
             transaction,
             cancellationToken: cancellationToken));
 
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
+        await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM AppRole WHERE RoleId = @RoleId",
             new { RoleId = roleId },
             transaction,
             cancellationToken: cancellationToken));
 
+        await _auditWriter.LogDeleteAsync(TableName, row, transaction, cancellationToken);
+
         transaction.Commit();
-        return affected > 0;
+        return true;
+    }
+
+    /// <summary>
+    /// The 異動紀錄 snapshot of one role: the row's own columns plus its members, on the caller's
+    /// connection and transaction. The membership is part of the snapshot because a save that only
+    /// added or removed users changes no column of AppRole at all — without it that save would
+    /// write no audit row, which is exactly the change somebody would want the trail to show.
+    /// </summary>
+    private static async Task<AppRole?> ReadRowAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        string roleId,
+        CancellationToken cancellationToken)
+    {
+        var role = await connection.QuerySingleOrDefaultAsync<AppRole>(new CommandDefinition(
+            AppRoleSql.SelectRow,
+            new { RoleId = roleId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (role is null)
+        {
+            return null;
+        }
+
+        var userIds = await connection.QueryAsync<string>(new CommandDefinition(
+            AppRoleSql.SelectUserIds,
+            new { RoleId = roleId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        role.UserIds = userIds.ToList();
+        return role;
     }
 
     /// <summary>n-n write pattern: delete-then-reinsert.</summary>

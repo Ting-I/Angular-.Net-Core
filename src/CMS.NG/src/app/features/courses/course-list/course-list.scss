@@ -1,0 +1,122 @@
+@use '../../../../styles/sticky-toolbar' as toolbar;
+
+/* Page furniture (.page-header, .page-title, .page-subtitle, .page-card, .text-center,
+   .text-right, .row-actions, .empty-row, .filter-field, .filter-actions, .form-field, .required,
+   .field-error) comes from src/styles/_page.scss. Only what is specific to this page lives here. */
+
+.sticky-toolbar {
+  @include toolbar.sticky-toolbar;
+}
+
+/* The table body is what scrolls, so its header pins under the toolbar instead of scrolling away.
+   PrimeNG puts position: sticky on the thead whenever [scrollable] is set, but its container has
+   no height of its own, and a sticky child of a scrollport that never scrolls never sticks — the
+   same trap as the page bar. scrollHeight gives the container a max-height; it reads this so the
+   measurement sits next to the layout it is derived from.
+
+   The budget: .app-main padding (2.5rem), the pinned toolbar and its gap (5.5rem), the card
+   padding (1rem) and the paginator (3.5rem). Being a little off is not a defect — the page then
+   scrolls by the difference, which is what the pinned toolbar is there to absorb. */
+:host {
+  --course-list-table-height: calc(100dvh - 12.5rem);
+}
+
+.copy-source {
+  margin: 0 0 var(--app-space-4);
+  color: var(--app-badge-color);
+}
+
+/* The copy dialog holds a single field above its own footer, so it drops the row gap the shared
+   rule gives a stacked form. */
+.form-field {
+  margin-bottom: 0;
+}
+
+/* Inline cell editing. The three read-only columns get no .editable-cell, so the affordance and
+   the double-click hint only appear where an editor will actually open. */
+.editable-cell {
+  cursor: cell;
+  /* The hover tint used to snap on while the sidebar beside it eased. Same 0.15s the shell uses
+     for its own hover states. */
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--app-ground);
+  }
+
+  /* The cells carry tabindex so an editor can be opened from the keyboard, which makes a visible
+     focus indicator load-bearing: without one, Tab moves an invisible caret across the table.
+     Inset so the ring is not clipped by the neighbouring cell border. */
+  &:focus-visible {
+    outline: 2px solid var(--app-accent-text);
+    outline-offset: -2px;
+    background: var(--app-ground);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editable-cell {
+    transition: none;
+  }
+}
+
+.cell-editing {
+  position: relative;
+  background: var(--p-surface-100);
+  padding-top: var(--app-space-1);
+  padding-bottom: var(--app-space-1);
+
+  input,
+  ::ng-deep .p-select,
+  ::ng-deep .p-datepicker,
+  ::ng-deep .p-inputnumber {
+    width: 100%;
+  }
+}
+
+.cell-error {
+  display: block;
+  margin-top: var(--app-space-1);
+  color: var(--app-danger-color);
+  font-size: var(--app-text-xs);
+  white-space: normal;
+}
+
+/* The spinner overlays the right edge of the open editor while the GET + PUT are on the wire.
+   The editor is [disabled] for the same window, so the value cannot be changed under the save. */
+.cell-saving {
+  position: absolute;
+  top: 50%;
+  right: var(--app-space-4);
+  transform: translateY(-50%);
+  color: var(--app-muted-color);
+  font-size: var(--app-text-xs);
+}
+
+/* A saved cell shows the same text the editor was already showing, so the fade is the only thing
+   that marks the write as having landed. Held briefly, then cleared by SAVED_FLASH_MS. */
+.cell-saved {
+  animation: cell-saved-fade 1200ms ease-out;
+}
+
+@keyframes cell-saved-fade {
+  0%,
+  40% {
+    background: var(--p-green-100);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Operators who have asked for less motion still get the colour, just without the fade. */
+@media (prefers-reduced-motion: reduce) {
+  .editable-cell.cell-saved {
+    animation: none;
+    background: var(--p-green-100);
+  }
+
+  .cell-saving {
+    animation: none;
+  }
+}

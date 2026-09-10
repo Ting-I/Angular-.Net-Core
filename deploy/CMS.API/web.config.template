@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  web.config for the API site (IIS site "CMS.API", physical path C:\VHome\CMS\API).
+
+  `dotnet publish` generates a web.config of its own; deploy.ps1 OVERWRITES it with this one
+  after stamping {{ASPNETCORE_ENVIRONMENT}} and {{CONNECTION_STRING}}. That is the only way to
+  inject the <environmentVariables> block without editing the CMS source tree.
+
+  Requires on the IIS server: the ASP.NET Core 9 Hosting Bundle (AspNetCoreModuleV2).
+-->
+<configuration>
+  <location path="." inheritInChildApplications="false">
+    <system.webServer>
+      <handlers>
+        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
+      </handlers>
+
+      <!-- "Server: Microsoft-IIS/10.0" is added by IIS, not by Kestrel, so it is dropped here.
+           The SPA site strips its own copy; this one covers anything that reaches :5001
+           directly rather than through the proxy. Needs IIS 10 or later. -->
+      <security>
+        <requestFiltering removeServerHeader="true" />
+      </security>
+
+      <!-- The login response carries a 24-hour bearer token, and the API sets no cache
+           directives of its own — which leaves an intermediary free to apply heuristic caching
+           to an authenticated response. Nothing this API returns is safe to keep.
+
+           This is the ONLY header added here. The browser-facing set (CSP, nosniff, framing,
+           referrer) lives on the SPA site, which adds it to proxied /api responses too — adding
+           the same headers on both sites just emits each one twice. The division is deliberate:
+           the SPA site owns what the browser sees, this site owns what is true about the
+           response itself. The cost is that a browser pointed straight at :5001 gets no nosniff,
+           which is acceptable while :5001 is the proxy's internal hop and not a public URL. -->
+      <httpProtocol>
+        <customHeaders>
+          <add name="Cache-Control" value="no-store" />
+        </customHeaders>
+      </httpProtocol>
+
+      <aspNetCore processPath="dotnet"
+                  arguments=".\CMS.API.dll"
+                  stdoutLogEnabled="true"
+                  stdoutLogFile=".\logs\stdout"
+                  hostingModel="inprocess">
+        <environmentVariables>
+          <!-- Production. Program.cs registers Swagger only under IsDevelopment(), so this is
+               what keeps the API's full route map off a deployed box — leave it alone unless you
+               genuinely want that map served to anyone who can reach the port.
+
+               It is safe here BECAUSE Program.cs calls neither UseHttpsRedirection() nor UseHsts()
+               anywhere. If you ever add one, an HTTP-only binding will 307 every call to https://
+               and the SPA dies — add the HTTPS binding in the same change, or switch this to
+               "Staging", which is neither Development nor Production. -->
+
+          <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="{{ASPNETCORE_ENVIRONMENT}}" />
+
+          <!-- The key is CMS, not DefaultConnection — SqlConnectionFactory does
+               configuration.GetConnectionString("CMS"). Double underscore = the ':' separator. -->
+          <environmentVariable name="ConnectionStrings__CMS" value="{{CONNECTION_STRING}}" />
+        </environmentVariables>
+      </aspNetCore>
+    </system.webServer>
+  </location>
+</configuration>

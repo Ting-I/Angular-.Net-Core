@@ -1,0 +1,96 @@
+:host {
+  display: block;
+}
+
+.long-text-plain {
+  white-space: pre-wrap;
+}
+
+.long-text-empty {
+  color: var(--app-muted-color);
+}
+
+/* The subtree rendered from a column that held HTML. `::ng-deep` is required rather than preferred:
+   nodes inserted by [innerHTML] never receive this component's scoping attribute, so an unprefixed
+   descendant selector cannot match them. The reach is bounded by the .long-text-html wrapper, and
+   these rules only ever set layout and typography.
+
+   Colour is deliberately left alone. The sheet forces #000 because a red vendor note photocopies as
+   grey mud on a customer document; this is the admin view of what is stored, so `<font color>` shows
+   as the operator pasted it. */
+.long-text-html {
+  white-space: normal;
+  /* A pasted table is often wider than the card. Scrolling it inside the field keeps the detail
+     grid's columns, which a wide table would otherwise stretch. */
+  overflow-x: auto;
+
+  /* First and last margins are stripped so a paragraph does not push the field off its label. */
+  ::ng-deep > :first-child {
+    margin-top: 0;
+  }
+
+  ::ng-deep > :last-child {
+    margin-bottom: 0;
+  }
+
+  ::ng-deep p {
+    margin: 0 0 var(--app-space-2);
+  }
+
+  ::ng-deep ul,
+  ::ng-deep ol {
+    margin: 0 0 var(--app-space-2);
+    padding-left: var(--app-space-6);
+  }
+
+  /* Operators paste `<ul style="list-style:disc">`; the sanitizer drops the inline style, so the
+     bullets have to come from here or the outline renders as an unmarked block. */
+  ::ng-deep ul {
+    list-style: disc;
+  }
+
+  ::ng-deep ol {
+    list-style: decimal;
+  }
+
+  ::ng-deep li {
+    margin: 0;
+  }
+
+  /* Pasted at whatever level was in the source, so all six land at one size rather than competing
+     with the card's own 課程內容 heading. */
+  ::ng-deep h1,
+  ::ng-deep h2,
+  ::ng-deep h3,
+  ::ng-deep h4,
+  ::ng-deep h5,
+  ::ng-deep h6 {
+    margin: var(--app-space-3) 0 var(--app-space-1);
+    font-size: var(--app-text-base);
+    font-weight: var(--app-weight-bold);
+  }
+
+  ::ng-deep table {
+    border-collapse: collapse;
+  }
+
+  ::ng-deep td,
+  ::ng-deep th {
+    padding: var(--app-space-1) var(--app-space-3) var(--app-space-1) 0;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  ::ng-deep a {
+    color: var(--app-link-color);
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  ::ng-deep img {
+    max-width: 100%;
+    height: auto;
+  }
+}

@@ -1,0 +1,134 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>上稿作業 FeaturedPromoItem</h1>
+    <span class="page-subtitle">首頁精選活動排程，每日三個版位</span>
+  </div>
+  <div class="page-actions">
+    <p-button label="本週" icon="pi pi-calendar" severity="secondary" (onClick)="thisWeek()" />
+  </div>
+</div>
+
+<div class="page-card">
+  <p-tabs
+    [value]="activeTrainingCenterPkid() ?? undefined"
+    (valueChange)="selectTrainingCenter($event)"
+  >
+    <p-tablist>
+      @for (centre of trainingCenters(); track centre.pkid) {
+        <p-tab [value]="centre.pkid">{{ centre.name }}</p-tab>
+      }
+    </p-tablist>
+  </p-tabs>
+
+  <div class="week-nav">
+    <p-button
+      icon="pi pi-angle-double-left"
+      [text]="true"
+      [rounded]="true"
+      ariaLabel="上一週"
+      (onClick)="previousWeek()"
+    />
+    <span class="week-label">{{ weekLabel() }}</span>
+    <p-button
+      icon="pi pi-angle-double-right"
+      [text]="true"
+      [rounded]="true"
+      ariaLabel="下一週"
+      (onClick)="nextWeek()"
+    />
+  </div>
+
+  <div class="week-grid" [class.loading]="loading()">
+    @for (day of days(); track day.iso) {
+      <section class="day">
+        <h2 class="day-header">{{ day.label }}</h2>
+        <table class="slot-table">
+          <tbody>
+            @for (cell of day.slots; track cell.slot) {
+              <tr class="slot-row" [class.empty]="!cell.item">
+                <td class="slot-no">{{ cell.slot }}</td>
+                <td class="slot-actions">
+                  <p-button
+                    icon="pi pi-plus"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    ariaLabel="下移"
+                    [disabled]="!canMoveDown(cell)"
+                    (onClick)="moveDown(cell.item!)"
+                  />
+                  <p-button
+                    icon="pi pi-minus"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    ariaLabel="上移"
+                    [disabled]="!canMoveUp(cell)"
+                    (onClick)="moveUp(cell.item!)"
+                  />
+                  <p-button
+                    icon="pi pi-pencil"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    severity="primary"
+                    ariaLabel="編輯"
+                    (onClick)="openEditor(day, cell)"
+                  />
+                  @if (cell.item) {
+                    <p-button
+                      icon="pi pi-copy"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      severity="info"
+                      ariaLabel="複製"
+                      (onClick)="copy(cell.item)"
+                    />
+                    <p-button
+                      icon="pi pi-trash"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      severity="danger"
+                      ariaLabel="刪除"
+                      (onClick)="confirmDelete(day, cell.item)"
+                    />
+                  } @else if (clipboard()) {
+                    <p-button
+                      icon="pi pi-clipboard"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      severity="info"
+                      ariaLabel="貼上"
+                      (onClick)="paste(day, cell)"
+                    />
+                  }
+                </td>
+                <td class="slot-code">{{ cell.item?.promotion?.promoCode }}</td>
+                <td class="slot-topic">{{ cell.item?.topic }}</td>
+                <td class="slot-description">{{ cell.item?.description }}</td>
+              </tr>
+              @if (isEditing(day, cell)) {
+                <tr class="editor-row">
+                  <td colspan="5">
+                    <app-featured-promo-item-form
+                      [item]="editor()!.item"
+                      [draft]="editor()!.draft"
+                      (saved)="onSaved($event)"
+                      (cancelled)="closeEditor()"
+                    />
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+  </div>
+</div>

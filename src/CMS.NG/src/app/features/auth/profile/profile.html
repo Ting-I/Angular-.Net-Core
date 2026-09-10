@@ -1,0 +1,160 @@
+<p-toast />
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header">
+    <h1>個人資料 My Profile</h1>
+    <div class="page-actions">
+      <p-button
+        label="還原"
+        icon="pi pi-undo"
+        severity="secondary"
+        type="button"
+        (onClick)="reset()"
+      />
+      <p-button
+        label="儲存"
+        icon="pi pi-check"
+        severity="success"
+        type="submit"
+        [loading]="saving()"
+      />
+    </div>
+  </div>
+
+  <section class="page-card">
+    <h2>帳號資料</h2>
+
+    <div class="form-field">
+      <label for="userId">使用者代碼</label>
+      <input pInputText id="userId" formControlName="userId" data-testid="profile-user-id" />
+      <small class="field-hint">使用者代碼為帳號主鍵，無法修改。</small>
+    </div>
+
+    <div class="form-field">
+      <label for="userName">使用者名稱 <span class="required">*</span></label>
+      <input
+        pInputText
+        id="userName"
+        formControlName="userName"
+        maxlength="200"
+        data-testid="profile-user-name"
+      />
+      @if (isInvalid('userName')) {
+        <small class="field-error">使用者名稱為必填。</small>
+      }
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>
+      角色<span class="count-badge">{{ roles().length }}</span>
+    </h2>
+    @if (roles().length) {
+      <div class="role-tags" data-testid="profile-roles">
+        @for (role of roles(); track role) {
+          <p-tag [value]="role" severity="secondary" />
+        }
+      </div>
+    } @else {
+      <p class="state-message" data-testid="profile-roles">尚未指派角色。</p>
+    }
+    <small class="field-hint">角色由系統管理員於「使用者 AppUser」指派，無法自行修改。</small>
+  </section>
+</form>
+
+<!--
+  A second <form> rather than another section of the one above: forms do not nest, and each write
+  has its own submit button. Saving a name must not send a password, and changing a password must
+  not send a name.
+-->
+<form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+  <section class="page-card">
+    <h2>變更密碼 Change Password</h2>
+
+    <div class="form-field">
+      <label for="currentPassword">目前密碼 <span class="required">*</span></label>
+      <p-password
+        appPasswordToggleA11y
+        inputId="currentPassword"
+        formControlName="currentPassword"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="password-field"
+        autocomplete="current-password"
+      />
+      @if (isPasswordInvalid('currentPassword')) {
+        <small class="field-error" data-testid="current-password-error">目前密碼為必填。</small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="newPassword">新密碼 <span class="required">*</span></label>
+      <p-password
+        appPasswordToggleA11y
+        inputId="newPassword"
+        formControlName="newPassword"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="password-field"
+        autocomplete="new-password"
+      />
+      @if (isPasswordInvalid('newPassword') && passwordForm.controls.newPassword.hasError('required')) {
+        <small class="field-error" data-testid="new-password-error">新密碼為必填。</small>
+      } @else if (showsUnchanged) {
+        <small class="field-error" data-testid="new-password-unchanged-error">
+          新密碼不可與目前密碼相同。<br />New password must differ from the current one.
+        </small>
+      } @else {
+        <!--
+          The same sentence either way — the rule as a hint before it is broken, and as the error
+          once it is. It is the wording the API answers with, so the message does not change
+          shape when the server is the one that refuses.
+        -->
+        <small
+          [class]="
+            isPasswordInvalid('newPassword') && passwordForm.controls.newPassword.hasError('complexity')
+              ? 'field-error'
+              : 'field-hint'
+          "
+          data-testid="new-password-rule"
+        >
+          {{ passwordRule }}<br />{{ passwordRuleEn }}
+        </small>
+      }
+    </div>
+
+    <div class="form-field">
+      <label for="confirmNewPassword">確認新密碼 <span class="required">*</span></label>
+      <p-password
+        appPasswordToggleA11y
+        inputId="confirmNewPassword"
+        formControlName="confirmNewPassword"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="password-field"
+        autocomplete="new-password"
+      />
+      @if (
+        isPasswordInvalid('confirmNewPassword') &&
+        passwordForm.controls.confirmNewPassword.hasError('required')
+      ) {
+        <small class="field-error" data-testid="confirm-password-error">確認新密碼為必填。</small>
+      } @else if (showsMismatch) {
+        <small class="field-error" data-testid="confirm-password-error">
+          新密碼與確認新密碼不一致。<br />New password and confirmation must match.
+        </small>
+      }
+    </div>
+
+    <div class="card-actions">
+      <p-button
+        label="變更密碼"
+        icon="pi pi-key"
+        severity="success"
+        type="submit"
+        [loading]="changingPassword()"
+        data-testid="change-password-submit"
+      />
+    </div>
+  </section>
+</form>

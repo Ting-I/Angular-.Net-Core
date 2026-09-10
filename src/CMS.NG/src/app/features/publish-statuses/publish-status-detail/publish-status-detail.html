@@ -1,0 +1,74 @@
+<div class="page-header">
+  <h1>檢視發布狀態</h1>
+  <app-row-audit-badge tableName="PublishStatus" [pkid]="status()?.pkid ?? null" />
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (status()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此發布狀態。</div>
+} @else if (status(); as data) {
+  <section class="page-card">
+    <h2>發布狀態資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>狀態說明</dt>
+        <dd>{{ data.description }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>草稿</dt>
+        <dd>
+          <p-tag
+            [value]="data.isDraft ? '是' : '否'"
+            [severity]="data.isDraft ? 'success' : 'secondary'"
+          />
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>已發布</dt>
+        <dd>
+          <p-tag
+            [value]="data.isPublished ? '是' : '否'"
+            [severity]="data.isPublished ? 'success' : 'secondary'"
+          />
+        </dd>
+      </div>
+      <div class="detail-field">
+        <dt>已停用</dt>
+        <dd>
+          <p-tag
+            [value]="data.isDiscontinued ? '是' : '否'"
+            [severity]="data.isDiscontinued ? 'success' : 'secondary'"
+          />
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>使用狀況</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>課程數</dt>
+        <dd>{{ data.courseCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>活動數</dt>
+        <dd>{{ data.promotionCount }}</dd>
+      </div>
+    </dl>
+    @if (data.courseCount + data.promotionCount > 0) {
+      <p class="state-message">此發布狀態仍被引用，無法刪除。</p>
+    }
+  </section>
+}

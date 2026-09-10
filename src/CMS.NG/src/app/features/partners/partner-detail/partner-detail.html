@@ -1,0 +1,79 @@
+<div class="page-header">
+  <h1>檢視原廠</h1>
+  <app-row-audit-badge tableName="Partner" [pkid]="partner()?.pkid ?? null" />
+  <div class="page-actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (partner()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="page-card state-message">載入中…</div>
+} @else if (notFound()) {
+  <div class="page-card state-message">查無此原廠。</div>
+} @else if (partner(); as data) {
+  <section class="page-card">
+    <h2>原廠資料</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>主代碼</dt>
+        <dd>{{ data.pkid }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>原廠名稱</dt>
+        <dd>{{ data.name }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>應用代碼</dt>
+        <dd>{{ data.appKey }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>顯示順序</dt>
+        <dd>{{ data.displayOrder }}</dd>
+      </div>
+      <div class="detail-field detail-field-wide">
+        <dt>選單顯示名稱</dt>
+        <dd>{{ data.nameOnPartnerMenu }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>課程頁顯示名稱</dt>
+        <dd>{{ data.nameOnCourseDetailPage }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>圖片檔名</dt>
+        <dd>{{ data.imageFilename || '—' }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="page-card">
+    <h2>使用狀況</h2>
+    <dl class="detail-grid">
+      <div class="detail-field">
+        <dt>課程數</dt>
+        <dd>{{ data.courseCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>認證數</dt>
+        <dd>{{ data.certificationCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>課程群組數</dt>
+        <dd>{{ data.courseGroupCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>活動數</dt>
+        <dd>{{ data.promotionCount }}</dd>
+      </div>
+      <div class="detail-field">
+        <dt>說明會數</dt>
+        <dd>{{ data.seminarCount }}</dd>
+      </div>
+    </dl>
+    @if (referenceCount(data) > 0) {
+      <p class="state-message">此原廠仍被引用，無法刪除。</p>
+    }
+  </section>
+}

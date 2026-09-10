@@ -1,4 +1,7 @@
 /* Global styles for CMS.NG. */
+@use 'styles/tokens';
+@use 'styles/page';
+
 html,
 body {
   height: 100%;
@@ -15,4 +18,120 @@ body {
     sans-serif;
   background: var(--p-surface-50);
   color: var(--p-text-color);
+
+  /* The UA default is `normal`, roughly 1.2, and every label in this CMS is bilingual. CJK glyphs
+     fill more of the em box than Latin ones, so they need more leading, not less. */
+  line-height: var(--app-line-body);
+
+  /* PrimeNG's own component tokens, corrected for contrast. Declared on `body` rather than `:root`
+     deliberately: the theme is injected into <head> at runtime by providePrimeNG, so a `:root`
+     block here would be racing it at equal specificity. Custom properties inherit, so setting them
+     one level down reaches every component without depending on stylesheet order.
+
+     Aura's 500 steps are chosen to look right as a fill, not to carry white text. Every filled
+     severity in this app measured between 2.28:1 and 3.8:1 against its own white label, where AA
+     wants 4.5:1 — including 新增, the most-clicked control on every list page. Moving each to its
+     700 step (600 for red, which is enough) fixes the label without changing the hue anyone
+     recognises, and hover/active step one further down so the press still reads.
+
+     The 500 steps keep every job that is not text on a fill: the brand wordmark, the 12% tint
+     behind the active nav pill, p-tag and p-message backgrounds.
+
+     Measured after: success 5.01:1, info 5.93:1, primary 5.55:1, danger 4.83:1. */
+  --p-button-primary-background: var(--p-primary-700);
+  --p-button-primary-border-color: var(--p-primary-700);
+  --p-button-primary-hover-background: var(--p-primary-800);
+  --p-button-primary-hover-border-color: var(--p-primary-800);
+  --p-button-primary-active-background: var(--p-primary-900);
+  --p-button-primary-active-border-color: var(--p-primary-900);
+
+  --p-button-success-background: var(--p-green-700);
+  --p-button-success-border-color: var(--p-green-700);
+  --p-button-success-hover-background: var(--p-green-800);
+  --p-button-success-hover-border-color: var(--p-green-800);
+  --p-button-success-active-background: var(--p-green-900);
+  --p-button-success-active-border-color: var(--p-green-900);
+
+  --p-button-info-background: var(--p-sky-700);
+  --p-button-info-border-color: var(--p-sky-700);
+  --p-button-info-hover-background: var(--p-sky-800);
+  --p-button-info-hover-border-color: var(--p-sky-800);
+  --p-button-info-active-background: var(--p-sky-900);
+  --p-button-info-active-border-color: var(--p-sky-900);
+
+  --p-button-danger-background: var(--p-red-600);
+  --p-button-danger-border-color: var(--p-red-600);
+  --p-button-danger-hover-background: var(--p-red-700);
+  --p-button-danger-hover-border-color: var(--p-red-700);
+  --p-button-danger-active-background: var(--p-red-800);
+  --p-button-danger-active-border-color: var(--p-red-800);
+
+  --p-button-warn-background: var(--p-amber-700);
+  --p-button-warn-border-color: var(--p-amber-700);
+  --p-button-warn-hover-background: var(--p-amber-800);
+  --p-button-warn-hover-border-color: var(--p-amber-800);
+  --p-button-warn-active-background: var(--p-amber-900);
+  --p-button-warn-active-border-color: var(--p-amber-900);
+
+  /* The [text] variants paint the colour onto the page instead of onto a fill, so the same 500
+     steps were failing in the other direction. The row-action icons are the visible case: the
+     edit pencil was emerald-500 on white at 2.54:1 and the view eye sky-500 at 3.0:1, against a
+     3:1 floor for a graphic and 4.5:1 wherever one of these carries a label. */
+  --p-button-text-primary-color: var(--p-primary-700);
+  --p-button-text-success-color: var(--p-green-700);
+  --p-button-text-info-color: var(--p-sky-700);
+  --p-button-text-danger-color: var(--p-red-600);
+}
+
+/* ---------- print ---------- */
+
+/* Page-level rules live here because @page cannot live in a component stylesheet and cannot be
+   scoped by a selector — there is no descendant selector in a page context. The rest of the sheet's
+   print styling is in features/courses/course-sheet/course-sheet.scss; the shell's is in app.scss. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 16mm;
+  }
+
+  /* The 課程簡介 sheet's own page box. Named pages shipped in Chrome/Edge 110, which the operators
+     have; the sheet claims this one with `page: sheet` below.
+
+     It carries real margins, and that is a correction, not the original design. The plan wanted
+     `margin: 0` because a zero margin is the only lever that stops Chrome stamping its default
+     header/footer — the internal CMS URL — onto a customer document, with the margins supplied by the
+     sheet itself: horizontal padding, and a repeated <thead> for the top of every page. QA on a real
+     two-page course (2026-09-09) showed the second half of that does not hold: Chrome did not repeat
+     the empty header row, so page 2 began flush against the paper edge with its first line clipped.
+     A page box, unlike padding or a table header, applies to every page by definition. So this is
+     rung 3 of the eng review's E3 fallback ladder, taken because rung 1 failed in the browser it was
+     written for.
+
+     What it costs: the stamp is back in reach. It prints only when the operator leaves the print
+     dialog's "Headers and footers" box ticked, so the button's tooltip tells them to untick it, and
+     Chrome remembers the setting per user afterwards. A clipped page 2 happens on every multi-page
+     print and cannot be turned off; the stamp is one checkbox. */
+  @page sheet {
+    size: A4;
+    margin: 14mm 16mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* CourseDetail sets .print-sheet on <body> for the length of one print and clears it again on
+     afterprint and on destroy. It is what claims the named page above for the sheet and nothing
+     else, so the sheet's page box can diverge from the ordinary one without the two ever meeting.
+     No margin rule is paired with it: margins live in the page boxes alone, never in the content. */
+  body.print-sheet app-course-sheet {
+    page: sheet;
+  }
+
+  /* PrimeNG overlays: the confirm dialog belongs to a page's component tree but its mask is moved to
+     the body, so hiding it has to be global, and the mask carries inline styles of its own. */
+  p-confirmdialog,
+  .p-dialog-mask {
+    display: none !important;
+  }
 }

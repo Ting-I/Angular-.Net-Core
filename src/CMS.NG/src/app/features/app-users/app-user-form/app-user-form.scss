@@ -1,0 +1,8 @@
+/* Page furniture (.page-header, .page-card, .form-field, .required, .field-error, .field-hint)
+   comes from src/styles/_page.scss. Only what is specific to this page lives here. */
+
+/* styleClass puts this on the p-multiselect host, which sits outside .form-field, so the shared
+   field-row width rule does not reach it. */
+::ng-deep .role-multiselect {
+  width: 100%;
+}

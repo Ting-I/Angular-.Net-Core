@@ -111,6 +111,20 @@ describe('AppRoleList', () => {
     expect(api()['roles']().length).toBe(1);
   });
 
+  it('counts the applied filters for the 搜尋條件 badge', () => {
+    initAndFlush();
+    expect(api()['activeFilterCount']).toBe(0);
+    expect(fixture.nativeElement.querySelector('p-button .p-badge')).toBeNull();
+
+    api()['draftFilters'] = { keyword: 'admin', permissionLevel: 1 };
+    api()['applyFilters']();
+    httpMock.expectOne(queryUrl).flush([roles[0]]);
+    fixture.detectChanges();
+
+    expect(api()['activeFilterCount']).toBe(2);
+    expect(fixture.nativeElement.querySelector('p-button .p-badge')?.textContent.trim()).toBe('2');
+  });
+
   it('reports active filters only when a filter is set', () => {
     initAndFlush();
     expect(api()['hasActiveFilters']).toBeFalse();
@@ -209,5 +223,69 @@ describe('AppRoleList', () => {
 
     httpMock.expectOne(queryUrl).flush([roles[1]]);
     expect(api()['roles']().length).toBe(1);
+  });
+
+  it('keeps the row when the API rejects the delete with 409', () => {
+    initAndFlush();
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+    spyOn(confirmationService, 'confirm').and.callFake((options: any) => {
+      options.accept();
+      return confirmationService;
+    });
+
+    api()['confirmDelete'](roles[0]);
+
+    httpMock
+      .expectOne(`${environment.apiUrl}/app-roles/Admin`)
+      .flush({ title: '角色仍被使用' }, { status: 409, statusText: 'Conflict' });
+
+    // No reload is issued on failure, and the role is still on screen.
+    httpMock.expectNone(queryUrl);
+    expect(api()['roles']().length).toBe(2);
+  });
+
+  it('warns in the confirmation that an assigned role cannot be deleted', () => {
+    initAndFlush();
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+    const confirm = spyOn(confirmationService, 'confirm').and.returnValue(confirmationService);
+
+    // roles[0] carries userCount 3, so the operator is told before confirming rather than after.
+    api()['confirmDelete'](roles[0]);
+
+    const message = confirm.calls.mostRecent().args[0].message as string;
+    expect(message).toContain('3 位使用者');
+    expect(message).toContain('將無法刪除');
+  });
+
+  it('omits the warning for a role nobody holds', () => {
+    initAndFlush();
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+    const confirm = spyOn(confirmationService, 'confirm').and.returnValue(confirmationService);
+
+    api()['confirmDelete']({ ...roles[0], userCount: 0 });
+
+    expect(confirm.calls.mostRecent().args[0].message as string).not.toContain('將無法刪除');
+  });
+
+  it('escapes record text in the confirmation, which renders as HTML', () => {
+    initAndFlush();
+    const confirmationService = fixture.debugElement.injector.get(ConfirmationService);
+    const confirm = spyOn(confirmationService, 'confirm').and.returnValue(confirmationService);
+
+    api()['confirmDelete']({
+      ...roles[0],
+      roleId: '<img src=x onerror=steal()>',
+      roleName: '"Ops" & <b>Admin</b>',
+    });
+
+    const message = confirm.calls.mostRecent().args[0].message as string;
+
+    // No tag from the record survives as a tag. `onerror=steal()` still appears as literal text,
+    // and that is the point of escaping rather than stripping: with its angle brackets encoded it
+    // cannot become an element, so it renders as the characters the operator typed.
+    expect(message).not.toContain('<img');
+    expect(message).not.toContain('<b>Admin');
+    expect(message).toContain('&lt;img src=x onerror=steal()&gt;');
+    expect(message).toContain('&quot;Ops&quot; &amp; &lt;b&gt;Admin&lt;/b&gt;');
   });
 });
