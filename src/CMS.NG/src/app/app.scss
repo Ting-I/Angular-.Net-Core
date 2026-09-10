@@ -57,7 +57,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  height: 4rem;
+  /* Matches the shell's top bar row above, so the two border-bottoms meet as one continuous line
+     across the window. At 4rem this box was 8px taller than the bar beside it and the seam was
+     visibly stepped at the top-left corner of every page. */
+  height: 3.5rem;
   flex: 0 0 auto;
   padding: 0 1rem;
   border-bottom: 1px solid var(--p-content-border-color);

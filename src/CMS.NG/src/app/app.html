@@ -24,9 +24,17 @@
       <nav class="sidebar-nav">
         @for (group of navGroups(); track group.label) {
           <div class="nav-group">
+            <!--
+              The label is named here as well as rendered below, because collapsing the sidebar
+              hides .nav-label with display: none and that removes the node from accessible-name
+              computation entirely. Without this the collapsed rail is eight unnamed buttons and
+              three unnamed links, with no title to hover either. The toggle above already names
+              itself this way for the same reason.
+            -->
             <button
               type="button"
               class="nav-group-header"
+              [attr.aria-label]="group.label"
               [attr.aria-expanded]="isExpanded(group.label)"
               (click)="toggleGroup(group.label)"
             >
@@ -42,7 +50,12 @@
               <ul class="nav-items">
                 @for (item of group.items; track item.route) {
                   <li>
-                    <a [routerLink]="item.route" routerLinkActive="active" class="nav-item">
+                    <a
+                      [routerLink]="item.route"
+                      routerLinkActive="active"
+                      class="nav-item"
+                      [attr.aria-label]="item.label"
+                    >
                       <i class="nav-icon" [ngClass]="item.icon"></i>
                       <span class="nav-label">{{ item.label }}</span>
                     </a>
