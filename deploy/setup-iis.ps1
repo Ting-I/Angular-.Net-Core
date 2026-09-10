@@ -297,7 +297,7 @@ $ngUrl    = if ($ngPort -eq 80) { "http://$hostName/" } else { "http://${hostNam
 Write-Host ""
 Write-Host "==================== DONE ====================" -ForegroundColor Green
 Write-Host "  Angular site : $ngUrl  -> $sitePathNg"
-Write-Host "  API site     : http://${hostName}:$apiPort/swagger  -> $sitePathApi"
+Write-Host "  API site     : http://${hostName}:$apiPort  -> $sitePathApi  (no /swagger — Development only)"
 Write-Host "  App pools    : $ngPool, $apiPool"
 if (-not $GrantSqlAccess) {
     Write-Host "  SQL login    : not granted — if the API uses Windows auth, re-run with -GrantSqlAccess." -ForegroundColor Yellow

@@ -289,5 +289,5 @@ $hostName = if ($isLocal) { 'localhost' } else { $remote }
 $ngUrl    = if ($ngPort -eq 80) { "http://$hostName/" } else { "http://${hostName}:$ngPort/" }
 Write-Host "`n  DONE  Deployment complete in $elapsed" -ForegroundColor Magenta
 Write-Host "  Angular: $ngUrl"                             -ForegroundColor DarkGray
-Write-Host "  API:     http://${hostName}:$apiPort/swagger" -ForegroundColor DarkGray
+Write-Host "  API:     http://${hostName}:$apiPort  (no /swagger — Development only)" -ForegroundColor DarkGray
 Write-Host ""
