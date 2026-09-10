@@ -28,8 +28,8 @@ The frontend does **not** proxy; it reads `apiUrl` from `src/environments/enviro
 ## Tests
 
 ```powershell
-dotnet test                                    # 33 xUnit tests
-cd src/CMS.NG; npm test -- --watch=false       # 45 Karma/Jasmine specs
+dotnet test                                    # 741 xUnit tests
+cd src/CMS.NG; npm test -- --watch=false       # 667 Karma/Jasmine specs
 ```
 
 ## Path aliases (`tsconfig.json`)

@@ -300,4 +300,45 @@ public class AppRolesControllerTests
 
         Assert.IsType<NotFoundResult>(await controller.Delete("Missing", CancellationToken.None));
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    public async Task Delete_WhenStillAssigned_Returns409AndDeletesNothing(int userCount)
+    {
+        // The repository deletes the AppUserRole rows before the AppRole row, so the foreign key
+        // never refuses this and there is nothing to undo once it has run. The guard has to answer
+        // before the call, not react to it.
+        var (controller, repository) = CreateController(
+            Role("Admin", "Administrator", 1, userCount: userCount));
+
+        var result = await controller.Delete("Admin", CancellationToken.None);
+
+        var conflict = Assert.IsType<ConflictObjectResult>(result);
+        var problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        Assert.Equal("角色仍被使用", problem.Title);
+        Assert.Contains(userCount.ToString(), problem.Detail);
+
+        Assert.Empty(repository.DeletedRoleIds);
+        Assert.NotNull(await repository.GetByIdAsync("Admin"));
+    }
+
+    [Fact]
+    public async Task Delete_WhenNobodyHoldsTheRole_Returns204()
+    {
+        // The other side of the guard: an unassigned role is an ordinary row and still deletable.
+        var (controller, repository) = CreateController(Role("Retired", "Retired", 9, userCount: 0));
+
+        Assert.IsType<NoContentResult>(await controller.Delete("Retired", CancellationToken.None));
+        Assert.Equal(["Retired"], repository.DeletedRoleIds);
+    }
+
+    [Fact]
+    public async Task Delete_WhenMissing_DoesNotReachTheRepository()
+    {
+        var (controller, repository) = CreateController();
+
+        Assert.IsType<NotFoundResult>(await controller.Delete("Missing", CancellationToken.None));
+        Assert.Empty(repository.DeletedRoleIds);
+    }
 }

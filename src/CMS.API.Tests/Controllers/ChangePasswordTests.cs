@@ -116,7 +116,7 @@ public class ChangePasswordTests : IClassFixture<TestApiFactory>
     // ---------- 4. The successful change ----------
 
     [Fact]
-    public async Task ChangePassword_WithAValidRequest_WritesTheSha256OfTheNewPassword()
+    public async Task ChangePassword_WithAValidRequest_WritesAHashOfTheNewPassword()
     {
         var fixture = CreateFixture();
 
@@ -124,7 +124,7 @@ public class ChangePasswordTests : IClassFixture<TestApiFactory>
 
         Assert.IsType<NoContentResult>(result);
         Assert.Equal(["helen"], fixture.Users.ResetUserIds);
-        Assert.Equal(PasswordHasher.Sha256Hex(NewPassword), fixture.Users.PasswordHashOf("helen"));
+        Assert.True(PasswordHasher.Matches(NewPassword, fixture.Users.PasswordHashOf("helen")));
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public class ChangePasswordTests : IClassFixture<TestApiFactory>
             CancellationToken.None);
 
         Assert.IsType<NoContentResult>(result);
-        Assert.Equal(PasswordHasher.Sha256Hex(acceptable), fixture.Users.PasswordHashOf("helen"));
+        Assert.True(PasswordHasher.Matches(acceptable, fixture.Users.PasswordHashOf("helen")));
     }
 
     [Fact]
@@ -420,9 +420,7 @@ public class ChangePasswordTests : IClassFixture<TestApiFactory>
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         // The token's own account moved; the account named in the body did not.
-        Assert.Equal(
-            PasswordHasher.Sha256Hex(NewPassword),
-            _factory.AppUsers.PasswordHashOf("wire-helen"));
+        Assert.True(PasswordHasher.Matches(NewPassword, _factory.AppUsers.PasswordHashOf("wire-helen")));
         Assert.Equal("seed-hash-wire-victim", _factory.AppUsers.PasswordHashOf("wire-victim"));
     }
 

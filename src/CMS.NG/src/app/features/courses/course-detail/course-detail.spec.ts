@@ -161,6 +161,67 @@ describe('CourseDetail', () => {
       expect(fixture.nativeElement.textContent).toContain('此課程仍被引用，無法刪除。');
     });
 
+    /**
+     * 課程內容 is eight long-text columns, and those hold operator-pasted HTML for most courses.
+     * The card interpolated all eight, so a real 課程大綱 rendered as a wall of visible <p> and <li>
+     * tags on the page the operator checks the record on — the same defect the printed 課程簡介
+     * fixed for the customer. `LongText` owns the rendering and `richText` the classification;
+     * these cases pin that the card is actually wired to them, for every one of the eight.
+     */
+    describe('課程內容 long text', () => {
+      /** A real 課程大綱 paste: a stray `</ul>`, an unclosed `<li>`, a `<font color>` vendor note. */
+      const outlineHtml = [
+        '<p>【網路基礎】</p>',
+        '<ul style="list-style:disc">',
+        '<li>網路基礎架構與網路服務</li>',
+        '</ul>',
+        '</ul>【藍隊資安防禦通識】</p>',
+      ].join('\n');
+
+      const contentCard = (): HTMLElement => fixture.nativeElement.querySelectorAll('section.page-card')[2];
+
+      it('renders every one of the eight columns through app-long-text', () => {
+        init();
+
+        expect(contentCard().querySelector('h2')?.textContent).toContain('課程內容');
+        expect(contentCard().querySelectorAll('app-long-text').length).toBe(8);
+        // Nothing in the card interpolates a long-text column any more.
+        expect(contentCard().querySelector('.detail-long-text')).toBeNull();
+      });
+
+      it('renders pasted markup as real elements rather than as visible tags', () => {
+        init({ ...course, outline: outlineHtml });
+
+        const rendered = contentCard().querySelector('.long-text-html') as HTMLElement;
+        expect(rendered).not.toBeNull();
+        expect(rendered.querySelectorAll('li').length).toBe(1);
+        expect(rendered.textContent).toContain('網路基礎架構與網路服務');
+
+        const cardText = contentCard().textContent as string;
+        expect(cardText).not.toContain('<li>');
+        expect(cardText).not.toContain('<p>');
+        expect(cardText).not.toContain('list-style');
+      });
+
+      it('keeps a plain-text column on the plain path', () => {
+        init({ ...course, material: '官方教材\n實作手冊' });
+
+        const rendered = contentCard().querySelector('.long-text-plain') as HTMLElement;
+        expect(rendered.textContent).toBe('官方教材\n實作手冊');
+      });
+
+      it('shows 「—」 for a column that is null or reads as blank', () => {
+        init({ ...course, material: null, objective: '<p>&nbsp;</p>' });
+
+        const bodies = Array.from(
+          contentCard().querySelectorAll('app-long-text') as NodeListOf<HTMLElement>,
+        ).map((el) => (el.textContent as string).trim());
+
+        // The fixture leaves every long-text column null but the two set above, and both of those
+        // read as blank too — so all eight fields show the placeholder and none shows a tag.
+        expect(bodies).toEqual(new Array(8).fill('—'));
+      });
+    });
     it('navigates back and to the edit route', () => {
       init();
       const router = TestBed.inject(Router);

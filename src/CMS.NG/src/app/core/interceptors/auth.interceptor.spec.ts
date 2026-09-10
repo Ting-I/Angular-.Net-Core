@@ -1,11 +1,22 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
 import { MessageService } from 'primeng/api';
 
 import { environment } from '@env';
-import { authInterceptor, SERVER_ERROR_FALLBACK, SERVER_ERROR_SUMMARY } from './auth.interceptor';
+import {
+  authInterceptor,
+  FORBIDDEN_FALLBACK,
+  FORBIDDEN_SUMMARY,
+  SERVER_ERROR_FALLBACK,
+  SERVER_ERROR_SUMMARY,
+} from './auth.interceptor';
 import { AuthService } from '@core/services/auth.service';
 import { fakeProfile } from '@core/testing/fake-jwt';
 
@@ -270,6 +281,63 @@ describe('authInterceptor', () => {
     configure(true);
 
     failWith(500, serverProblem, 'https://example.test/thing');
+
+    expect(messages).not.toHaveBeenCalled();
+  });
+
+  // ---------- 403: the session is fine, this operator may not ----------
+
+  /** What the API answers when an administrator resets their own password. */
+  const forbiddenProblem = {
+    title: '無法重設自己的密碼，請使用變更密碼',
+    status: 403,
+    detail: 'An operator cannot reset their own password; use POST /api/auth/change-password.',
+  };
+
+  it('toasts the reason the API refused on a 403', () => {
+    configure(true);
+
+    failWith(403, forbiddenProblem);
+
+    expect(messages).toHaveBeenCalledTimes(1);
+    expect(toast()['severity']).toBe('warn');
+    expect(toast()['summary']).toBe(FORBIDDEN_SUMMARY);
+    expect(toast()['detail']).toBe(forbiddenProblem.title);
+  });
+
+  it('falls back to its own wording when the 403 carried no message', () => {
+    configure(true);
+
+    // The authorization middleware refuses a missing role with an empty body.
+    failWith(403, '');
+
+    expect(toast()['detail']).toBe(FORBIDDEN_FALLBACK);
+  });
+
+  it('leaves the session alone on a 403', () => {
+    configure(true);
+
+    failWith(403, forbiddenProblem);
+
+    // Unlike a 401 there is nothing wrong with the token — bouncing to /login would be a lie.
+    expect(sessionStorage.getItem('auth-profile')).not.toBeNull();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('still reports the 403 to the caller', () => {
+    configure(true);
+
+    let status = 0;
+    http.get(apiUrl).subscribe({ error: (error: HttpErrorResponse) => (status = error.status) });
+    httpMock.expectOne(apiUrl).flush(forbiddenProblem, { status: 403, statusText: 'Forbidden' });
+
+    expect(status).toBe(403);
+  });
+
+  it('leaves a 403 from another host alone', () => {
+    configure(true);
+
+    failWith(403, forbiddenProblem, 'https://example.test/thing');
 
     expect(messages).not.toHaveBeenCalled();
   });

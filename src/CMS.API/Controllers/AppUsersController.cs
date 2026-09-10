@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using CMS.API.Models;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
@@ -10,8 +12,22 @@ namespace CMS.API.Controllers;
 ///
 /// The controller owns the plaintext default password for the duration of one call and hands the
 /// repository a hash; no password value ever enters or leaves this API.
+///
+/// 系統管理 Admin, so the policy is on the controller rather than on each action — an action added
+/// later is covered by omission. Two guards sit inside the policy rather than beside it, because
+/// holding the Admin role is not licence to do these things to your own account:
+///
+/// - **An operator may not rewrite their own 角色.** <see cref="Update"/> takes RoleIds from the
+///   body and the repository rewrites AppUserRole from it, so without this an account could hand
+///   itself a role it was not given — and an administrator could strip their own Admin role and
+///   lock the sub-system away from everybody.
+/// - **An operator may not reset their own password.** <see cref="ResetPassword"/> writes the
+///   shared SysConfig default, which is the weakest value in the system;
+///   <c>POST /api/auth/change-password</c> is where you change your own, and it asks for the
+///   current one first.
 /// </summary>
 [ApiController]
+[Authorize(Policy = AuthorizationPolicies.Admin)]
 [Route("api/app-users")]
 [Produces("application/json")]
 public class AppUsersController : ControllerBase
@@ -95,6 +111,22 @@ public class AppUsersController : ControllerBase
         [FromBody] AppUserRequest request,
         CancellationToken cancellationToken)
     {
+        if (IsSelf(request.UserId))
+        {
+            // Read before the write, and only on this path: the comparison is against what the
+            // account holds now, not against what the request says it holds.
+            var self = await _repository.GetByIdAsync(request.UserId, cancellationToken);
+            if (self is null)
+            {
+                return NotFound();
+            }
+
+            if (ChangesRoles(self.RoleIds, request.RoleIds))
+            {
+                return CannotChangeOwnRoles();
+            }
+        }
+
         var updated = await _repository.UpdateAsync(request, cancellationToken);
         if (!updated)
         {
@@ -111,6 +143,11 @@ public class AppUsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ResetPassword(string id, CancellationToken cancellationToken)
     {
+        if (IsSelf(id))
+        {
+            return CannotResetOwnPassword();
+        }
+
         if (!await _repository.ExistsAsync(id, cancellationToken))
         {
             return NotFound();
@@ -134,11 +171,67 @@ public class AppUsersController : ControllerBase
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
         => await _repository.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
 
+    /// <summary>
+    /// True when the request names the signed-in operator's own account. UserId is compared
+    /// case-insensitively, because SQL Server's default collation is and every other lookup on the
+    /// key behaves the same way — a guard that "Helen" slipped past as "helen" would be no guard.
+    /// A request with no userId claim matches nothing: the fallback policy admits nothing without a
+    /// validated token, and the endpoints that act on the caller answer their own 401 for it.
+    /// </summary>
+    private bool IsSelf(string? userId)
+    {
+        var caller = HttpContext?.User?.FindFirstValue(JwtTokenService.UserIdClaimType);
+        return !string.IsNullOrWhiteSpace(caller) &&
+               !string.IsNullOrWhiteSpace(userId) &&
+               string.Equals(caller, userId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// True when the requested 角色 set differs from the stored one. Order and duplicates do not
+    /// count as a difference — the repository writes a distinct, case-insensitive set — so a form
+    /// that round-trips the same roles in another order is an ordinary edit, not an escalation.
+    /// </summary>
+    private static bool ChangesRoles(IEnumerable<string> current, IEnumerable<string>? requested)
+    {
+        var before = Normalize(current);
+        var after = Normalize(requested ?? []);
+        return !before.SetEquals(after);
+    }
+
+    private static HashSet<string> Normalize(IEnumerable<string> roleIds) =>
+        roleIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 403 rather than 400: the request is well formed and the caller is authenticated and an
+    /// administrator — it is this particular target that is refused.
+    /// </summary>
+    private ObjectResult CannotChangeOwnRoles() => StatusCode(
+        StatusCodes.Status403Forbidden,
+        new ProblemDetails
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Title = "無法變更自己的角色",
+            Detail = "An operator cannot change the role assignments of their own account.",
+        });
+
+    /// <summary>403, for the same reason, and it names where the operator should go instead.</summary>
+    private ObjectResult CannotResetOwnPassword() => StatusCode(
+        StatusCodes.Status403Forbidden,
+        new ProblemDetails
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Title = "無法重設自己的密碼，請使用變更密碼",
+            Detail = "An operator cannot reset their own password; use POST /api/auth/change-password.",
+        });
+
     /// <summary>The SysConfig default password, hashed; null when it is unavailable.</summary>
     private async Task<string?> HashDefaultPasswordAsync(CancellationToken cancellationToken)
     {
         var defaultPassword = await _sysConfigRepository.GetDefaultPasswordAsync(cancellationToken);
-        return string.IsNullOrEmpty(defaultPassword) ? null : PasswordHasher.Sha256Hex(defaultPassword);
+        return string.IsNullOrEmpty(defaultPassword) ? null : PasswordHasher.Hash(defaultPassword);
     }
 
     /// <summary>

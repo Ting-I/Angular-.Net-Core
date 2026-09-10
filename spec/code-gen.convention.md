@@ -1,5 +1,19 @@
 # Code Generation Patterns
 
+## The `/crud` skill — where it disagrees with this repo
+
+`/crud` scaffolds an entity end to end: schema → spec → stop for confirmation → both sides plus
+tests. It is a general skill, so it asks for a few things this codebase does not have. **Where it
+conflicts with `CLAUDE.md` or this file, they win.** Record any further deviation in the spec the
+run generates, the way `spec/promotion/FeaturedPromoItem.md` does.
+
+| It asks for | Here instead |
+|-------------|--------------|
+| Moq | Hand-written fakes — see `spec/conventions/testing.md`. Moq is not a dependency of this solution. |
+| A sticky `p-toolbar` | There is no `p-toolbar` in this codebase. Page actions sit in `.page-header`. |
+| `RowAuditBadgeComponent` | It exists as `RowAuditBadge` (`core/components/`), placed at the **start** of `.page-header` — where a `#start` toolbar slot would have landed. |
+| No audit writer | Every CRUD repository calls `IRowAuditWriter`, so a scaffolded one must too. See the 異動紀錄 section of `spec/conventions/backend.md`. |
+
 ## Backend
 
   ### Models

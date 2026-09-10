@@ -37,6 +37,7 @@ const PRINT_SHEET_CLASS = 'print-sheet';
 const FILENAME_RESERVED = /[\\/:*?"<>|]/g;
 
 import { RowAuditBadge } from '@core/components/row-audit-badge/row-audit-badge';
+import { LongText } from '@core/components/long-text/long-text';
 
 /** One 對應認證 as the lookup resolved it; null when this pkid is not in the lookup list at all. */
 interface ResolvedCertification {
@@ -51,6 +52,7 @@ interface ResolvedCertification {
   selector: 'app-course-detail',
   imports: [
     RowAuditBadge,
+    LongText,
     RouterLink,
     DatePipe,
     DecimalPipe,

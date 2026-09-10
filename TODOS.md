@@ -127,3 +127,88 @@ one underlined run-on line that reads like a broken link.
 **Effort:** S (an afternoon of reading, with sales)
 **Priority:** P2
 **Depends on:** The operator conversation that also closes Open Questions 1 and 3.
+
+## CMS.API — from the 2026-09-09 /cso security audit
+
+Report: `.gstack/security-reports/2026-09-09-163855.json`. The two CRITICAL and one HIGH finding it
+raised are fixed. What follows is what the audit found and deliberately did **not** report as a
+finding, because each is a real weakness that is currently unreachable — every one becomes a
+genuine finding the moment this stops being a loopback-only deployment.
+
+### Swagger is served before authentication runs
+
+**What:** Guard `app.UseSwagger()` / `app.UseSwaggerUI()` on the environment, or move them behind
+the authentication middleware.
+
+**Why:** They are registered at `src/CMS.API/Program.cs:121`, ahead of `app.UseAuthentication()` at
+line 130. Swagger's middleware terminates the request when the path matches, so it never reaches
+the authorization middleware and the global `FallbackPolicy` never applies: `/swagger/v1/swagger.json`
+hands an unauthenticated caller the complete map of 61 endpoints, their routes and their DTO shapes.
+
+**Context:** Suppressed from the audit report because `launchSettings.json` binds
+`http://localhost:5000` and nothing else, so today there is no unauthenticated caller who can reach
+it. The Swagger UI is also how the API is worked on, so this is not "delete it" — it is "not in
+production", which is `if (app.Environment.IsDevelopment())`, the shape the template ships with.
+Note that `TestApiFactory` runs as `Staging`.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** A deployment target that is not loopback.
+
+### The SQL connection is unencrypted
+
+**What:** Drop `Encrypt=False` (and, with a real certificate, `TrustServerCertificate=True`) from
+the connection string in `src/CMS.API/appsettings.json:10`.
+
+**Why:** The JWT signing key is read from `SysConfig` on **every authenticated request** — that is
+deliberate, so rotating the row rotates validation — and password hashes are read on every login.
+With `Encrypt=False` both cross the SQL wire in cleartext. Anyone who can see that traffic can mint
+tokens for any account.
+
+**Context:** Suppressed from the audit report because `Server=.\SQLEXPRESS` is a local instance and
+there is no network hop to observe. It is a one-line change whose cost is a certificate the local
+instance does not currently have, which is why it is filed rather than done.
+
+**Effort:** S (the string) / M (the certificate)
+**Priority:** P2, and P0 the day the database moves off the app host.
+**Depends on:** A SQL Server with a trusted certificate.
+
+### `POST /api/auth/login` has no throttling or lockout
+
+**What:** Count failed attempts per UserId (and per source address) and refuse for a growing
+interval; `AppUser` has no column for it, so this is a cache or a small table, not a schema change.
+
+**Why:** Nothing limits guessing. The audit's password-hashing finding is now fixed — stored hashes
+are salted PBKDF2 at 210,000 iterations — which raises the cost of an *offline* attack enormously,
+but an online one is bounded only by how fast the API answers, and `PasswordPolicy` allows an
+8-character password.
+
+**Context:** Excluded from the audit report by the /cso rule that drops rate-limiting findings, not
+because it is unimportant: it is the other half of the brute-force story and the natural companion
+to the hashing change. Whatever is built must keep the single generic 401 — a lockout that answers
+differently from a wrong password would undo the account-enumeration guarantee `AuthController`
+exists to keep.
+
+**Effort:** M
+**Priority:** P2
+**Depends on:** Nothing.
+
+### Every new account gets the same password, and nothing forces a change
+
+**What:** Have `POST /api/app-users` and `POST /api/app-users/{id}/reset-password` issue a one-time
+value instead of the shared SysConfig `defaultPassword`, and make the account change it at next
+sign-in.
+
+**Why:** One static value is the credential for every account until its operator changes it, and
+`AppUser` records no "must change" state, so nothing ever makes them. The audit's Finding #2 —
+any authenticated user resetting any account to that value — is fixed by the Admin policy plus the
+self-reset guard, but the shared default itself is untouched: an administrator can still park any
+account on a password every other administrator knows.
+
+**Context:** `AppUsersController.HashDefaultPasswordAsync` is the one place the default is read.
+Forcing the change needs somewhere to record it; `PasswordUpdatedTime` is already read by
+`TokenFreshness` and would need care, so this is design work rather than a patch.
+
+**Effort:** M
+**Priority:** P2
+**Depends on:** A decision on where "must change password" lives, given the read-only schema.

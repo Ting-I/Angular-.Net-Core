@@ -6,6 +6,7 @@ using CMS.API.Security;
 using CMS.API.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
@@ -25,9 +26,25 @@ public class AuthControllerTests
     private static (AuthController Controller, FakeAuthRepository Repository, FakeSysConfigRepository SysConfig)
         CreateController(FakeAuthRepository? repository = null)
     {
+        var (controller, authRepository, sysConfig, _) = CreateControllerWithLogger(repository);
+        return (controller, authRepository, sysConfig);
+    }
+
+    /// <summary>
+    /// The same controller with its logger in hand, for the hash-upgrade arm — the only behaviour
+    /// here whose only outward sign is a log line.
+    /// </summary>
+    private static (
+        AuthController Controller,
+        FakeAuthRepository Repository,
+        FakeSysConfigRepository SysConfig,
+        CapturingLogger<AuthController> Logger)
+        CreateControllerWithLogger(FakeAuthRepository? repository = null)
+    {
         var authRepository = repository ?? new FakeAuthRepository();
         var sysConfig = new FakeSysConfigRepository { SymmetricSecurityKey = SigningKey };
-        return (new AuthController(authRepository, sysConfig, new JwtTokenService()), authRepository, sysConfig);
+        var logger = new CapturingLogger<AuthController>();
+        return (new AuthController(authRepository, sysConfig, new JwtTokenService(), logger), authRepository, sysConfig, logger);
     }
 
     private static LoginRequest Login(string userId, string password) =>
@@ -277,12 +294,108 @@ public class AuthControllerTests
     {
         var repository = new FakeAuthRepository().Seed("helen", "Helen Lin", Password);
         var sysConfig = new FakeSysConfigRepository { SymmetricSecurityKey = signingKey };
-        var controller = new AuthController(repository, sysConfig, new JwtTokenService());
+        var controller = new AuthController(
+            repository,
+            sysConfig,
+            new JwtTokenService(),
+            new CapturingLogger<AuthController>());
 
         var problem = AssertStatus(
             await controller.Login(Login("helen", Password), CancellationToken.None),
             StatusCodes.Status500InternalServerError);
 
         Assert.Equal("系統設定缺少簽章金鑰", problem.Title);
+    }
+
+    // ---------- Upgrading a legacy password hash on sign-in ----------
+
+    [Fact]
+    public async Task Login_WithALegacyHash_RewritesItInTheCurrentFormat()
+    {
+        var repository = new FakeAuthRepository().SeedLegacy("helen", "Helen Lin", Password);
+        var (controller, _, _, _) = CreateControllerWithLogger(repository);
+        var before = repository.PasswordHashOf("helen");
+
+        AssertOk(await controller.Login(Login("helen", Password), CancellationToken.None));
+
+        var after = repository.PasswordHashOf("helen");
+        Assert.NotEqual(before, after);
+        Assert.StartsWith(PasswordHasher.Pbkdf2Prefix, after);
+        Assert.False(PasswordHasher.NeedsUpgrade(after));
+
+        // The upgraded row still verifies the same password — the point of the exercise.
+        Assert.True(PasswordHasher.Matches(Password, after));
+    }
+
+    [Fact]
+    public async Task Login_WithALegacyHash_PassesTheVerifiedHashAsTheExpectedValue()
+    {
+        var repository = new FakeAuthRepository().SeedLegacy("helen", "Helen Lin", Password);
+        var (controller, _, _, _) = CreateControllerWithLogger(repository);
+
+        AssertOk(await controller.Login(Login("helen", Password), CancellationToken.None));
+
+        var upgrade = Assert.Single(repository.UpgradedHashes);
+        Assert.Equal("helen", upgrade.UserId);
+
+        // The guard on the UPDATE: the row is only rewritten while it still holds what was verified.
+        Assert.Equal(PasswordHasher.Sha256Hex(Password), upgrade.ExpectedHash);
+    }
+
+    [Fact]
+    public async Task Login_WithALegacyHash_LogsTheUpgradeWithoutEitherHash()
+    {
+        var repository = new FakeAuthRepository().SeedLegacy("helen", "Helen Lin", Password);
+        var (controller, _, _, logger) = CreateControllerWithLogger(repository);
+
+        AssertOk(await controller.Login(Login("helen", Password), CancellationToken.None));
+
+        var entry = logger.Single(LogLevel.Information);
+        Assert.Equal("helen", entry.Text("UserId"));
+        Assert.DoesNotContain(PasswordHasher.Sha256Hex(Password), entry.Message);
+        Assert.DoesNotContain(Password, entry.Message);
+    }
+
+    [Fact]
+    public async Task Login_WithACurrentHash_UpgradesNothing()
+    {
+        var repository = new FakeAuthRepository().Seed("helen", "Helen Lin", Password);
+        var (controller, _, _, logger) = CreateControllerWithLogger(repository);
+        var before = repository.PasswordHashOf("helen");
+
+        AssertOk(await controller.Login(Login("helen", Password), CancellationToken.None));
+
+        Assert.Empty(repository.UpgradedHashes);
+        Assert.Empty(logger.Entries);
+        Assert.Equal(before, repository.PasswordHashOf("helen"));
+    }
+
+    [Fact]
+    public async Task Login_WithTheWrongPassword_UpgradesNothing()
+    {
+        // The rewrite is only safe where the plaintext has just been proven correct.
+        var repository = new FakeAuthRepository().SeedLegacy("helen", "Helen Lin", Password);
+        var (controller, _, _, _) = CreateControllerWithLogger(repository);
+
+        AssertStatus(
+            await controller.Login(Login("helen", "wrong"), CancellationToken.None),
+            StatusCodes.Status401Unauthorized);
+
+        Assert.Empty(repository.UpgradedHashes);
+        Assert.Equal(PasswordHasher.Sha256Hex(Password), repository.PasswordHashOf("helen"));
+    }
+
+    [Fact]
+    public async Task Login_WithALegacyHash_LeavesPasswordUpdatedTimeAlone()
+    {
+        // Moving it would make TokenFreshness reject the token this very login returns.
+        var repository = new FakeAuthRepository().SeedLegacy("helen", "Helen Lin", Password);
+        var changedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        repository.PasswordUpdatedTimeSource = _ => changedAt;
+        var (controller, _, _, _) = CreateControllerWithLogger(repository);
+
+        AssertOk(await controller.Login(Login("helen", Password), CancellationToken.None));
+
+        Assert.Equal(changedAt, (await repository.GetTokenStateAsync("helen"))?.PasswordUpdatedTime);
     }
 }

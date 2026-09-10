@@ -74,8 +74,9 @@ public class ProfileController : ControllerBase
 
         if (!await _repository.UpdateUserNameAsync(userId, userName, cancellationToken))
         {
-            // The token outlived the account it names — it is valid for 24 hours and the row can
-            // be deleted inside that window.
+            // The row went away between the token being validated and this write. TokenFreshness
+            // now refuses a token whose AppUser row is gone, so this is no longer the 24-hour
+            // window it used to be — it is the race inside one request, which is still real.
             return NotFound();
         }
 
@@ -125,8 +126,8 @@ public class ProfileController : ControllerBase
         var credential = await _authRepository.GetCredentialAsync(userId, cancellationToken);
         if (credential is null)
         {
-            // The token outlived the account it names — it is valid for 24 hours and the row can
-            // be deleted inside that window.
+            // Same race as UpdateProfile above: TokenFreshness refuses a token naming a row that
+            // is already gone, so reaching here means it went in between.
             return NotFound();
         }
 
@@ -171,7 +172,7 @@ public class ProfileController : ControllerBase
         // carries none.
         if (!await _repository.ResetPasswordAsync(
                 userId,
-                PasswordHasher.Sha256Hex(request.NewPassword),
+                PasswordHasher.Hash(request.NewPassword),
                 cancellationToken))
         {
             return NotFound();

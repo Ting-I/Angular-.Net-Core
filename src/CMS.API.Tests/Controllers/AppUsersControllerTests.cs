@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CMS.API.Controllers;
 using CMS.API.Models;
 using CMS.API.Security;
@@ -30,11 +31,45 @@ public class AppUsersControllerTests
 
     private static (AppUsersController Controller, FakeAppUserRepository Repository, FakeSysConfigRepository SysConfig)
         CreateController(params AppUser[] seed)
+        => CreateControllerSignedInAs(null, seed);
+
+    /// <summary>
+    /// The controller with a signed-in operator behind it, for the two guards that ask who the
+    /// caller is. A null <paramref name="callerUserId"/> leaves the principal unset, which is what
+    /// every other test here wants: the endpoints under it act on the record, not on the caller.
+    /// </summary>
+    private static (AppUsersController Controller, FakeAppUserRepository Repository, FakeSysConfigRepository SysConfig)
+        CreateControllerSignedInAs(string? callerUserId, params AppUser[] seed)
     {
         var repository = new FakeAppUserRepository().Seed(seed);
         var sysConfig = new FakeSysConfigRepository { DefaultPassword = DefaultPassword };
-        return (new AppUsersController(repository, sysConfig), repository, sysConfig);
+        var controller = new AppUsersController(repository, sysConfig);
+
+        if (callerUserId is not null)
+        {
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim(JwtTokenService.UserIdClaimType, callerUserId)],
+                        "Bearer")),
+                },
+            };
+        }
+
+        return (controller, repository, sysConfig);
     }
+
+    private static ProblemDetails AssertStatus(IActionResult result, int statusCode)
+    {
+        var objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
+        Assert.Equal(statusCode, objectResult.StatusCode);
+        return Assert.IsType<ProblemDetails>(objectResult.Value);
+    }
+
+    private static ProblemDetails AssertStatus<T>(ActionResult<T> result, int statusCode) =>
+        AssertStatus(result.Result!, statusCode);
 
     private static T AssertOk<T>(ActionResult<T> result)
     {
@@ -286,7 +321,7 @@ public class AppUsersControllerTests
             new AppUserRequest { UserId = "helen", UserName = "Helen Lin" }, CancellationToken.None);
 
         Assert.Equal(1, sysConfig.GetDefaultPasswordCallCount);
-        Assert.Equal(PasswordHasher.Sha256Hex(DefaultPassword), repository.PasswordHashOf("helen"));
+        Assert.True(PasswordHasher.Matches(DefaultPassword, repository.PasswordHashOf("helen")));
         Assert.NotEqual(DefaultPassword, repository.PasswordHashOf("helen"));
     }
 
@@ -406,7 +441,7 @@ public class AppUsersControllerTests
 
         Assert.IsType<NoContentResult>(result);
         Assert.Equal(["helen"], repository.ResetUserIds);
-        Assert.Equal(PasswordHasher.Sha256Hex(DefaultPassword), repository.PasswordHashOf("helen"));
+        Assert.True(PasswordHasher.Matches(DefaultPassword, repository.PasswordHashOf("helen")));
         Assert.Equal(repository.UtcNow, (await repository.GetByIdAsync("helen"))!.PasswordUpdatedTime);
     }
 
@@ -471,5 +506,128 @@ public class AppUsersControllerTests
         var (controller, _, _) = CreateController();
 
         Assert.IsType<NotFoundResult>(await controller.Delete("missing", CancellationToken.None));
+    }
+
+    // ---------- Guards on the caller's own account ----------
+    //
+    // The controller is behind the Admin policy, so everything below is an administrator acting on
+    // themselves. Holding the role is not licence to hand yourself another one, or to put your own
+    // account on the weakest password in the system.
+
+    [Fact]
+    public async Task Update_WhenTheCallerChangesTheirOwnRoles_Returns403AndWritesNothing()
+    {
+        var (controller, repository, _) = CreateControllerSignedInAs(
+            "helen",
+            User("helen", "Helen Lin", true, null, "Editor"));
+
+        var problem = AssertStatus(
+            await controller.Update(
+                new AppUserRequest { UserId = "helen", UserName = "Helen Lin", RoleIds = ["Editor", "Admin"] },
+                CancellationToken.None),
+            StatusCodes.Status403Forbidden);
+
+        Assert.Equal("無法變更自己的角色", problem.Title);
+        Assert.Empty(repository.UpdatedUserIds);
+        Assert.Equal(["Editor"], (await repository.GetByIdAsync("helen"))!.RoleIds);
+    }
+
+    [Fact]
+    public async Task Update_WhenTheCallerRemovesTheirOwnLastRole_Returns403()
+    {
+        // The other half of the same guard: stripping your own Admin role would lock the
+        // sub-system away from everybody, this account included.
+        var (controller, repository, _) = CreateControllerSignedInAs(
+            "helen",
+            User("helen", "Helen Lin", true, null, "Admin"));
+
+        AssertStatus(
+            await controller.Update(
+                new AppUserRequest { UserId = "helen", UserName = "Helen Lin", RoleIds = [] },
+                CancellationToken.None),
+            StatusCodes.Status403Forbidden);
+
+        Assert.Equal(["Admin"], (await repository.GetByIdAsync("helen"))!.RoleIds);
+    }
+
+    [Fact]
+    public async Task Update_WhenTheCallerKeepsTheirOwnRoles_Succeeds()
+    {
+        // Renaming yourself is an ordinary edit. Order and case must not read as a change — the
+        // form round-trips whatever the list gave it.
+        var (controller, repository, _) = CreateControllerSignedInAs(
+            "helen",
+            User("helen", "Helen Lin", true, null, "Admin", "Editor"));
+
+        var updated = AssertOk(await controller.Update(
+            new AppUserRequest { UserId = "helen", UserName = "Helen Chen", RoleIds = ["editor", "ADMIN"] },
+            CancellationToken.None));
+
+        Assert.Equal("Helen Chen", updated.UserName);
+        Assert.Equal(["helen"], repository.UpdatedUserIds);
+    }
+
+    [Fact]
+    public async Task Update_WhenTheCallerChangesSomebodyElsesRoles_Succeeds()
+    {
+        // The guard is about the caller's own account and nothing else — this is the endpoint's job.
+        var (controller, repository, _) = CreateControllerSignedInAs(
+            "helen",
+            User("helen", "Helen Lin", true, null, "Admin"),
+            User("miles", "Miles Sun", true, null, "Editor"));
+
+        AssertOk(await controller.Update(
+            new AppUserRequest { UserId = "miles", UserName = "Miles Sun", RoleIds = ["Admin"] },
+            CancellationToken.None));
+
+        Assert.Equal(["Admin"], (await repository.GetByIdAsync("miles"))!.RoleIds);
+    }
+
+    [Fact]
+    public async Task Update_MatchesTheCallerCaseInsensitively()
+    {
+        // SQL Server's default collation is case-insensitive and every lookup on the key follows
+        // it; a guard "Helen" walked past as "helen" would be no guard.
+        var (controller, _, _) = CreateControllerSignedInAs(
+            "helen",
+            User("Helen", "Helen Lin", true, null, "Editor"));
+
+        AssertStatus(
+            await controller.Update(
+                new AppUserRequest { UserId = "Helen", UserName = "Helen Lin", RoleIds = ["Admin"] },
+                CancellationToken.None),
+            StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WhenTheCallerTargetsTheirOwnAccount_Returns403AndWritesNothing()
+    {
+        var (controller, repository, sysConfig) = CreateControllerSignedInAs(
+            "helen",
+            User("helen", "Helen Lin"));
+        var before = repository.PasswordHashOf("helen");
+
+        var problem = AssertStatus(
+            await controller.ResetPassword("helen", CancellationToken.None),
+            StatusCodes.Status403Forbidden);
+
+        Assert.Equal("無法重設自己的密碼，請使用變更密碼", problem.Title);
+        Assert.Empty(repository.ResetUserIds);
+        Assert.Equal(before, repository.PasswordHashOf("helen"));
+
+        // Refused before the default password is even read.
+        Assert.Equal(0, sysConfig.GetDefaultPasswordCallCount);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WhenTheCallerTargetsAnotherAccount_Succeeds()
+    {
+        var (controller, repository, _) = CreateControllerSignedInAs(
+            "helen",
+            User("helen", "Helen Lin"),
+            User("miles", "Miles Sun"));
+
+        Assert.IsType<NoContentResult>(await controller.ResetPassword("miles", CancellationToken.None));
+        Assert.Equal(["miles"], repository.ResetUserIds);
     }
 }

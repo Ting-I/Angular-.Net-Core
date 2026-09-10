@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  web.config for the Angular site (IIS site "CMS", physical path C:\VHome\CMS\NG).
+
+  deploy.ps1 stamps {{API_ORIGIN}} and writes the result into dist\CMS.NG\browser\web.config
+  before copying. Same idea as nginx.conf.template in the azure-deploy kit: the API's address
+  is CONFIGURATION, not something baked into the Angular bundle.
+
+  Requires on the IIS server: URL Rewrite module + Application Request Routing (ARR),
+  with the server-level proxy ENABLED. setup-iis.ps1 does all three.
+-->
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <!-- 1. Reverse-proxy /api/* to the CMS.API site.
+             The browser only ever talks to this origin, so environment.ts can keep
+             apiBaseUrl: '/api' and no CORS policy is needed in the API. -->
+        <rule name="CMS API proxy" stopProcessing="true">
+          <match url="^api/(.*)" />
+          <action type="Rewrite" url="{{API_ORIGIN}}/api/{R:1}" logRewrittenUrl="true" />
+        </rule>
+
+        <!-- 2. Angular deep links: anything that is not a real file or directory falls
+             back to index.html. The ^/api exclusion is belt-and-braces — rule 1 already
+             stops processing — but without it a misordered edit would silently swallow
+             every API call and return the SPA shell instead of JSON. -->
+        <rule name="Angular routes" stopProcessing="true">
+          <match url=".*" />
+          <conditions logicalGrouping="MatchAll">
+            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+            <add input="{REQUEST_URI}" pattern="^/api" negate="true" />
+          </conditions>
+          <action type="Rewrite" url="/index.html" />
+        </rule>
+      </rules>
+
+      <!-- Strip ARR's "X-Powered-By: ARR/3.0" off proxied responses. It has to happen here
+           rather than in <customHeaders> below, because ARR adds the header on the way out,
+           after that module has already run. -->
+      <outboundRules>
+        <rule name="Remove X-Powered-By" preCondition="">
+          <match serverVariable="RESPONSE_X-Powered-By" pattern=".+" />
+          <action type="Rewrite" value="" />
+        </rule>
+      </outboundRules>
+    </rewrite>
+
+    <!-- Stop the server volunteering what it is. Neither header does anything for the
+         browser; both hand a scanner a product and version to look up CVEs against.
+         removeServerHeader drops "Server: Microsoft-IIS/10.0" and needs IIS 10 or later,
+         which setup-iis.ps1 assumes anyway.
+
+         The <remove> below only covers a header IIS itself would add. ARR stamps
+         "X-Powered-By: ARR/3.0" on proxied responses AFTER the customHeaders module has
+         run, so it survives that and needs the outbound rule above — measured, not
+         assumed. The alternative is ARR's own server-level switch
+         (system.webServer/proxy/@arrResponseHeader = false in applicationHost.config),
+         which would belong in setup-iis.ps1; it is kept here so that one deploy carries
+         the whole fix. -->
+    <httpProtocol>
+      <customHeaders>
+        <remove name="X-Powered-By" />
+
+        <!-- Never let the browser guess a Content-Type. An upload or a text column echoed back
+             as text/plain cannot then be re-read as script because it happens to look like it. -->
+        <add name="X-Content-Type-Options" value="nosniff" />
+
+        <!-- No framing, so an operator's signed-in session cannot be puppeteered from inside
+             someone else's page. frame-ancestors below says the same thing to browsers that
+             read CSP; this covers the ones that only read X-Frame-Options. -->
+        <add name="X-Frame-Options" value="DENY" />
+
+        <!-- Referrers stay inside this origin. A CMS URL carries record keys, and cross-origin
+             requests have no business learning them. -->
+        <add name="Referrer-Policy" value="strict-origin-when-cross-origin" />
+
+        <!-- The app asks for none of these, so nothing can ask on its behalf either. -->
+        <add name="Permissions-Policy" value="camera=(), microphone=(), geolocation=()" />
+
+        <!-- Written against what the build actually emits, not a template:
+               script-src 'self'  — index.html has no inline <script>, only hashed modules, so
+                                    no 'unsafe-inline' and no 'unsafe-eval' are needed. This is
+                                    the backstop under LongText, which renders operator-pasted
+                                    markup through [innerHTML]: even if the sanitizer were ever
+                                    bypassed, injected script would not run.
+                                    THIS DEPENDS ON optimization.styles.inlineCritical BEING
+                                    false in angular.json. With it on, Angular ships
+                                    <link ... media="print" onload="this.media='all'">, and an
+                                    inline event handler is exactly what script-src 'self'
+                                    refuses — so the global stylesheet stays media="print" and
+                                    never applies. The page still renders, because the critical
+                                    CSS was inlined, which is what makes it so easy to miss:
+                                    what actually breaks is PrimeIcons (every icon-only button
+                                    goes blank) and anything else outside the critical subset.
+                                    Measured, not theorised — see docs in DEPLOY-IIS.md.
+               style-src 'unsafe-inline'
+                                  — required. Angular inlines critical CSS into index.html and
+                                    injects component styles as <style> tags at runtime.
+                                    Removing it means adopting ngCspNonce, which is a real change.
+               img-src ... https:  — deliberately permissive. Angular's sanitizer allows an
+                                    <img src="https://..."> in operator-pasted markup, so a
+                                    stricter 'self' would silently blank those. Tighten to
+                                    "'self' data:" if external images should be forbidden.
+               font-src 'self'     — PrimeIcons ships bundled under ./media, no CDN, no Google
+                                    Fonts. Adding a webfont host means adding it here too.
+               connect-src 'self'  — the SPA calls /api on this same origin, by design.
+             No Strict-Transport-Security: it is ignored over plain HTTP, and a long max-age set
+             before TLS exists would strand clients that later need to fall back. It belongs in
+             the same change as the HTTPS binding. -->
+        <add name="Content-Security-Policy" value="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" />
+      </customHeaders>
+    </httpProtocol>
+
+    <security>
+      <requestFiltering removeServerHeader="true" />
+    </security>
+
+    <!-- Angular emits content-hashed filenames (outputHashing: all), so the bundles are
+         safe to cache forever. -->
+    <staticContent>
+      <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="365.00:00:00" />
+    </staticContent>
+  </system.webServer>
+
+  <!-- ...but index.html is NOT hashed. Cache it and a redeploy keeps serving the old
+       bundle names until the browser gives up. This is the #1 "I deployed but nothing
+       changed" bug on IIS. -->
+  <location path="index.html">
+    <system.webServer>
+      <staticContent>
+        <clientCache cacheControlMode="DisableCache" />
+      </staticContent>
+    </system.webServer>
+  </location>
+</configuration>

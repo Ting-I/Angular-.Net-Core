@@ -14,7 +14,7 @@ public class LoginRequest
     [StringLength(200)]
     public string UserId { get; set; } = string.Empty;
 
-    /// <summary>密碼 — plaintext; compared as SHA-256 against AppUser.PasswordHash.</summary>
+    /// <summary>密碼 — plaintext; hashed and compared against AppUser.PasswordHash, never stored.</summary>
     [Required(AllowEmptyStrings = false)]
     public string Password { get; set; } = string.Empty;
 }
