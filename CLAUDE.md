@@ -51,7 +51,9 @@ reasoning, the worked example and the cases these lines flatten.
   immutable on edit. → backend §Primary keys
 - **Never let the database be the thing that refuses a destructive write.** Project child counts in
   `{Table}Sql.SelectBase`, read the record in the controller, `409` when one is non-zero — error
-  547 is not the backstop. → backend §Deleting a row other tables reference
+  547 is not the backstop. **A projected count nothing reads is not a guard**, and a repository
+  that deletes its own junction rows first has switched 547 off, so the `409` is all that is left.
+  → backend §Deleting a row other tables reference
 - **Never PUT a list row straight back.** List and `query` responses carry the n-n key arrays empty
   and the repositories rewrite junction tables from the request, so the write silently clears the
   relations. Re-read with `GET /{table}/{key}` first. → backend §Core rules

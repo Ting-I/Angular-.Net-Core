@@ -15,6 +15,13 @@ public class FakeAppRoleRepository : IAppRoleRepository
     public List<string> CreatedRoleIds { get; } = [];
     public List<string> UpdatedRoleIds { get; } = [];
 
+    /// <summary>
+    /// Every RoleId the controller asked to delete, in order. Recorded so a test can prove a
+    /// refused delete wrote nothing — the guard has to return *before* the repository call, since
+    /// the real DeleteAsync removes the AppUserRole rows and there is no undoing that.
+    /// </summary>
+    public List<string> DeletedRoleIds { get; } = [];
+
     public FakeAppRoleRepository Seed(params AppRole[] roles)
     {
         foreach (var role in roles)
@@ -75,7 +82,10 @@ public class FakeAppRoleRepository : IAppRoleRepository
     }
 
     public Task<bool> DeleteAsync(string roleId, CancellationToken cancellationToken = default)
-        => Task.FromResult(_roles.Remove(roleId));
+    {
+        DeletedRoleIds.Add(roleId);
+        return Task.FromResult(_roles.Remove(roleId));
+    }
 
     private static AppRole ToRole(AppRoleRequest request, int pkid) => new()
     {

@@ -344,6 +344,13 @@ assumption in opposite directions:
   preventing silent data loss.
 - `Seminar.Partner_pkid` is a real reference with **no `FOREIGN KEY` constraint** behind it, so the
   database would accept the delete and orphan those rows.
+- `FK_AppUserRole_AppRole` is a plain constraint with no `ON DELETE` action, so it *would* refuse —
+  except that **`AppRoleRepository.DeleteAsync` deletes the `AppUserRole` rows itself** before
+  deleting the `AppRole` row, exactly as it should, since those junction rows cannot outlive the
+  role. So 547 never fires, and for a while the delete simply answered `204` while every account
+  holding that role silently lost it. Role claims come only from `AppUserRole`, so nobody found out
+  until their next login. The lesson generalises: a repository that tidies up its own children has
+  disabled the database's refusal, so the controller's `409` is the *only* guard left.
 
 Either way the rule is the same: guard on the projected counts, and never rely on the database to
 refuse.
