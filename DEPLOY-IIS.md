@@ -171,6 +171,12 @@ it, but a rule can only rewrite a value, not delete a header, so on its own it l
 `X-Powered-By:` rather than none. Only `arrResponseHeader = False` stops the header being added at
 all; the rewrite rule is kept as a fallback for a box where `setup-iis.ps1` has not been re-run.
 
+**`arrResponseHeader` does not take effect on the next request.** The ARR module reads the proxy
+section when a worker process starts, so the attribute reads back as `false` in
+`applicationHost.config` while ARR carries on stamping the header — which looks exactly like the
+setting being ignored. `setup-iis.ps1` recycles both app pools at the end for this reason. If you
+set it by hand, recycle the pools yourself, or `iisreset` if the header still shows.
+
 ASP.NET Core adds nothing of its own here — there is no `X-AspNet-Version` or
 `X-Powered-By: ASP.NET` to strip. The `Server` header on `:5001` comes from IIS, not Kestrel.
 
@@ -218,7 +224,7 @@ working and the broken build.
 | API returns **500.30 / 502.5** | ASP.NET Core Hosting Bundle missing, or `arguments=".\CMS.API.dll"` doesn't match the published DLL name. |
 | Every API call **307-redirects to https** | Someone added `UseHttpsRedirection()` / `UseHsts()` to `Program.cs` under `IsProduction()`, on an HTTP-only site. Give IIS an HTTPS binding, or set `$aspnetEnv` to `Staging` — **not** `Development`, which reopens Swagger. |
 | **`/swagger` returns 404** on the deployed box | Working as intended — it is Development-only. Run `dotnet run --project src\CMS.API` locally for Swagger. |
-| Responses carry an **empty `X-Powered-By:`** | `setup-iis.ps1` has not been re-run since `arrResponseHeader` was added. The outbound rule blanked the value; only the server-level switch removes the header. Re-run `.\setup-iis.ps1` elevated — it is idempotent. |
+| Responses carry an **empty `X-Powered-By:`** | The outbound rule blanked the value but ARR is still adding the header. Either `setup-iis.ps1` has not been re-run since `arrResponseHeader` was added, or it has and the workers have not restarted since. Re-run `.\setup-iis.ps1` elevated (idempotent, and it recycles the pools); if it persists, `iisreset`. To tell which: remove the `<outboundRules>` block from `C:\VHome\CMS\NG\web.config` and re-request — `ARR/3.0` means ARR is still stamping it, no header at all means the rule was the only thing left. |
 | Login returns **500** | The database has no `SysConfig.appConfig` row — the JWT signing key is read from it at runtime. |
 | API **500** on any data call | The app pool identity has no SQL access. The site runs as `IIS APPPOOL\CMS.API.Pool`, not as you — `setup-iis.ps1 -GrantSqlAccess` creates that login. |
 | **F5 on a deep link → 404** | The SPA fallback rewrite is missing. Confirm `web.config` reached `C:\VHome\CMS\NG\` and URL Rewrite is installed. |

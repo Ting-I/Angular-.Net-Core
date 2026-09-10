@@ -179,8 +179,14 @@ $serverSetup = {
     # scanner the product and version and tells the browser nothing. This is the only switch that
     # stops it being added; the outbound rule in CMS.NG\web.config.template can blank the value
     # but cannot remove the header, so without this you get an empty X-Powered-By instead of none.
+    #
+    # $false, not 'False': a non-empty string is truthy on some coercion paths, which sets the
+    # opposite of what it reads like. And the ARR module reads the proxy section when the worker
+    # STARTS, so this does not take effect on the next request — the pools are recycled at the end
+    # of this script for that reason. Measured 2026-09-10: the attribute read back as "false"
+    # while ARR kept stamping the header, until IIS was restarted.
     Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' `
-        -Filter 'system.webServer/proxy' -Name 'arrResponseHeader' -Value 'False'
+        -Filter 'system.webServer/proxy' -Name 'arrResponseHeader' -Value $false
     Good "ARR response header suppressed"
 
     # ---- 4. Folders ----------------------------------------------------------
@@ -246,6 +252,17 @@ $serverSetup = {
     # The API needs WRITE on its logs folder (stdoutLogEnabled="true").
     icacls (Join-Path $cfg.SitePathApi 'logs') /grant "IIS APPPOOL\$($cfg.ApiPool):(OI)(CI)(M)" /T /Q | Out-Null
     Good "app-pool identities granted read (+ write on logs)"
+
+    # ---- 7b. Recycle, so step 3 actually takes effect -------------------------
+    # The ARR module reads the server-level proxy section when a worker process starts. Without
+    # this, arrResponseHeader is correct in applicationHost.config and ARR carries on stamping
+    # X-Powered-By until something restarts the workers — which reads as "the setting does not
+    # work" rather than "the setting has not been picked up yet". Recycling is enough and is
+    # far lighter than iisreset, which would stop every other site on the box.
+    foreach ($pool in @($cfg.ApiPool, $cfg.NgPool)) {
+        if ((Get-WebAppPoolState -Name $pool).Value -eq 'Started') { Restart-WebAppPool -Name $pool }
+    }
+    Good "app pools recycled (picks up the ARR proxy settings)"
 }
 
 $cfg = @{
