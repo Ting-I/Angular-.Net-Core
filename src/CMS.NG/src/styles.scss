@@ -28,16 +28,59 @@ body {
      block here would be racing it at equal specificity. Custom properties inherit, so setting them
      one level down reaches every component without depending on stylesheet order.
 
-     The primary surface moves from emerald-500 to emerald-700. White on emerald-500 measures
-     2.28:1 — the most-clicked control in the app at half the contrast WCAG AA requires. On
-     emerald-700 it measures 5.55:1. Hover and active move one step further down so the press
-     still reads. emerald-500 keeps every non-text job: the brand fill, the active nav tint. */
+     Aura's 500 steps are chosen to look right as a fill, not to carry white text. Every filled
+     severity in this app measured between 2.28:1 and 3.8:1 against its own white label, where AA
+     wants 4.5:1 — including 新增, the most-clicked control on every list page. Moving each to its
+     700 step (600 for red, which is enough) fixes the label without changing the hue anyone
+     recognises, and hover/active step one further down so the press still reads.
+
+     The 500 steps keep every job that is not text on a fill: the brand wordmark, the 12% tint
+     behind the active nav pill, p-tag and p-message backgrounds.
+
+     Measured after: success 5.01:1, info 5.93:1, primary 5.55:1, danger 4.83:1. */
   --p-button-primary-background: var(--p-primary-700);
   --p-button-primary-border-color: var(--p-primary-700);
   --p-button-primary-hover-background: var(--p-primary-800);
   --p-button-primary-hover-border-color: var(--p-primary-800);
   --p-button-primary-active-background: var(--p-primary-900);
   --p-button-primary-active-border-color: var(--p-primary-900);
+
+  --p-button-success-background: var(--p-green-700);
+  --p-button-success-border-color: var(--p-green-700);
+  --p-button-success-hover-background: var(--p-green-800);
+  --p-button-success-hover-border-color: var(--p-green-800);
+  --p-button-success-active-background: var(--p-green-900);
+  --p-button-success-active-border-color: var(--p-green-900);
+
+  --p-button-info-background: var(--p-sky-700);
+  --p-button-info-border-color: var(--p-sky-700);
+  --p-button-info-hover-background: var(--p-sky-800);
+  --p-button-info-hover-border-color: var(--p-sky-800);
+  --p-button-info-active-background: var(--p-sky-900);
+  --p-button-info-active-border-color: var(--p-sky-900);
+
+  --p-button-danger-background: var(--p-red-600);
+  --p-button-danger-border-color: var(--p-red-600);
+  --p-button-danger-hover-background: var(--p-red-700);
+  --p-button-danger-hover-border-color: var(--p-red-700);
+  --p-button-danger-active-background: var(--p-red-800);
+  --p-button-danger-active-border-color: var(--p-red-800);
+
+  --p-button-warn-background: var(--p-amber-700);
+  --p-button-warn-border-color: var(--p-amber-700);
+  --p-button-warn-hover-background: var(--p-amber-800);
+  --p-button-warn-hover-border-color: var(--p-amber-800);
+  --p-button-warn-active-background: var(--p-amber-900);
+  --p-button-warn-active-border-color: var(--p-amber-900);
+
+  /* The [text] variants paint the colour onto the page instead of onto a fill, so the same 500
+     steps were failing in the other direction. The row-action icons are the visible case: the
+     edit pencil was emerald-500 on white at 2.54:1 and the view eye sky-500 at 3.0:1, against a
+     3:1 floor for a graphic and 4.5:1 wherever one of these carries a label. */
+  --p-button-text-primary-color: var(--p-primary-700);
+  --p-button-text-success-color: var(--p-green-700);
+  --p-button-text-info-color: var(--p-sky-700);
+  --p-button-text-danger-color: var(--p-red-600);
 }
 
 /* ---------- print ---------- */
