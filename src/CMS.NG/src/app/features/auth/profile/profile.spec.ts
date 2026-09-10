@@ -388,6 +388,46 @@ describe('Profile', () => {
       expect(rule.textContent).toContain('at least 3 of the 4 classes');
     });
 
+    // ---------- Client validation: the new password must be a different one ----------
+
+    // Regression: ISSUE-002 — the form let 新密碼 be 目前密碼 over again, so an operator told to
+    // move off the shared system default could retype it and be told the password had changed.
+    // Found by /qa on 2026-09-10
+    // Report: .gstack/qa-reports/qa-report-localhost-2026-09-10.md
+
+    it('sends nothing and says so when the new password is the current one', () => {
+      signIn();
+      createComponent();
+
+      fillPasswords('Uwa@2026', 'Uwa@2026', 'Uwa@2026');
+      submit();
+
+      httpMock.expectNone(changePasswordUrl);
+      expect(el('new-password-unchanged-error').textContent).toContain('新密碼不可與目前密碼相同');
+    });
+
+    it('accepts a new password differing from the current one only in case', () => {
+      signIn();
+      createComponent();
+
+      fillPasswords('Uwa@2026', 'UWA@2026', 'UWA@2026');
+      submit();
+
+      httpMock.expectOne(changePasswordUrl).flush(null, { status: 204, statusText: 'No Content' });
+      expect(el('new-password-unchanged-error')).toBeNull();
+    });
+
+    it('stays quiet about the repeat while 目前密碼 is still empty', () => {
+      signIn();
+      createComponent();
+
+      api()['passwordForm'].patchValue({ newPassword: strong });
+      api()['passwordForm'].controls.newPassword.markAsTouched();
+      fixture.detectChanges();
+
+      expect(el('new-password-unchanged-error')).toBeNull();
+    });
+
     // ---------- Client validation: the confirmation ----------
 
     it('sends nothing and says so when the confirmation differs', () => {

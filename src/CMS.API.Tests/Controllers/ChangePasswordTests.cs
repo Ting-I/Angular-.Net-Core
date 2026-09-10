@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CMS.API.Tests.Controllers;
 
 /// <summary>
-/// Covers POST /api/auth/change-password: the four gates in front of the write, and the promise
+/// Covers POST /api/auth/change-password: the five gates in front of the write, and the promise
 /// that a request failing any of them leaves PasswordHash and PasswordUpdatedTime alone.
 ///
 /// The controller arms run against an instance, as the rest of the suite does. The wire arms run
@@ -113,7 +113,7 @@ public class ChangePasswordTests : IClassFixture<TestApiFactory>
         Assert.Null((await fixture.Users.GetByIdAsync(userId))!.PasswordUpdatedTime);
     }
 
-    // ---------- 4. The successful change ----------
+    // ---------- 5. The successful change ----------
 
     [Fact]
     public async Task ChangePassword_WithAValidRequest_WritesAHashOfTheNewPassword()
@@ -282,7 +282,61 @@ public class ChangePasswordTests : IClassFixture<TestApiFactory>
         await AssertNothingWritten(fixture);
     }
 
-    // ---------- 3. The confirmation ----------
+    // ---------- 3. Differing from the current password ----------
+
+    // Regression: ISSUE-002 — change-password answered 204 to a request that re-submitted the
+    // current password, so an operator told to move off the shared SysConfig defaultPassword could
+    // retype it and the system recorded a password change that had not happened.
+    // Found by /qa on 2026-09-10
+    // Report: .gstack/qa-reports/qa-report-localhost-2026-09-10.md
+
+    [Fact]
+    public async Task ChangePassword_WhenTheNewPasswordIsTheCurrentOne_Returns400AndWritesNothing()
+    {
+        var fixture = CreateFixture();
+
+        var result = await fixture.Controller.ChangePassword(
+            Request(newPassword: CurrentPassword),
+            CancellationToken.None);
+
+        Assert.Equal("新密碼不可與目前密碼相同", AssertBadRequest(result).Title);
+        await AssertNothingWritten(fixture);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ComparesAgainstTheCurrentPasswordOrdinally()
+    {
+        // Same letters, different case. That is a different byte sequence and so a genuine change
+        // — the gate refuses a re-submission, not a password that merely resembles the old one.
+        var changed = CurrentPassword.ToUpperInvariant();
+        Assert.NotEqual(CurrentPassword, changed, StringComparer.Ordinal);
+
+        var fixture = CreateFixture();
+
+        var result = await fixture.Controller.ChangePassword(
+            Request(newPassword: changed),
+            CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.True(PasswordHasher.Matches(changed, fixture.Users.PasswordHashOf("helen")));
+    }
+
+    [Fact]
+    public async Task ChangePassword_ChecksTheDifferenceBeforeTheConfirmation()
+    {
+        // Both are wrong: the new password is the current one, and the confirmation does not match
+        // it either. The re-submission is what the operator has to act on, so it answers first.
+        var fixture = CreateFixture();
+
+        var result = await fixture.Controller.ChangePassword(
+            Request(newPassword: CurrentPassword, confirm: "N3wPass!word"),
+            CancellationToken.None);
+
+        Assert.Equal("新密碼不可與目前密碼相同", AssertBadRequest(result).Title);
+        await AssertNothingWritten(fixture);
+    }
+
+    // ---------- 4. The confirmation ----------
 
     [Fact]
     public async Task ChangePassword_WhenTheConfirmationDiffers_Returns400AndWritesNothing()
