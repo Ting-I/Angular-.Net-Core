@@ -1,8 +1,8 @@
 <div class="login-page">
   <form class="login-card" [formGroup]="form" (ngSubmit)="signIn()">
     <div class="login-brand">
-      <span class="brand-text">UWA</span>
-      <h1>登入 Login</h1>
+      <h1 class="brand-text">UWA</h1>
+      <p class="login-subtitle">登入 Login</p>
     </div>
 
     @if (notice(); as message) {
@@ -27,6 +27,7 @@
         autocomplete="username"
         maxlength="200"
         placeholder="請輸入使用者代碼"
+        #userIdInput
       />
       @if (isInvalid('userId')) {
         <small class="field-error">使用者代碼為必填。</small>
@@ -36,6 +37,7 @@
     <div class="form-field">
       <label for="password">密碼 <span class="required">*</span></label>
       <p-password
+        appPasswordToggleA11y
         inputId="password"
         formControlName="password"
         [feedback]="false"

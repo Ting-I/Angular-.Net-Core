@@ -17,6 +17,7 @@ import { MessageService } from 'primeng/api';
 import { Router } from '@angular/router';
 
 import { AuthService } from '@core/services/auth.service';
+import { PasswordToggleA11yDirective } from '@core/directives/password-toggle-a11y.directive';
 import {
   LOGIN_REASON_PARAM,
   LOGIN_ROUTE,
@@ -127,6 +128,7 @@ export function newPasswordDiffers(group: AbstractControl): ValidationErrors | n
     PasswordModule,
     TagModule,
     ToastModule,
+    PasswordToggleA11yDirective,
   ],
   providers: [MessageService],
   templateUrl: './profile.html',

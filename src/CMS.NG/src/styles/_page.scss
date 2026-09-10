@@ -267,3 +267,13 @@
 .filter-actions .p-button {
   min-height: var(--app-control-min-height);
 }
+
+/* PrimeNG draws the password reveal icon at 14px, well under any minimum target. Raised to 24px,
+   which is the WCAG 2.5.8 AA floor; it sits inside a 44px field, so the vertical reach is already
+   comfortable and it is the horizontal target that was the problem. The keyboard reach and the
+   accessible name come from PasswordToggleA11yDirective, which this cannot supply. */
+.p-password > svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+}

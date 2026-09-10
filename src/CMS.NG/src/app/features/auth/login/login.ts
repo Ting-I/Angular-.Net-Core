@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -9,11 +9,19 @@ import { MessageModule } from 'primeng/message';
 
 import { AuthService } from '@core/services/auth.service';
 import { LOGIN_REASON_PARAM, PASSWORD_CHANGED_REASON } from '@core/guards/auth.guard';
+import { PasswordToggleA11yDirective } from '@core/directives/password-toggle-a11y.directive';
 
 /** 登入 Login — the only page reachable without a token. */
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, PasswordModule, MessageModule],
+  imports: [
+    ReactiveFormsModule,
+    ButtonModule,
+    InputTextModule,
+    PasswordModule,
+    MessageModule,
+    PasswordToggleA11yDirective,
+  ],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
@@ -24,6 +32,20 @@ export class Login {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly signingIn = signal(false);
+
+  /**
+   * The page exists to accept two values, so it puts the caret in the first one rather than making
+   * the operator click or tab before every sign-in.
+   *
+   * Focus is set once the view has rendered rather than through the native `autofocus` attribute,
+   * because this component is lazily loaded and the attribute is only honoured reliably for
+   * elements present when the document is parsed.
+   */
+  private readonly userIdInput = viewChild<ElementRef<HTMLInputElement>>('userIdInput');
+
+  constructor() {
+    afterNextRender(() => this.userIdInput()?.nativeElement.focus());
+  }
 
   /**
    * The failure message, shown in the form rather than as a toast: it belongs next to the fields
