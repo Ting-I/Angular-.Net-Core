@@ -1,0 +1,239 @@
+/* The shared page furniture: the header bar, the content card, the field rows, the detail grid.
+
+   These are global classes, not a mixin. The mixin in _sticky-toolbar.scss has to be one because it
+   reaches into `.page-header` and needs to beat a component's own copy of that rule at equal
+   specificity. Nothing here has that problem, because the component copies are gone: this file is
+   what replaced them. 17 stylesheets used to declare `.page-header` with an identical 11-line body,
+   and three whole files were byte-for-byte duplicates of three others.
+
+   A component that needs to vary one of these still can — its own rules carry Angular's
+   encapsulation attribute, which outranks a bare class selector here. Vary deliberately; do not
+   re-declare the whole block.
+
+   Every value is a token from _tokens.scss. If a raw hex or an off-scale rem appears below, that is
+   a bug in this file, not a local exception. */
+
+/* ---------- page header ---------- */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-4);
+  flex-wrap: wrap;
+  background: var(--app-surface);
+  border-radius: var(--app-radius);
+  padding: var(--app-space-3) var(--app-space-5);
+  margin-bottom: var(--app-space-4);
+  box-shadow: var(--app-shadow-card);
+
+  h1 {
+    margin: 0;
+    font-size: var(--app-text-xl);
+    font-weight: var(--app-weight-bold);
+    line-height: var(--app-line-heading);
+    color: var(--app-heading-color);
+  }
+}
+
+/* List pages pair the title with a subtitle on the same baseline; detail and form pages put the
+   h1 straight into the header. Both shapes are supported so neither has to re-declare the bar. */
+.page-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--app-space-3);
+}
+
+.page-subtitle {
+  color: var(--app-muted-color);
+  font-size: var(--app-text-sm);
+}
+
+/* The record's own key, shown beside the title on a form. Muted, but it is content the operator
+   reads, so it takes the muted role that passes AA rather than the one that does not. */
+.page-key {
+  margin-left: var(--app-space-2);
+  font-size: var(--app-text-sm);
+  font-weight: var(--app-weight-semibold);
+  color: var(--app-muted-color);
+}
+
+.page-actions {
+  display: flex;
+  gap: var(--app-space-2);
+}
+
+/* ---------- content card ---------- */
+
+.page-card {
+  background: var(--app-surface);
+  border-radius: var(--app-radius);
+  padding: var(--app-space-5);
+  margin-bottom: var(--app-space-4);
+  box-shadow: var(--app-shadow-card);
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--app-space-2);
+    margin: 0 0 var(--app-space-4);
+    font-size: var(--app-text-lg);
+    font-weight: var(--app-weight-bold);
+    line-height: var(--app-line-heading);
+    color: var(--app-heading-color);
+  }
+}
+
+/* A card wrapping a table sits tight to it: the table brings its own cell padding. */
+.page-card-table {
+  padding: var(--app-space-2);
+}
+
+.count-badge {
+  background: var(--app-badge-bg);
+  color: var(--app-badge-color);
+  border-radius: var(--app-radius-pill);
+  padding: var(--app-space-0-5) var(--app-space-2);
+  font-size: var(--app-text-xs);
+}
+
+/* ---------- form fields ---------- */
+
+.form-field,
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  margin-bottom: var(--app-space-4);
+
+  label {
+    font-size: var(--app-text-sm);
+    font-weight: var(--app-weight-semibold);
+    color: var(--app-label-color);
+  }
+
+  input,
+  .p-inputnumber,
+  .p-inputnumber input,
+  .p-select,
+  .p-password,
+  .p-password input {
+    width: 100%;
+  }
+}
+
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-4);
+
+  label {
+    font-size: var(--app-text-sm);
+    font-weight: var(--app-weight-semibold);
+    color: var(--app-label-color);
+  }
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--app-space-2);
+  margin-top: var(--app-space-6);
+}
+
+/* The asterisk is decoration: the label beside it carries the meaning, so red-500 is fine here. */
+.required {
+  color: var(--app-required-color);
+}
+
+/* The error text is not decoration. It is the message that blocks the operator from saving, so it
+   takes the step of red that passes AA, and a legible size rather than the smallest in the app. */
+.field-error {
+  color: var(--app-danger-color);
+  font-size: var(--app-text-sm);
+}
+
+/* ---------- detail grid ---------- */
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--app-space-4);
+  margin: 0;
+}
+
+.detail-field {
+  dt {
+    font-size: var(--app-text-sm);
+    font-weight: var(--app-weight-semibold);
+    color: var(--app-muted-color);
+    margin-bottom: var(--app-space-1);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--app-body-color);
+    word-break: break-word;
+  }
+}
+
+.detail-field-wide {
+  grid-column: 1 / -1;
+}
+
+/* ---------- tables and states ---------- */
+
+.row-actions {
+  display: flex;
+  gap: var(--app-space-1);
+}
+
+.text-center {
+  text-align: center;
+  color: var(--app-muted-color);
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* Columns of figures only line up if the digits do. The UI font ships proportional numerals by
+   default, so a column of counts drifts as rows are added. */
+.text-right,
+.num-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-row {
+  text-align: center;
+  color: var(--app-muted-color);
+  padding: var(--app-space-7) 0;
+}
+
+.state-message {
+  color: var(--app-muted-color);
+  margin: 0;
+}
+
+/* ---------- controls ---------- */
+
+/* 44px minimum on the controls an operator aims at deliberately: form inputs, filter inputs, and
+   the page's own action buttons. Deliberately NOT applied to the icon buttons inside a table row —
+   at 44px each they would set the row height of a dense list and cost more than the extra pixels
+   buy. Those keep their compact size inside a 53px row, which is itself a comfortable target. */
+.form-field,
+.filter-field {
+  input,
+  .p-inputtext,
+  .p-select,
+  .p-password input,
+  .p-inputnumber input {
+    min-height: var(--app-control-min-height);
+  }
+}
+
+.page-actions .p-button,
+.filter-actions .p-button {
+  min-height: var(--app-control-min-height);
+}

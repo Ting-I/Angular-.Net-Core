@@ -1,4 +1,7 @@
 /* Global styles for CMS.NG. */
+@use 'styles/tokens';
+@use 'styles/page';
+
 html,
 body {
   height: 100%;
@@ -15,6 +18,26 @@ body {
     sans-serif;
   background: var(--p-surface-50);
   color: var(--p-text-color);
+
+  /* The UA default is `normal`, roughly 1.2, and every label in this CMS is bilingual. CJK glyphs
+     fill more of the em box than Latin ones, so they need more leading, not less. */
+  line-height: var(--app-line-body);
+
+  /* PrimeNG's own component tokens, corrected for contrast. Declared on `body` rather than `:root`
+     deliberately: the theme is injected into <head> at runtime by providePrimeNG, so a `:root`
+     block here would be racing it at equal specificity. Custom properties inherit, so setting them
+     one level down reaches every component without depending on stylesheet order.
+
+     The primary surface moves from emerald-500 to emerald-700. White on emerald-500 measures
+     2.28:1 — the most-clicked control in the app at half the contrast WCAG AA requires. On
+     emerald-700 it measures 5.55:1. Hover and active move one step further down so the press
+     still reads. emerald-500 keeps every non-text job: the brand fill, the active nav tint. */
+  --p-button-primary-background: var(--p-primary-700);
+  --p-button-primary-border-color: var(--p-primary-700);
+  --p-button-primary-hover-background: var(--p-primary-800);
+  --p-button-primary-hover-border-color: var(--p-primary-800);
+  --p-button-primary-active-background: var(--p-primary-900);
+  --p-button-primary-active-border-color: var(--p-primary-900);
 }
 
 /* ---------- print ---------- */

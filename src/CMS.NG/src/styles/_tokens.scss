@@ -1,0 +1,94 @@
+/* App-level design tokens.
+
+   Every value here is either a reference to a PrimeNG theme token or a step on a stated scale.
+   Nothing in this file is a raw colour picked by hand — that is the whole point of it.
+
+   Why custom properties rather than Sass variables: they inherit, so a component stylesheet can
+   use `var(--app-space-4)` without a `@use` line, and they resolve at runtime, so the ones that
+   forward a `--p-*` token follow the active PrimeNG preset instead of freezing a copy of it.
+   `providePrimeNG` in app.config.ts is what picks the palette; before this file, 24 component
+   stylesheets each transcribed the resolved hex values by hand and a preset change reached none
+   of them.
+
+   Sass variables are still the right tool for anything that has to exist at compile time
+   (see _page.scss and _sticky-toolbar.scss, which are mixins). */
+
+:root {
+  /* ---------- spacing: 4px base, no value off the grid ---------- */
+
+  --app-space-0-5: 0.125rem; /*  2px — hairline gaps inside a control */
+  --app-space-1: 0.25rem; /*  4px */
+  --app-space-2: 0.5rem; /*  8px */
+  --app-space-3: 0.75rem; /* 12px */
+  --app-space-4: 1rem; /* 16px */
+  --app-space-5: 1.25rem; /* 20px */
+  --app-space-6: 1.5rem; /* 24px */
+  --app-space-7: 2rem; /* 32px */
+  --app-space-8: 2.5rem; /* 40px */
+
+  /* ---------- type ---------- */
+
+  /* Five steps. The three heading-capable steps climb 16 -> 20 -> 24, roughly a 1.25 then 1.2
+     ratio; the two below body are the conventional 14 and 12. Stated plainly rather than dressed
+     up as a strict modular scale, because it is not one: a dense CMS wants a 20px section title,
+     and a true 1.25 scale from 16 puts that step at 25px. */
+  --app-text-xs: 0.75rem; /* 12px — badges, captions */
+  --app-text-sm: 0.875rem; /* 14px — field labels, table cells, secondary text */
+  --app-text-base: 1rem; /* 16px — body */
+  --app-text-lg: 1.25rem; /* 20px — h2, section titles */
+  --app-text-xl: 1.5rem; /* 24px — h1, page titles */
+
+  /* CJK needs more leading than Latin, not less: the glyphs fill more of the em box, so lines set
+     at the UA default `normal` (~1.2) run visibly tight. Headings keep their own tighter value. */
+  --app-line-body: 1.5;
+  --app-line-heading: 1.2;
+
+  --app-weight-normal: 400;
+  --app-weight-medium: 500;
+  --app-weight-semibold: 600;
+  --app-weight-bold: 700;
+
+  /* ---------- colour ---------- */
+
+  /* Text roles forward the theme's own text tokens, so they flip with the preset.
+     --p-text-muted-color resolves to slate-500 (#64748b, 4.76:1 on white) and is the correct
+     muted role. The pages used to hardcode slate-400 (#94a3b8) for the same job, which measures
+     2.56:1 and fails WCAG AA on content the operator has to read. */
+  --app-heading-color: var(--p-text-color);
+  --app-body-color: var(--p-text-color);
+  --app-muted-color: var(--p-text-muted-color);
+  --app-label-color: var(--p-slate-700);
+
+  /* Emerald-500 is the brand fill. It is NOT a text colour on a light surface: white on it
+     measures 2.28:1 and it on white measures 2.54:1, so it fails AA in both directions. Anything
+     that renders emerald as *text* uses the 700 step (#047857, 5.55:1 on white). */
+  --app-accent-fill: var(--p-primary-500);
+  --app-accent-text: var(--p-primary-700);
+  --app-link-color: var(--p-primary-700);
+
+  /* red-500 stays the required-field glyph, where the label carries the meaning and the asterisk
+     is decoration. Error *text* uses red-600 (#dc2626, 4.83:1); red-500 is 3.76:1 and fails. */
+  --app-required-color: var(--p-red-500);
+  --app-danger-color: var(--p-red-600);
+
+  --app-surface: var(--p-surface-0);
+  --app-ground: var(--p-surface-50);
+  --app-border-color: var(--p-content-border-color);
+  --app-badge-bg: var(--p-surface-200);
+  --app-badge-color: var(--p-slate-600);
+
+  /* ---------- shape ---------- */
+
+  /* One radius for every panel, forwarded from the theme so cards and the shell's nav pills round
+     the same amount. The pages used to hardcode 8px while the shell used this token at 6px, which
+     put two different radii on adjacent surfaces. */
+  --app-radius: var(--p-content-border-radius);
+  --app-radius-pill: 999px;
+  --app-shadow-card: 0 1px 2px rgb(15 23 42 / 8%);
+
+  /* ---------- controls ---------- */
+
+  /* PrimeNG's default control height is 38px, under the 44px minimum touch target. Raised here
+     once rather than per component. */
+  --app-control-min-height: 2.75rem; /* 44px */
+}
