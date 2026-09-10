@@ -1,11 +1,20 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
+using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
-/// <summary>發布狀態 PublishStatus CRUD.</summary>
+/// <summary>
+/// 發布狀態 PublishStatus CRUD.
+///
+/// 系統管理 Admin, so the policy is on the controller. Every operator still reads the list through
+/// <c>GET /api/lookups/publish-statuses</c>, which the 課程 Course form needs and which stays open
+/// to any signed-in caller; what is behind the policy is editing the set itself.
+/// </summary>
 [ApiController]
+[Authorize(Policy = AuthorizationPolicies.Admin)]
 [Route("api/publish-statuses")]
 [Produces("application/json")]
 public class PublishStatusesController : ControllerBase

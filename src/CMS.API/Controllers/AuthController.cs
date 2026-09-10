@@ -22,18 +22,25 @@ namespace CMS.API.Controllers;
 [Produces("application/json")]
 public class AuthController : ControllerBase
 {
+    /// <summary>Log message for a credential rewritten out of the legacy hash format.</summary>
+    public const string PasswordHashUpgradedMessage =
+        "Upgraded the stored password hash for {UserId} to the current format on sign-in.";
+
     private readonly IAuthRepository _repository;
     private readonly ISysConfigRepository _sysConfigRepository;
     private readonly IJwtTokenService _tokenService;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IAuthRepository repository,
         ISysConfigRepository sysConfigRepository,
-        IJwtTokenService tokenService)
+        IJwtTokenService tokenService,
+        ILogger<AuthController> logger)
     {
         _repository = repository;
         _sysConfigRepository = sysConfigRepository;
         _tokenService = tokenService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -61,6 +68,12 @@ public class AuthController : ControllerBase
             return InvalidCredentials();
         }
 
+        // The one moment the plaintext exists and has just been proven correct, which is the only
+        // moment a legacy unsalted row can be rewritten in the current format. It happens after
+        // the decision to admit the caller and cannot change it: a failed write is logged and the
+        // sign-in proceeds, because the credential is valid either way.
+        await UpgradePasswordHashIfNeededAsync(credential, request.Password, cancellationToken);
+
         var signingSecret = await _sysConfigRepository.GetSymmetricSecurityKeyAsync(cancellationToken);
         if (!JwtTokenService.IsUsableSecret(signingSecret))
         {
@@ -79,6 +92,39 @@ public class AuthController : ControllerBase
             UserName = credential.UserName,
             AccessToken = accessToken,
         });
+    }
+
+    /// <summary>
+    /// Rewrites a verified credential still stored as the legacy unsalted SHA-256 hex, so the
+    /// account stops depending on a format that a leaked table turns into plaintext in minutes.
+    ///
+    /// It is deliberately best-effort. The repository refuses the write if the row no longer holds
+    /// the hash this request verified against — a 變更密碼 that landed in between — and neither
+    /// that nor a genuine failure has any bearing on whether this sign-in is legitimate, so
+    /// neither changes the answer. 密碼更新時間 is untouched, or the token issued two lines below
+    /// would be stale before it was returned.
+    /// </summary>
+    private async Task UpgradePasswordHashIfNeededAsync(
+        AppUserCredential credential,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        if (!PasswordHasher.NeedsUpgrade(credential.PasswordHash))
+        {
+            return;
+        }
+
+        var upgraded = await _repository.UpgradePasswordHashAsync(
+            credential.UserId,
+            credential.PasswordHash,
+            PasswordHasher.Hash(password),
+            cancellationToken);
+
+        if (upgraded)
+        {
+            // The UserId only — the hash, old or new, is not something to write to a log.
+            _logger.LogInformation(PasswordHashUpgradedMessage, credential.UserId);
+        }
     }
 
     /// <summary>The single generic rejection. It must stay free of anything attempt-specific.</summary>

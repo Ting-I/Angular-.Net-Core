@@ -34,7 +34,9 @@ Register the repository in `Program.cs` alongside the others.
 - Lookup endpoints for select options live in `LookupsController` at `/api/lookups/{plural}`.
   Current set: `app-users`, `app-roles`, `publish-statuses`, `partners`, `course-groups`,
   `certifications`, `job-categories`, `training-centers`, `promotions?keyword=` (autocomplete) and
-  `promotions/{promoCode}` (exact match, `404` when unknown).
+  `promotions/{promoCode}` (exact match, `404` when unknown). **`app-users` and `app-roles` carry
+  the Admin policy on the action** — they are 系統管理 Admin identity data, not form options; see
+  §Authorization.
 
 ## Credentials
 
@@ -44,14 +46,36 @@ repository-to-controller value that is never serialized. Keep the column out of
 `AppUserSql.SelectBase`, out of every response model, and out of the JWT payload. A second query
 that needs it is a sign the check belongs where the first one already is.
 
-**The client never hashes.** Plaintext goes up over HTTPS and `PasswordHasher.Sha256Hex` runs on
-the server, so the stored format stays a server-side decision. `PasswordHasher.Matches` compares in
-fixed time and ignores hex case, because rows written by hand or by an older tool may be uppercase.
+**The client never hashes.** Plaintext goes up and `PasswordHasher` runs on the server, so the
+stored format stays a server-side decision — which is what let it change without touching a client.
 
-SHA-256 here is unsalted and uniterated because that is what the schema can hold — `PasswordHash`
-is a bare `nvarchar(800)` with no companion salt or work-factor column, and `database/*.sql` is
-read-only reference. It is not a password-storage primitive; moving to PBKDF2 or bcrypt needs
-either a schema change or an encoded composite value, and is open follow-up.
+**`PasswordHasher.Hash` is the only thing that writes a hash.** It is PBKDF2-HMAC-SHA256, salted
+per account and iterated, encoded as one self-describing string:
+
+```
+PBKDF2$SHA256$<iterations>$<base64 salt>$<base64 subkey>
+```
+
+Everything needed to verify travels with the value, so no companion salt or work-factor column is
+required — which matters, because `PasswordHash` is a bare `nvarchar(800)` and `database/*.sql` is
+read-only reference. The encoded value is about 90 characters, and the iteration count is read back
+out rather than assumed, so raising `PasswordHasher.Iterations` later needs neither a schema change
+nor a format change.
+
+**`Sha256Hex` survives only to read what is already stored.** Rows written before this hold an
+unsalted, uniterated SHA-256 hex string, which is not a password-storage primitive: with no salt,
+one pass of a wordlist tests every account at once. `Matches` accepts both shapes in fixed time
+(ignoring hex case, because a hand-written row may be uppercase), `NeedsUpgrade` says which shape a
+row holds, and `AuthController` rewrites the row through `IAuthRepository.UpgradePasswordHashAsync`
+on the next successful sign-in — the one moment the plaintext is in hand and has just been proven
+correct. Never store `Sha256Hex` output.
+
+Two things that upgrade deliberately does **not** do. It does not touch `PasswordUpdatedTime`: the
+stored representation changed, the password did not, and moving that column would make
+`TokenFreshness` revoke the token the same login is about to issue. And it does not write blind —
+the `UPDATE` carries `AND u.PasswordHash = @ExpectedHash`, so a row a concurrent 變更密碼 already
+replaced is left alone. It writes no `RowAudit` row either, for the reason `POST
+/api/courses/{id}/sheet` writes none: the trail answers "who changed this row", and nobody did.
 
 **`POST /api/auth/login` answers one identical `401` for all three failures** — an unknown UserId,
 an `IsActive = 0` account, and a wrong password — so the endpoint cannot be used to enumerate
@@ -122,7 +146,53 @@ Neither an issuer nor an audience is validated: `JwtTokenService` stamps neither
 no second party to name. `ClockSkew` is zero — the default five minutes would keep a 24-hour token
 alive past its expiry. `NameClaimType` / `RoleClaimType` point at the claims the token actually
 carries, so `User.IsInRole("Admin")` reads the login's roles rather than looking for names nothing
-here writes.
+here writes — **and `MapInboundClaims` is `false`, or that would not be true.** The default inbound
+map renames a handful of short claim types to their WS-Federation URIs and `role` is one of them,
+so the role claims would arrive as
+`http://schemas.microsoft.com/ws/2008/06/identity/claims/role` while `RoleClaimType` still said
+`role`. That is not cosmetic: it silently empties every `RequireRole` policy, with no error to show
+for it.
+
+### 系統管理 Admin — authentication is not authorization
+
+The fallback policy only asks whether *somebody* is signed in. The admin sub-system asks for more,
+and asks at the controller: `AppUsersController`, `AppRolesController` and
+`PublishStatusesController` each carry `[Authorize(Policy = AuthorizationPolicies.Admin)]`, which
+is `RequireRole(AuthorizationPolicies.AdminRole)`. Controller level, not action level, so an action
+added later is covered by omission — the same reasoning as the fallback policy one level up.
+`AuthorizationTests` names the three by type and asserts the attribute, so a fourth admin
+controller added without it fails there rather than shipping open.
+
+**Gating the controller is not enough on its own — check `LookupsController` too.** It serves a
+slim projection of most of these tables, and for a while it served the 使用者 roster and the 角色
+catalogue to any token holder while `GET /api/app-users` refused them: the same identity data, one
+route over. `GetAppUsers` and `GetAppRoles` therefore carry the policy **on the action**, the only
+place in the API where it is not at controller level, because the rest of that controller has to
+stay open to every operator filling in a 課程 form. The cost of that shape is that an action added
+to `LookupsController` is *not* covered by omission, so `AuthorizationTests` names those two
+methods by reflection as well. When you put a new table behind the Admin policy, ask whether a
+lookup exposes it.
+
+The Angular shell hides 系統管理 Admin from operators without the role, and `adminGuard` keeps them
+off those routes, but neither is the protection — a typed URL reaches the API just the same. This
+policy is what refuses.
+
+**Holding the role is not licence to act on yourself.** `AppUsersController` refuses two things
+inside the policy, both `403`:
+
+- **Rewriting your own `RoleIds`.** `PUT /api/app-users` takes them from the body and
+  `SyncUserRolesAsync` rewrites `AppUserRole` from it, so without this an account could hand itself
+  a role it was not given — and an administrator could strip their own `Admin` role and lock the
+  sub-system away from everybody. Order, case and duplicates do not count as a change: the
+  comparison is a case-insensitive set, so a form round-tripping the same roles is an ordinary
+  edit.
+- **Resetting your own password.** `POST /api/app-users/{id}/reset-password` writes the shared
+  SysConfig `defaultPassword`, the weakest value in the system. `POST /api/auth/change-password` is
+  where you change your own, and it asks for the current one first.
+
+Both compare `UserId` case-insensitively against `User.FindFirstValue(
+JwtTokenService.UserIdClaimType)`, because SQL Server's default collation is and every other lookup
+on the key follows it — a guard `Helen` walked past as `helen` would be no guard.
 
 The 401 comes from middleware, not from a controller, so it is only observable through the real
 pipeline: `TestApiFactory` hosts the API in process with every repository swapped for its fake and
@@ -172,16 +242,38 @@ The Angular form applies the same rule, but that is convenience — the API re-c
 `PasswordUpdatedTime` and nothing else, where `UpdateAsync` would rewrite `AppUserRole` from a
 request that carries no roles. It is the same narrowing `UpdateUserNameAsync` exists for.
 
-### Changing a password revokes the tokens that came before it
+### Deprovisioning an account revokes the tokens it already issued
 
 A signature and an unexpired `exp` are **not** the whole of validity here. `TokenFreshness`, wired
-as the JwtBearer `OnTokenValidated` event, also refuses a token whose `iat` predates the account's
-`AppUser.PasswordUpdatedTime` — so a password change signs out every session that was holding a
-token issued before it, everywhere, not just in the browser that made the change.
+as the JwtBearer `OnTokenValidated` event, refuses a token the account behind it no longer backs.
+Three things count as that, and they are checked in this order:
 
-- **It needs no schema change and no list of live tokens.** `PasswordUpdatedTime` already exists
-  and `ChangePassword` already writes it, so the row carries the moment every earlier token
-  stopped counting. `AuthSql.SelectPasswordUpdatedTime` reads one column on the primary key.
+1. **The row is gone.** `IAuthRepository.GetTokenStateAsync` returns `null`, so a token naming a
+   deleted account is refused. Nothing else would catch it — the content controllers never look the
+   caller up, so a deleted operator kept full CRUD for the rest of the token's life.
+2. **The account is disabled.** `AuthController` checks 啟用 at login, but login is one moment and
+   the token lasts a day. `IsActive = 0` is the toggle an administrator reaches for precisely when
+   they want somebody out, and without this check it changed nothing until the token aged out.
+3. **The password changed.** A token whose `iat` predates `AppUser.PasswordUpdatedTime` was signed
+   against a password that no longer exists, so a change signs out every session holding an earlier
+   token, everywhere, not just in the browser that made the change.
+
+**角色 is deliberately not on that list.** Role claims are stamped into the token at login and
+`RequireRole` reads them from there, so revoking a role through `PUT /api/app-users` does not take
+effect until the holder's current token expires. Closing that would mean re-reading `AppUserRole`
+here and rebuilding the principal's claims on every request — a second query and a materially
+different contract — so it is left open on purpose rather than by oversight, and
+`TokenRevocationTests` pins it as a known limit. **Disable or delete the account when the
+revocation has to be immediate.**
+
+- **It needs no schema change and no list of live tokens.** `IsActive`, `PasswordUpdatedTime` and
+  the row's own existence are all already in `AppUser`, and `ChangePassword` already writes the
+  time, so the row carries the moment every earlier token stopped counting.
+  `AuthSql.SelectTokenState` reads two columns on the primary key.
+- **`null` is the answer, not a missing one.** The query returns an `AppUserTokenState?` rather
+  than a bare `DateTime?` for exactly this reason: folding "no such row" into a null
+  `PasswordUpdatedTime` made a deleted account read as one whose password had never been changed,
+  and the second of those is a token to accept. Keep the row shape if you touch this.
 - **It runs after the cryptographic checks**, so an unsigned or expired token never reaches the
   query. That is one narrow read per *validated* request — the same shape of cost the signing-key
   read already accepts, and for the same reason: the alternative is trusting a stale value.

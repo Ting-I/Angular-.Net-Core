@@ -247,6 +247,195 @@ public class AuthorizationTests : IClassFixture<TestApiFactory>
 
     // ---------- The rule itself ----------
 
+    // ---------- 系統管理 Admin: authentication is not authorization ----------
+
+    /// <summary>
+    /// The three controllers behind the Admin policy. Hiding the menu was never the protection —
+    /// the API is what refuses, and until the policy existed it did not: any token holder could
+    /// PUT their own account with roleIds ["Admin"].
+    /// </summary>
+    public static TheoryData<string> AdminEndpoints =>
+    [
+        "/api/app-users",
+        "/api/app-roles",
+        "/api/publish-statuses",
+    ];
+
+    /// <summary>
+    /// The two 系統管理 Admin lookups. They serve the same identity data as the admin controllers
+    /// above — the whole 使用者 roster, and the 角色 catalogue with its 權限等級 — and carried only
+    /// the fallback policy until now, so any token holder could read what GET /api/app-users
+    /// refuses them. The policy is on the actions here, not the controller, because the rest of
+    /// LookupsController has to stay open to every operator.
+    /// </summary>
+    public static TheoryData<string> AdminLookupEndpoints =>
+    [
+        "/api/lookups/app-users",
+        "/api/lookups/app-roles",
+    ];
+
+    /// <summary>Endpoints every signed-in operator uses, which must stay open to one.</summary>
+    public static TheoryData<string> NonAdminEndpoints =>
+    [
+        "/api/courses",
+        "/api/partners",
+        "/api/course-groups",
+        "/api/featured-promo-items",
+        "/api/lookups/publish-statuses",
+        "/api/rowaudit?tableName=Course&pkid=1",
+    ];
+
+    /// <summary>A token for an operator with roles but not the Admin one.</summary>
+    private async Task<string> LoginAsEditorAsync()
+    {
+        _factory.Auth.Seed("miles", "Miles Sun", Password, true, "Editor");
+
+        var response = await Client().PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest { UserId = "miles", Password = Password });
+
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken;
+    }
+
+    [Theory]
+    [MemberData(nameof(AdminEndpoints))]
+    public async Task AdminEndpoint_WithANonAdminToken_Returns403(string url)
+    {
+        var response = await Client().SendAsync(Get(url, await LoginAsEditorAsync()));
+
+        // 403 and not 401: the caller is authenticated, and it is the role that is missing.
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(AdminEndpoints))]
+    public async Task AdminEndpoint_WithAnAdminToken_Returns200(string url)
+    {
+        var response = await Client().SendAsync(Get(url, await LoginAsync()));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(AdminLookupEndpoints))]
+    public async Task AdminLookupEndpoint_WithANonAdminToken_Returns403(string url)
+    {
+        var response = await Client().SendAsync(Get(url, await LoginAsEditorAsync()));
+
+        // The roster is not reconnaissance an ordinary operator gets to do: every 使用者代碼 here
+        // is a value POST /api/auth/login accepts, and the admin controller refuses this caller.
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(AdminLookupEndpoints))]
+    public async Task AdminLookupEndpoint_WithAnAdminToken_Returns200(string url)
+    {
+        // The 使用者 and 角色 forms are the only callers and both are admin-only, so requiring the
+        // role costs nothing the UI was doing.
+        var response = await Client().SendAsync(Get(url, await LoginAsync()));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public void TheAdminLookupActionsCarryTheAdminPolicy()
+    {
+        // Named rather than discovered, for the same reason the controller check below is: this is
+        // the one controller where the attribute is per-action, so an action added here is NOT
+        // covered by omission. A third admin lookup added without the attribute fails here.
+        string[] adminActions =
+        [
+            nameof(LookupsController.GetAppUsers),
+            nameof(LookupsController.GetAppRoles),
+        ];
+
+        foreach (var action in adminActions)
+        {
+            var attribute = typeof(LookupsController)
+                .GetMethod(action)!
+                .GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(attribute);
+            Assert.Equal(AuthorizationPolicies.Admin, attribute!.Policy);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(NonAdminEndpoints))]
+    public async Task NonAdminEndpoint_WithANonAdminToken_IsNotForbidden(string url)
+    {
+        // The policy must not spread past 系統管理 Admin — a 課程 operator still does their job.
+        var response = await Client().SendAsync(Get(url, await LoginAsEditorAsync()));
+
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminWriteEndpoint_WithANonAdminToken_Returns403AndWritesNothing()
+    {
+        // The escalation itself: rewriting your own AppUserRole rows through the CRUD endpoint.
+        var request = new HttpRequestMessage(HttpMethod.Put, "/api/app-users")
+        {
+            Content = JsonContent.Create(new AppUserRequest
+            {
+                UserId = "miles",
+                UserName = "Miles Sun",
+                RoleIds = ["Admin"],
+            }),
+        };
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {await LoginAsEditorAsync()}");
+
+        var response = await Client().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(_factory.AppUsers.UpdatedUserIds);
+    }
+
+    [Fact]
+    public async Task AnAdminTokenCarriesTheRoleClaimInTheShapeRequireRoleReads()
+    {
+        // Regression guard for the inbound claim map: the default renames "role" to its
+        // WS-Federation URI, which leaves RoleClaimType pointing at a claim type nothing carries
+        // and empties every RequireRole policy without any error to show for it.
+        var response = await Client().SendAsync(Get("/api/app-users", await LoginAsync()));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public void TheAdminPolicyRequiresTheAdminRole()
+    {
+        var options = _factory.Services.GetRequiredService<IOptions<AuthorizationOptions>>().Value;
+        var policy = options.GetPolicy(AuthorizationPolicies.Admin);
+
+        Assert.NotNull(policy);
+        var requirement = Assert.Single(policy!.Requirements.OfType<RolesAuthorizationRequirement>());
+        Assert.Equal([AuthorizationPolicies.AdminRole], requirement.AllowedRoles);
+    }
+
+    [Fact]
+    public void EveryAdminSubSystemControllerCarriesTheAdminPolicy()
+    {
+        // Named rather than discovered, so adding a 系統管理 Admin controller without the attribute
+        // fails here instead of shipping open.
+        Type[] adminControllers =
+        [
+            typeof(AppUsersController),
+            typeof(AppRolesController),
+            typeof(PublishStatusesController),
+        ];
+
+        foreach (var controller in adminControllers)
+        {
+            var attribute = controller.GetCustomAttribute<AuthorizeAttribute>(inherit: true);
+            Assert.NotNull(attribute);
+            Assert.Equal(AuthorizationPolicies.Admin, attribute!.Policy);
+        }
+    }
+
     [Fact]
     public void TheFallbackPolicyRequiresAnAuthenticatedUser()
     {

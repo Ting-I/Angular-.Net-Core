@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 
+import { adminGuard, landingRedirect } from '@core/guards/admin.guard';
 import { authGuard } from '@core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -15,60 +16,98 @@ export const routes: Routes = [
     path: '',
     canActivateChild: [authGuard],
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'app-roles' },
+      // Where the operator lands having asked for nothing in particular. A function rather than a
+      // constant, because 角色 AppRole is 系統管理 Admin and the API refuses it to everybody else.
+      { path: '', pathMatch: 'full', redirectTo: landingRedirect },
       {
         // 個人資料 — reachable by every signed-in operator, so it carries no role gate.
         path: 'profile',
         loadComponent: () => import('@features/auth/profile/profile').then((m) => m.Profile),
       },
+
+      // 系統管理 Admin. Grouped under a path-less parent so the role check is written once, the
+      // same shape authGuard uses on the shell above — a route added here is guarded by omission.
+      // The API refuses these endpoints on its own; this only keeps an operator off a page that
+      // could do nothing but fail.
       {
-        path: 'app-roles',
-        loadComponent: () =>
-          import('@features/app-roles/app-role-list/app-role-list').then((m) => m.AppRoleList),
+        path: '',
+        canActivateChild: [adminGuard],
+        children: [
+          {
+            path: 'app-roles',
+            loadComponent: () =>
+              import('@features/app-roles/app-role-list/app-role-list').then((m) => m.AppRoleList),
+          },
+          {
+            path: 'app-roles/new',
+            loadComponent: () =>
+              import('@features/app-roles/app-role-form/app-role-form').then((m) => m.AppRoleForm),
+          },
+          {
+            path: 'app-roles/:id',
+            loadComponent: () =>
+              import('@features/app-roles/app-role-detail/app-role-detail').then(
+                (m) => m.AppRoleDetail,
+              ),
+          },
+          {
+            path: 'app-roles/:id/edit',
+            loadComponent: () =>
+              import('@features/app-roles/app-role-form/app-role-form').then((m) => m.AppRoleForm),
+          },
+          {
+            path: 'publish-statuses',
+            loadComponent: () =>
+              import('@features/publish-statuses/publish-status-list/publish-status-list').then(
+                (m) => m.PublishStatusList,
+              ),
+          },
+          {
+            path: 'publish-statuses/new',
+            loadComponent: () =>
+              import('@features/publish-statuses/publish-status-form/publish-status-form').then(
+                (m) => m.PublishStatusForm,
+              ),
+          },
+          {
+            path: 'publish-statuses/:id',
+            loadComponent: () =>
+              import('@features/publish-statuses/publish-status-detail/publish-status-detail').then(
+                (m) => m.PublishStatusDetail,
+              ),
+          },
+          {
+            path: 'publish-statuses/:id/edit',
+            loadComponent: () =>
+              import('@features/publish-statuses/publish-status-form/publish-status-form').then(
+                (m) => m.PublishStatusForm,
+              ),
+          },
+          {
+            path: 'app-users',
+            loadComponent: () =>
+              import('@features/app-users/app-user-list/app-user-list').then((m) => m.AppUserList),
+          },
+          {
+            path: 'app-users/new',
+            loadComponent: () =>
+              import('@features/app-users/app-user-form/app-user-form').then((m) => m.AppUserForm),
+          },
+          {
+            path: 'app-users/:id',
+            loadComponent: () =>
+              import('@features/app-users/app-user-detail/app-user-detail').then(
+                (m) => m.AppUserDetail,
+              ),
+          },
+          {
+            path: 'app-users/:id/edit',
+            loadComponent: () =>
+              import('@features/app-users/app-user-form/app-user-form').then((m) => m.AppUserForm),
+          },
+        ],
       },
-      {
-        path: 'app-roles/new',
-        loadComponent: () =>
-          import('@features/app-roles/app-role-form/app-role-form').then((m) => m.AppRoleForm),
-      },
-      {
-        path: 'app-roles/:id',
-        loadComponent: () =>
-          import('@features/app-roles/app-role-detail/app-role-detail').then((m) => m.AppRoleDetail),
-      },
-      {
-        path: 'app-roles/:id/edit',
-        loadComponent: () =>
-          import('@features/app-roles/app-role-form/app-role-form').then((m) => m.AppRoleForm),
-      },
-      {
-        path: 'publish-statuses',
-        loadComponent: () =>
-          import('@features/publish-statuses/publish-status-list/publish-status-list').then(
-            (m) => m.PublishStatusList,
-          ),
-      },
-      {
-        path: 'publish-statuses/new',
-        loadComponent: () =>
-          import('@features/publish-statuses/publish-status-form/publish-status-form').then(
-            (m) => m.PublishStatusForm,
-          ),
-      },
-      {
-        path: 'publish-statuses/:id',
-        loadComponent: () =>
-          import('@features/publish-statuses/publish-status-detail/publish-status-detail').then(
-            (m) => m.PublishStatusDetail,
-          ),
-      },
-      {
-        path: 'publish-statuses/:id/edit',
-        loadComponent: () =>
-          import('@features/publish-statuses/publish-status-form/publish-status-form').then(
-            (m) => m.PublishStatusForm,
-          ),
-      },
+
       {
         path: 'partners',
         loadComponent: () =>
@@ -138,33 +177,13 @@ export const routes: Routes = [
           import('@features/courses/course-form/course-form').then((m) => m.CourseForm),
       },
       {
-        path: 'app-users',
-        loadComponent: () =>
-          import('@features/app-users/app-user-list/app-user-list').then((m) => m.AppUserList),
-      },
-      {
-        path: 'app-users/new',
-        loadComponent: () =>
-          import('@features/app-users/app-user-form/app-user-form').then((m) => m.AppUserForm),
-      },
-      {
-        path: 'app-users/:id',
-        loadComponent: () =>
-          import('@features/app-users/app-user-detail/app-user-detail').then((m) => m.AppUserDetail),
-      },
-      {
-        path: 'app-users/:id/edit',
-        loadComponent: () =>
-          import('@features/app-users/app-user-form/app-user-form').then((m) => m.AppUserForm),
-      },
-      {
         path: 'featured-promo-items',
         loadComponent: () =>
           import('@features/featured-promo-items/featured-promo-item-list/featured-promo-item-list').then(
             (m) => m.FeaturedPromoItemList,
           ),
       },
-      { path: '**', redirectTo: 'app-roles' },
+      { path: '**', redirectTo: landingRedirect },
     ],
   },
 ];

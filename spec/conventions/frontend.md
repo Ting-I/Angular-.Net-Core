@@ -213,12 +213,34 @@ a page's handler to the statuses it can actually explain is the way to drop the 
 - `authInterceptor` attaches `Authorization: Bearer <token>` to requests whose URL starts with
   `environment.apiUrl`, and only those — the token belongs to this API. A `401` coming back clears
   the session and returns to `/login`; the login call's own `401` is exempt, or the redirect would
-  wipe the 帳號或密碼錯誤 the Login page is about to show.
+  wipe the 帳號或密碼錯誤 the Login page is about to show. A `403` toasts 權限不足 with whatever
+  reason the API gave and changes nothing else: unlike a `401` there is nothing wrong with the
+  token, so clearing the session or bouncing to `/login` would be a lie.
 - `authGuard` is attached once as `canActivateChild` on the empty-path parent in `app.routes.ts`,
   not repeated per route, so a route added later is guarded by default. It returns a `UrlTree`
   rather than navigating. `/login` sits outside that parent and is the only public route.
-- **Hiding a menu is presentation, not protection.** The API decides who may call what; the
-  sidebar's `requiresRole` only keeps an unusable menu off the screen.
+- **Hiding a menu is presentation, not protection.** The API decides who may call what — the three
+  系統管理 Admin controllers carry `[Authorize(Policy = AuthorizationPolicies.Admin)]` and refuse
+  everybody else with a `403`. The sidebar's `requiresRole` only keeps an unusable menu off the
+  screen.
+
+### Route guards
+
+`adminGuard` (`core/guards/admin.guard.ts`) sits as `canActivateChild` on a **path-less parent**
+wrapping the 系統管理 Admin routes, the same shape `authGuard` uses on the shell: written once, so
+an admin route added under it is guarded by omission. It returns a `UrlTree` to
+`DEFAULT_LANDING_ROUTE` rather than `false`, so the operator lands somewhere usable instead of
+nowhere.
+
+It is courtesy, not protection — the API refuses those endpoints on its own and would go on
+refusing them if the file were deleted. What it buys is that a typed URL, a bookmark or the `**`
+fallback never drops an operator on a list whose every request answers `403`.
+
+**The landing route is a function, not a constant.** `landingRedirect` sends an administrator to
+`/app-roles` and everybody else to `/featured-promo-items`, and both the empty path and the `**`
+fallback use it. A constant `redirectTo: 'app-roles'` was correct only while every signed-in
+operator could open 角色 AppRole; the moment the API started refusing it, that constant would have
+dropped every non-admin on a `403` the instant they signed in.
 - 個人資料 My Profile (`/profile`, `features/auth/profile`) is the operator's own account: 使用者代碼
   and 角色 rendered read-only, 使用者名稱 editable. It reads all three from `AuthService` — the key
   and the name from the stored session, the roles from the token, per the rule above — and saves

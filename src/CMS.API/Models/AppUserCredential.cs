@@ -17,7 +17,7 @@ public class AppUserCredential
     /// <summary>啟用 — a false here fails the login exactly like a bad password does.</summary>
     public bool IsActive { get; set; }
 
-    /// <summary>SHA-256 hex as stored in AppUser.PasswordHash.</summary>
+    /// <summary>The value stored in AppUser.PasswordHash, in whichever format that row holds.</summary>
     public string PasswordHash { get; set; } = string.Empty;
 
     /// <summary>角色 — every AppUserRole.RoleId for this user; becomes the token's role claims.</summary>

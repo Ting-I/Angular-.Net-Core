@@ -20,6 +20,12 @@ export const SERVER_ERROR_SUMMARY = '系統錯誤';
  */
 export const SERVER_ERROR_FALLBACK = '系統發生錯誤，請稍後再試。';
 
+/** Fixed summary for a request the API understood and refused on the caller's authority. */
+export const FORBIDDEN_SUMMARY = '權限不足';
+
+/** Shown when a 403 carried no message of its own. */
+export const FORBIDDEN_FALLBACK = '您沒有執行這項操作的權限。';
+
 /**
  * Attaches the stored bearer token to every API request, and turns what comes back on a failure
  * into the one thing the operator should see.
@@ -61,6 +67,18 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         void router.navigate([LOGIN_ROUTE]);
       }
 
+      // 403 — the session is fine, this operator may not do this. Unlike a 401 there is nothing to
+      // clear and nowhere to send them; the API's own wording says which rule refused, so it is
+      // shown rather than swallowed. Reported here for the same reason the 5xx is: no page can say
+      // anything truer about it, and a page that stayed silent would look broken instead.
+      if (isApiRequest && isForbidden(error)) {
+        messageService.add({
+          severity: 'warn',
+          summary: FORBIDDEN_SUMMARY,
+          detail: safeMessage(error, FORBIDDEN_FALLBACK),
+        });
+      }
+
       if (isApiRequest && isServerError(error)) {
         messageService.add({
           severity: 'error',
@@ -86,21 +104,25 @@ function isServerError(error: unknown): error is HttpErrorResponse {
   return error instanceof HttpErrorResponse && error.status >= 500;
 }
 
+function isForbidden(error: unknown): error is HttpErrorResponse {
+  return error instanceof HttpErrorResponse && error.status === 403;
+}
+
 /**
  * The message out of the ProblemDetails body, preferring `title` — the Chinese wording, which is
  * what the operator reads — over `detail`, the English sentence beside it. Anything that is not a
  * non-empty string falls back: a 5xx from outside the API answers with an HTML error page, and a
  * fragment of it is worse than saying nothing specific.
  */
-function safeMessage(error: HttpErrorResponse): string {
+function safeMessage(error: HttpErrorResponse, fallback = SERVER_ERROR_FALLBACK): string {
   const body: unknown = error.error;
 
   if (body && typeof body === 'object') {
     const problem = body as { title?: unknown; detail?: unknown };
-    return text(problem.title) ?? text(problem.detail) ?? SERVER_ERROR_FALLBACK;
+    return text(problem.title) ?? text(problem.detail) ?? fallback;
   }
 
-  return SERVER_ERROR_FALLBACK;
+  return fallback;
 }
 
 function text(value: unknown): string | null {

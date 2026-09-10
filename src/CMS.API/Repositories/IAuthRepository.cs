@@ -16,9 +16,25 @@ public interface IAuthRepository
     Task<AppUserCredential?> GetCredentialAsync(string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 密碼更新時間 for a UserId, or null when the password has never been changed or the user is
-    /// gone. Read on every authenticated request to decide whether the caller's token predates
-    /// the password it was signed against — see <see cref="Security.TokenFreshness"/>.
+    /// 啟用 and 密碼更新時間 for a UserId, or **null when there is no such user** — the two are not
+    /// the same answer and the caller acts on the difference. Read on every authenticated request
+    /// to decide whether the account still backs the caller's token: see
+    /// <see cref="Security.TokenFreshness"/>.
     /// </summary>
-    Task<DateTime?> GetPasswordUpdatedTimeAsync(string userId, CancellationToken cancellationToken = default);
+    Task<AppUserTokenState?> GetTokenStateAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rewrites a verified credential from the legacy unsalted hash into the current format,
+    /// leaving 密碼更新時間 alone: the stored representation changed, the password did not.
+    ///
+    /// <paramref name="expectedHash"/> is the value the login just verified against, and the write
+    /// applies only while the row still holds it. Returns true when the row was rewritten and
+    /// false when it was not — a concurrent 變更密碼 already replaced it, or the account is gone.
+    /// Neither outcome is an error: the sign-in that triggered it succeeds either way.
+    /// </summary>
+    Task<bool> UpgradePasswordHashAsync(
+        string userId,
+        string expectedHash,
+        string passwordHash,
+        CancellationToken cancellationToken = default);
 }

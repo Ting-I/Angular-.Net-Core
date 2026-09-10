@@ -27,6 +27,15 @@ public sealed class ConfigureJwtBearerOptions : IConfigureNamedOptions<JwtBearer
 
     public void Configure(JwtBearerOptions options)
     {
+        // Claims keep the names the token gave them. The default inbound map renames a handful of
+        // short claim types to their WS-Federation URIs, and "role" is one of them — so the role
+        // claims JwtTokenService writes would arrive as
+        // http://schemas.microsoft.com/ws/2008/06/identity/claims/role while RoleClaimType below
+        // still said "role", and User.IsInRole would find nothing. That is not a cosmetic
+        // mismatch: it silently empties every RequireRole policy, which fails closed for an
+        // administrator and would have failed open had the policy been written the other way round.
+        options.MapInboundClaims = false;
+
         // Tokens are issued and consumed by this API alone, so there is no second party to name.
         // JwtTokenService stamps neither an issuer nor an audience; requiring one here would
         // reject every token it signs.

@@ -1,11 +1,19 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
+using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
-/// <summary>角色 AppRole CRUD.</summary>
+/// <summary>
+/// 角色 AppRole CRUD.
+///
+/// 系統管理 Admin, so the policy is on the controller: a role definition decides what every other
+/// account may do, and an operator who could rewrite one could grant themselves anything.
+/// </summary>
 [ApiController]
+[Authorize(Policy = AuthorizationPolicies.Admin)]
 [Route("api/app-roles")]
 [Produces("application/json")]
 public class AppRolesController : ControllerBase

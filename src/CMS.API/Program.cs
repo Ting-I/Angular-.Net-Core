@@ -81,11 +81,19 @@ builder.Services
 // unless it opts out with [AllowAnonymous], which only AuthController does. A FallbackPolicy
 // rather than an [Authorize] per controller, so a controller added later is protected by omission
 // rather than left open by it.
+//
+// Authentication is not authorization, though: the fallback only asks whether somebody is signed
+// in. The 系統管理 Admin sub-system asks for more, and asks for it here rather than in the menu —
+// AuthorizationPolicies explains what went wrong when only the menu asked.
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
+
+    options.AddPolicy(
+        AuthorizationPolicies.Admin,
+        policy => policy.RequireRole(AuthorizationPolicies.AdminRole));
 });
 
 builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
