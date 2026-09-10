@@ -174,40 +174,44 @@
     </dl>
   </section>
 
+  <!-- Every field here is a long-text column, and those hold operator-pasted HTML for most
+       courses, so they render through <app-long-text> rather than {{ }}: interpolating them
+       printed <p> and <li> as visible characters on the page the operator checks the record on.
+       The component also owns the 「—」 for a blank column, which each dd used to spell itself. -->
   <section class="page-card">
     <h2>課程內容</h2>
     <dl class="detail-grid">
       <div class="detail-field detail-field-wide">
         <dt>教材</dt>
-        <dd class="detail-long-text">{{ data.material || '—' }}</dd>
+        <dd><app-long-text [value]="data.material" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>課程目標</dt>
-        <dd class="detail-long-text">{{ data.objective || '—' }}</dd>
+        <dd><app-long-text [value]="data.objective" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>適合對象</dt>
-        <dd class="detail-long-text">{{ data.target || '—' }}</dd>
+        <dd><app-long-text [value]="data.target" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>先備知識</dt>
-        <dd class="detail-long-text">{{ data.prerequisites || '—' }}</dd>
+        <dd><app-long-text [value]="data.prerequisites" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>課程大綱</dt>
-        <dd class="detail-long-text">{{ data.outline || '—' }}</dd>
+        <dd><app-long-text [value]="data.outline" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>考試／認證說明</dt>
-        <dd class="detail-long-text">{{ data.towardCertOrExam || '—' }}</dd>
+        <dd><app-long-text [value]="data.towardCertOrExam" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>備註</dt>
-        <dd class="detail-long-text">{{ data.note || '—' }}</dd>
+        <dd><app-long-text [value]="data.note" /></dd>
       </div>
       <div class="detail-field detail-field-wide">
         <dt>其他資訊</dt>
-        <dd class="detail-long-text">{{ data.otherInfo || '—' }}</dd>
+        <dd><app-long-text [value]="data.otherInfo" /></dd>
       </div>
     </dl>
   </section>

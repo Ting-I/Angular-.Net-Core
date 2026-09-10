@@ -2,6 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 
 import { Course } from '@core/models/course.model';
+import { RichText, richText } from '@core/utils/rich-text.util';
 
 /**
  * Who the sheet says it is from. One object rather than literals in the template (eng review E6),
@@ -24,36 +25,13 @@ const EMPTY = '—';
 /**
  * One long-text section of the sheet: a heading and its body, in the order a buyer reads them.
  *
- * `html` says which of the two shapes this column actually holds. The CMS's long-text columns carry
- * **operator-pasted HTML** for most courses — headings, `<ul>` outlines, `<font color>` vendor notes,
- * and often malformed nesting — but plain text for others, and the two cannot be rendered the same
- * way: interpolating HTML prints tags as characters on a customer document, and `innerHTML` on plain
- * text collapses the operator's line breaks, which *are* the outline's structure.
+ * `text` and `html` come from `richText`, the classifier every view of these columns shares:
+ * `html` says which of the two shapes this column actually holds, and the two cannot be rendered
+ * the same way. The screen renders the same columns through `LongText`; what the two agree on is
+ * that one function.
  */
-interface SheetSection {
+interface SheetSection extends RichText {
   label: string;
-  text: string;
-  html: boolean;
-}
-
-/**
- * Does this value carry markup? A tag name from the set operators actually paste is enough — the test
- * only has to be right about *which renderer to use*, and both renderers are safe either way.
- */
-const MARKUP = /<\/?(p|br|div|span|ul|ol|li|h[1-6]|strong|b|em|i|u|font|table|tr|td|a|img)\b[^>]*>/i;
-
-/**
- * The one tag that is content even though it strips to no text. A section whose column holds a pasted
- * diagram and nothing else must still print, heading and all — see `normalise`.
- */
-const IMAGE = /<img\b/i;
-
-/** Tags stripped, entities that render as blank removed — what is left is what a buyer would read. */
-function textOf(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;|&#160;|&#xa0;/gi, ' ')
-    .trim();
 }
 
 /**
@@ -164,30 +142,22 @@ export class CourseSheet {
   });
 
   /**
-   * Operator-entered copy arrives in whichever of the two shapes the operator pasted, and empty is a
-   * third shape that must not print a heading.
+   * The sheet's one deviation from the shared classifier: on paper, runs of blank lines in a
+   * plain-text column collapse to one, so a page break is never spent on emptiness (D15). Markup
+   * carries its own spacing and is left exactly as it was pasted.
    *
-   * Plain text: runs of blank lines collapse to one so a page break is not spent on emptiness (D15),
-   * and the rest is rendered `pre-wrap` — those line breaks are the outline.
-   *
-   * HTML: left intact for the template to bind through `[innerHTML]`, which Angular sanitizes (script,
-   * event handlers and `style` are dropped, and the parser repairs the malformed nesting that
-   * hand-pasted vendor copy is full of). Emptiness is judged on the *text* inside it, so a column
-   * holding `<p>&nbsp;</p>` — which reads as blank on paper — omits its section like any other blank.
-   * An image is the exception, and it has to be: a 課程大綱 pasted as one diagram strips to no text at
-   * all, and dropping it would take the heading with it and tell nobody. `.sheet-section-html img` is
-   * already styled for exactly this, so the renderer was always expecting it.
+   * Everything else — which of the two shapes the column holds, and whether it reads as blank at
+   * all — is `richText`. A section it calls blank is omitted **heading and all**: a customer
+   * document with six 「—」 headings reads as an unfinished form.
    */
   private normalise(label: string, value: string | null): SheetSection | null {
-    const text = value?.replace(/\r\n/g, '\n').trim();
-    if (!text) {
+    const section = richText(value);
+    if (!section) {
       return null;
     }
 
-    if (MARKUP.test(text)) {
-      return textOf(text) || IMAGE.test(text) ? { label, text, html: true } : null;
-    }
-
-    return { label, text: text.replace(/\n{3,}/g, '\n\n'), html: false };
+    return section.html
+      ? { label, ...section }
+      : { label, ...section, text: section.text.replace(/\n{3,}/g, '\n\n') };
   }
 }
